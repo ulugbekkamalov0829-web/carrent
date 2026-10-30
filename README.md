@@ -99,7 +99,7 @@ Testlar: **78 ta** (yangi: to‘lov siyosati va so‘rovlar — 11, maslahatchi 
 | Autentifikatsiya | JWT, `httpOnly; SameSite=Lax` cookie; parol — scrypt |
 | Rasmlar | Pillow: qayta kodlash, EXIF/GPS o‘chirish, 1600 px gacha kichraytirish |
 | Frontend | HTML + CSS + Vanilla JS (build talab qilmaydi), i18n JSON fayllar |
-| Testlar | pytest (86 ta) + Playwright brauzer sinovi (asosiy oqimlar) |
+| Testlar | pytest (85 ta) + Playwright brauzer sinovi (asosiy oqimlar) |
 
 ### Arxitektura
 

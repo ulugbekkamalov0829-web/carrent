@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title data-i18n-doc="page.cars">CarRent</title>
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#1e3a8a">
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<main class="container page">
+  <div class="page-head">
+    <div><h1 data-i18n="cars.title"></h1><div class="muted" id="resultInfo" aria-live="polite"></div></div>
+    <div class="row">
+      <button class="btn btn-outline filters-toggle" type="button" id="filtersToggle" data-i18n="cars.filters"></button>
+      <label for="sort" class="small" style="margin:0" data-i18n="cars.sort"></label>
+      <select class="input" id="sort" style="width:auto">
+        <option value="new" data-i18n="sort.new"></option><option value="price_asc" data-i18n="sort.price_asc"></option>
+        <option value="price_desc" data-i18n="sort.price_desc"></option><option value="rating" data-i18n="sort.rating"></option>
+        <option value="year" data-i18n="sort.year"></option><option value="popular" data-i18n="sort.popular"></option>
+      </select>
+    </div>
+  </div>
+  <div class="layout">
+    <aside class="card card-pad filters" id="filters" aria-labelledby="filtersTitle">
+      <h3><span id="filtersTitle" data-i18n="cars.filters"></span> <button class="btn btn-sm btn-outline" type="button" id="resetFilters" data-i18n="cars.reset"></button></h3>
+      <form id="filterForm">
+        <div class="field"><label for="q" data-i18n="filter.q"></label><input class="input" id="q" name="q" data-i18n-placeholder="filter.q_ph"></div>
+        <div class="field"><label for="city" data-i18n="filter.city"></label><select class="input" id="city" name="city"><option value="" data-i18n="search.any_city"></option></select></div>
+        <div class="grid-2">
+          <div class="field"><label for="start" data-i18n="search.start"></label><input class="input" type="date" id="start" name="start"></div>
+          <div class="field"><label for="end" data-i18n="search.end"></label><input class="input" type="date" id="end" name="end"></div>
+        </div>
+        <div class="field"><label for="brand" data-i18n="filter.brand"></label><select class="input" id="brand" name="brand"><option value="" data-i18n="common.any"></option></select></div>
+        <div class="field"><label for="body_type" data-i18n="filter.body"></label>
+          <select class="input" id="body_type" name="body_type"><option value="" data-i18n="common.any"></option>
+            <option value="sedan" data-i18n="body.sedan"></option><option value="hatchback" data-i18n="body.hatchback"></option>
+            <option value="crossover" data-i18n="body.crossover"></option><option value="suv" data-i18n="body.suv"></option>
+            <option value="minivan" data-i18n="body.minivan"></option><option value="pickup" data-i18n="body.pickup"></option><option value="coupe" data-i18n="body.coupe"></option></select></div>
+        <div class="field"><label data-i18n="filter.price"></label>
+          <div class="grid-2 pair"><input class="input" type="number" name="min_price" data-i18n-placeholder="filter.from" min="0" step="10000" data-i18n-aria="filter.price_min">
+          <input class="input" type="number" name="max_price" data-i18n-placeholder="filter.to" min="0" step="10000" data-i18n-aria="filter.price_max"></div></div>
+        <div class="grid-2">
+          <div class="field"><label for="transmission" data-i18n="filter.trans"></label>
+            <select class="input" id="transmission" name="transmission"><option value="" data-i18n="common.any"></option>
+              <option value="automatic" data-i18n="trans.automatic"></option><option value="manual" data-i18n="trans.manual"></option></select></div>
+          <div class="field"><label for="fuel" data-i18n="filter.fuel"></label>
+            <select class="input" id="fuel" name="fuel"><option value="" data-i18n="common.any"></option>
+              <option value="petrol" data-i18n="fuel.petrol"></option><option value="gas" data-i18n="fuel.gas"></option><option value="diesel" data-i18n="fuel.diesel"></option>
+              <option value="hybrid" data-i18n="fuel.hybrid"></option><option value="electric" data-i18n="fuel.electric"></option></select></div>
+        </div>
+        <div class="grid-2">
+          <div class="field"><label for="seats" data-i18n="filter.seats"></label>
+            <select class="input" id="seats" name="seats"><option value="" data-i18n="common.any"></option><option value="4">4+</option><option value="5">5+</option><option value="7">7+</option></select></div>
+          <div class="field"><label for="year_from" data-i18n="filter.year"></label>
+            <select class="input" id="year_from" name="year_from"><option value="" data-i18n="common.any"></option><option>2024</option><option>2023</option><option>2022</option><option>2020</option><option>2018</option></select></div>
+        </div>
+        <div class="field"><label for="rating_min" data-i18n="filter.rating"></label>
+          <select class="input" id="rating_min" name="rating_min"><option value="" data-i18n="common.any"></option><option value="4">★ 4+</option><option value="5">★ 5</option></select></div>
+        <div class="field"><label data-i18n="filter.features"></label><div class="chips-input" id="featureChips"></div></div>
+        <label class="check field"><input type="checkbox" name="delivery" value="1"><span data-i18n="filter.delivery"></span></label>
+        <div class="apply"><button class="btn btn-block" type="button" id="applyFilters"></button></div>
+      </form>
+    </aside>
+    <div>
+      <div class="cars-grid" id="cars"></div>
+      <div class="pagination" id="pager"></div>
+    </div>
+  </div>
+</main>
+<script src="/js/app.js"></script>
+<script src="/js/pages/cars.js"></script>
+</body>
+</html>

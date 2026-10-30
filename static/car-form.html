@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title data-i18n-doc="page.car_form">CarRent</title>
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#1e3a8a">
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<main class="container page">
+  <div class="small muted"><a href="/dashboard.html#cars" data-i18n="form.back"></a></div>
+  <h1 id="formTitle" style="margin-top:8px" data-i18n="form.title_new"></h1>
+  <div class="wizard">
+    <ol class="card wizard-steps" id="steps">
+      <li data-step="1" data-i18n="form.s1"></li><li data-step="2" data-i18n="form.s2"></li><li data-step="3" data-i18n="form.s3"></li>
+      <li data-step="4" data-i18n="form.s4"></li><li data-step="5" data-i18n="form.s5"></li><li data-step="6" data-i18n="form.s6"></li>
+    </ol>
+    <form class="card card-pad" id="carForm" novalidate>
+      <section data-pane="1">
+        <h2 data-i18n="form.s1"></h2>
+        <div class="grid-3">
+          <div class="field"><label for="brand" data-i18n="field.brand"></label><input class="input" id="brand" name="brand" list="brands" required placeholder="Chevrolet" data-hint="hint.brand"></div>
+          <div class="field"><label for="model" data-i18n="field.model"></label><input class="input" id="model" name="model" required placeholder="Malibu" data-hint="hint.model"></div>
+          <div class="field"><label for="year" data-i18n="field.year"></label><input class="input" type="number" id="year" name="year" min="1990" required inputmode="numeric" data-hint="hint.year"></div>
+        </div>
+        <datalist id="brands"><option>Chevrolet</option><option>BYD</option><option>Kia</option><option>Hyundai</option><option>Toyota</option><option>Tesla</option><option>Haval</option><option>Chery</option><option>Lada</option><option>Ravon</option></datalist>
+        <div class="grid-3">
+          <div class="field"><label for="body_type" data-i18n="field.body"></label>
+            <select class="input" id="body_type" name="body_type" data-hint="hint.body"><option value="sedan" data-i18n="body.sedan"></option><option value="hatchback" data-i18n="body.hatchback"></option>
+              <option value="crossover" data-i18n="body.crossover"></option><option value="suv" data-i18n="body.suv"></option><option value="minivan" data-i18n="body.minivan"></option>
+              <option value="pickup" data-i18n="body.pickup"></option><option value="coupe" data-i18n="body.coupe"></option></select></div>
+          <div class="field"><label for="seats" data-i18n="field.seats"></label><input class="input" type="number" id="seats" name="seats" min="1" max="20" value="5" required inputmode="numeric" data-hint="hint.seats"></div>
+          <div class="field"><label for="color" data-i18n="field.color"></label><input class="input" id="color" name="color" maxlength="30" placeholder="Oq" data-hint="hint.color"></div>
+        </div>
+      </section>
+
+      <section data-pane="2" class="hidden">
+        <h2 data-i18n="form.s2"></h2>
+        <div class="grid-3">
+          <div class="field"><label for="transmission" data-i18n="field.trans"></label>
+            <select class="input" id="transmission" name="transmission" data-hint="hint.trans"><option value="automatic" data-i18n="trans.automatic"></option><option value="manual" data-i18n="trans.manual"></option></select></div>
+          <div class="field"><label for="fuel" data-i18n="field.fuel"></label>
+            <select class="input" id="fuel" name="fuel" data-hint="hint.fuel"><option value="petrol" data-i18n="fuel.petrol"></option><option value="gas" data-i18n="fuel.gas"></option>
+              <option value="diesel" data-i18n="fuel.diesel"></option><option value="hybrid" data-i18n="fuel.hybrid"></option><option value="electric" data-i18n="fuel.electric"></option></select></div>
+          <div class="field"><label for="drive" data-i18n="field.drive"></label>
+            <select class="input" id="drive" name="drive" data-hint="hint.drive"><option value="" data-i18n="common.not_set"></option><option value="fwd" data-i18n="drive.fwd"></option>
+              <option value="rwd" data-i18n="drive.rwd"></option><option value="awd" data-i18n="drive.awd"></option></select></div>
+        </div>
+        <div class="grid-2">
+          <div class="field"><label for="engine_l" data-i18n="field.engine"></label><input class="input" type="number" id="engine_l" name="engine_l" min="0.6" max="8" step="0.1" placeholder="1.5" inputmode="decimal" data-hint="hint.engine"></div>
+          <div class="field"><label for="mileage_km" data-i18n="field.mileage"></label><input class="input" type="number" id="mileage_km" name="mileage_km" min="0" step="1000" placeholder="45000" inputmode="numeric" data-hint="hint.mileage"></div>
+        </div>
+        <div class="field"><label data-i18n="field.features"></label><div class="chips-input" id="features"></div><div class="hint" data-i18n="hint.features"></div></div>
+      </section>
+
+      <section data-pane="3" class="hidden">
+        <h2 data-i18n="form.s3"></h2>
+        <div class="field" style="max-width:360px"><label for="city" data-i18n="field.city"></label><input class="input" id="city" name="city" list="cities" required placeholder="Toshkent" data-hint="hint.city"></div>
+        <datalist id="cities"><option>Toshkent</option><option>Samarqand</option><option>Buxoro</option><option>Farg'ona</option><option>Andijon</option><option>Namangan</option><option>Xiva</option><option>Qarshi</option><option>Nukus</option><option>Termiz</option><option>Jizzax</option><option>Navoiy</option><option>Guliston</option><option>Urganch</option></datalist>
+        <div class="field"><label for="description" data-i18n="field.description"></label><textarea class="input" id="description" name="description" maxlength="2000" data-i18n-placeholder="form.desc_ph" data-hint="hint.description"></textarea><div class="small muted counter" id="descCount"></div></div>
+      </section>
+
+      <section data-pane="4" class="hidden">
+        <h2 data-i18n="form.s4"></h2>
+        <div class="field" style="max-width:420px"><label for="price_per_day" data-i18n="field.price"></label><input class="input" type="number" id="price_per_day" name="price_per_day" min="10000" step="10000" required placeholder="450000" inputmode="numeric" data-hint="hint.price">
+          <button type="button" class="btn btn-soft btn-sm" id="suggestBtn" style="margin-top:8px" data-i18n="price.suggest_btn"></button>
+          <div id="suggestBox"></div></div>
+        <div class="grid-3">
+          <div class="field"><label for="deposit" data-i18n="field.deposit"></label><input class="input" type="number" id="deposit" name="deposit" min="0" step="50000" value="0" inputmode="numeric" data-hint="hint.deposit"></div>
+          <div class="field"><label for="min_days" data-i18n="field.min_days"></label><input class="input" type="number" id="min_days" name="min_days" min="1" max="60" value="1" inputmode="numeric" data-hint="hint.min_days"></div>
+          <div class="field"><label for="max_days" data-i18n="field.max_days"></label><input class="input" type="number" id="max_days" name="max_days" min="1" max="90" value="30" inputmode="numeric" data-hint="hint.max_days"></div>
+        </div>
+        <div class="grid-2">
+          <div class="field"><label for="km_limit" data-i18n="field.km_limit"></label><input class="input" type="number" id="km_limit" name="km_limit" min="50" max="2000" step="50" placeholder="300" inputmode="numeric" data-hint="hint.km_limit"></div>
+          <div class="field"><label class="check" style="margin-bottom:8px"><input type="checkbox" id="hasDelivery"><span data-i18n="field.delivery"></span></label>
+            <input class="input" type="number" id="delivery_price" name="delivery_price" min="0" step="10000" data-i18n-placeholder="field.delivery_price" disabled inputmode="numeric" data-hint="hint.delivery"></div>
+        </div>
+        <div class="notice info" id="commissionNote"></div>
+      </section>
+
+      <section data-pane="5" class="hidden">
+        <h2 data-i18n="form.s5"></h2>
+        <p class="muted" data-i18n="form.photo_tips"></p>
+        <div class="angle-list" id="angles" aria-live="polite"></div>
+        <div class="photo-actions">
+          <label class="dropzone" id="dropzone" for="images"><span id="dzIco"></span><b data-i18n="form.drop"></b><span class="small muted" id="dzHint"></span></label>
+          <label class="btn btn-outline btn-lg camera-btn" for="cameraInput"><span id="camIco"></span><span data-i18n="form.camera"></span></label>
+        </div>
+        <input type="file" id="images" accept="image/jpeg,image/png,image/webp" multiple class="sr-only">
+        <input type="file" id="cameraInput" accept="image/*" capture="environment" class="sr-only">
+        <p class="small muted" data-i18n="form.reorder_hint"></p>
+        <div class="photo-grid" id="uploaded"></div>
+      </section>
+
+      <section data-pane="6" class="hidden">
+        <h2 data-i18n="form.s6"></h2>
+        <p class="muted" data-i18n="form.review_sub"></p>
+        <div id="preview" style="max-width:340px"></div>
+        <div id="previewTerms" style="margin-top:16px"></div>
+      </section>
+
+      <div class="wizard-nav">
+        <button type="button" class="btn btn-outline" id="prevBtn" data-i18n="common.back"></button>
+        <div class="row">
+          <button type="button" class="btn btn-outline hidden" id="draftBtn" data-i18n="form.save_draft"></button>
+          <button type="button" class="btn" id="nextBtn" data-i18n="common.next"></button>
+          <button type="submit" class="btn hidden" id="publishBtn" data-i18n="form.publish"></button>
+        </div>
+      </div>
+    </form>
+  </div>
+</main>
+<script src="/js/app.js"></script>
+<script src="/js/pages/car-form.js"></script>
+</body>
+</html>

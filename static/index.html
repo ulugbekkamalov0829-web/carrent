@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title data-i18n-doc="page.home">CarRent</title>
+  <meta name="description" content="CarRent — O‘zbekiston bo‘ylab avtomobil ijarasi platformasi">
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#1e3a8a">
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<main>
+  <section class="hero photo">
+    <div class="hero-bg" aria-hidden="true"></div>
+    <div class="container hero-inner">
+      <span class="eyebrow light" data-i18n="home.eyebrow"></span>
+      <h1 data-i18n="home.title"></h1>
+      <p class="lead" data-i18n="home.lead"></p>
+      <div class="row">
+        <a class="btn btn-lg btn-white" href="/cars.html" data-i18n="home.cta_find"></a>
+        <a class="btn btn-lg btn-glass" href="/car-form.html" data-i18n="home.cta_earn"></a>
+      </div>
+      <div class="hero-badges" id="heroStats"></div>
+    </div>
+    <div class="container">
+      <form class="card searchbar" id="searchForm" role="search" action="/cars.html">
+        <div class="field"><label for="city" data-i18n="search.where"></label><select class="input" id="city" name="city"><option value="" data-i18n="search.any_city"></option></select></div>
+        <div class="field"><label for="start" data-i18n="search.start"></label><input class="input" type="date" id="start" name="start"></div>
+        <div class="field"><label for="end" data-i18n="search.end"></label><input class="input" type="date" id="end" name="end"></div>
+        <div class="field"><label for="body_type" data-i18n="search.type"></label>
+          <select class="input" id="body_type" name="body_type"><option value="" data-i18n="common.any"></option>
+            <option value="sedan" data-i18n="body.sedan"></option><option value="hatchback" data-i18n="body.hatchback"></option>
+            <option value="crossover" data-i18n="body.crossover"></option><option value="suv" data-i18n="body.suv"></option>
+            <option value="minivan" data-i18n="body.minivan"></option><option value="pickup" data-i18n="body.pickup"></option><option value="coupe" data-i18n="body.coupe"></option></select></div>
+        <div class="field"><label for="max_price" data-i18n="search.price"></label>
+          <select class="input" id="max_price" name="max_price"><option value="" data-i18n="common.any"></option>
+            <option value="300000" data-i18n="search.upto300"></option><option value="600000" data-i18n="search.upto600"></option><option value="1000000" data-i18n="search.upto1m"></option></select></div>
+        <button class="btn btn-lg" type="submit" data-i18n="search.submit"></button>
+      </form>
+    </div>
+  </section>
+
+  <section class="section" id="recoSection">
+    <div class="container">
+      <div class="section-head"><div><span class="eyebrow" data-i18n="home.reco_eyebrow"></span><h2 id="recoTitle" data-i18n="home.popular"></h2>
+        <p id="recoSub" data-i18n="home.popular_sub"></p></div><a class="btn btn-outline" href="/cars.html" data-i18n="home.all_cars"></a></div>
+      <div class="cars-grid" id="reco"></div>
+    </div>
+  </section>
+
+  <section class="section alt">
+    <div class="container">
+      <div class="section-head"><div><span class="eyebrow" data-i18n="how.eyebrow"></span><h2 data-i18n="how.title"></h2></div>
+        <a class="btn btn-outline" href="/info.html#how" data-i18n="home.more_info"></a></div>
+      <div class="steps">
+        <div class="card step"><h3 data-i18n="how.s1"></h3><p data-i18n="how.s1d"></p></div>
+        <div class="card step"><h3 data-i18n="how.s2"></h3><p data-i18n="how.s2d"></p></div>
+        <div class="card step"><h3 data-i18n="how.s3"></h3><p data-i18n="how.s3d"></p></div>
+        <div class="card step"><h3 data-i18n="how.s4"></h3><p data-i18n="how.s4d"></p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-head"><div><span class="eyebrow" data-i18n="regions.eyebrow"></span><h2 data-i18n="regions.title"></h2></div></div>
+      <div class="regions" id="regions"></div>
+    </div>
+  </section>
+
+  <section class="section alt">
+    <div class="container">
+      <div class="section-head"><div><span class="eyebrow" data-i18n="reviews.eyebrow"></span><h2 data-i18n="reviews.title"></h2><p data-i18n="reviews.sub"></p></div></div>
+      <div class="testimonials" id="testimonials"></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container"><div class="cta">
+      <div><h2 data-i18n="cta.title"></h2><p data-i18n="cta.sub"></p><p class="small" id="commissionLine" style="margin-top:6px"></p></div>
+      <a class="btn btn-lg" href="/car-form.html" data-i18n="cta.btn"></a>
+    </div></div>
+  </section>
+</main>
+<script src="/js/app.js"></script>
+<script src="/js/pages/home.js"></script>
+</body>
+</html>

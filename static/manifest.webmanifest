@@ -1,0 +1,21 @@
+{
+  "name": "CarRent — avtomobil ijarasi",
+  "short_name": "CarRent",
+  "description": "O‘zbekiston bo‘ylab avtomobil ijarasi: qidiring, bron qiling, owner bilan yozishing.",
+  "lang": "uz",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f7f9fc",
+  "theme_color": "#1e3a8a",
+  "icons": [
+    { "src": "/img/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/img/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/img/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Avtomobillar", "url": "/cars.html", "icons": [{ "src": "/img/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Bronlarim", "url": "/dashboard.html#bookings", "icons": [{ "src": "/img/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

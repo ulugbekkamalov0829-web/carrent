@@ -1,0 +1,240 @@
+# 🚗 CarRent — avtomobil ijarasi platformasi
+
+> *O‘zingizga mos avtomobilni toping. Ishonch bilan yo‘lga chiqing.*
+
+CarRent — O‘zbekiston uchun avtomobil ijarasi veb-platformasi. Bitta akkaunt bilan avtomobil ijaraga olish **va** o‘z avtomobilini ijaraga berish mumkin. Interfeys uch tilda: **o‘zbek, rus, ingliz**.
+
+**Hal qilinadigan real muammolar:**
+- **Ikki marta band qilish** — bitta sanani ikki kishiga berib yuborish. Tizim buni tranzaksiya darajasida to‘xtatadi (20 ta parallel so‘rovdan faqat bittasi o‘tishi test bilan isbotlangan).
+- **Soxta reyting** — sharh faqat yakunlangan ijaradan keyin, har tomon bir marta qoldiradi.
+- **Narxni bilmaslik** — owner uchun o‘xshash e’lonlardan tavsiya etiladigan narx; ijarachi uchun barcha summalar bron qilishdan oldin qatorma-qator ko‘rinadi.
+- **Ikki akkaunt muammosi** — bir odam ham ijarachi, ham owner: ma’lumotlar bitta profilda, rejim almashganda hech narsa yo‘qolmaydi.
+
+---
+
+## ✅ Nima tayyor (hammasi sinovdan o‘tgan)
+
+| Modul | Holat |
+|---|---|
+| Ilova qobig‘i | ✅ Kompyuterda **chap panel** (bo‘limlar, rejim, sozlamalar), telefonda **pastki tablar** + yon menyu |
+| Telefon versiyasi | ✅ 360–1920 px; Wi-Fi orqali telefonda ochish (`run-phone.bat`); PWA manifest va oflayn sahifa (o‘rnatish HTTPS’da ishlaydi) |
+| Ro‘yxatdan o‘tish, kirish | ✅ **Email yoki telefon** bilan kirish (istalgan formatda: `+998 90…`, `90 123 45 67`), parol kuchi, ko‘rsatish/yashirish |
+| Parolni tiklash | ✅ **Email yoki SMS** orqali 6 xonali kod: 10 daqiqa, 5 urinish, 60 s kutish, kuniga 10 ta; akkaunt borligi oshkor qilinmaydi; tiklangach barcha sessiyalar yopiladi |
+| Email / telefonni tasdiqlash | ✅ Kod bilan; tasdiqlangan foydalanuvchiga ✓ belgisi |
+| Sozlamalar | ✅ Profil va avatar, email almashtirish (kod bilan), parol, **faol sessiyalar** (har birini yopish, hammasidan chiqish), bildirishnoma kanallari, telefonni yashirish, til, akkauntni o‘chirish |
+| Uch til (uz / ru / en) | ✅ 970 ta kalit × 3 til, sahifa qayta yuklanmaydi; server xatolari ham tanlangan tilda |
+| Sana maydonlari | ✅ Brauzer tilidan qat’i nazar `30.10.2026` ko‘rinishidagi namuna, avtomatik nuqta, o‘z kalendari |
+| Forma izohlari | ✅ Har bir maydon ostida “qanday to‘ldirish” izohi va namunasi (uch tilda) |
+| Avtomobil qo‘shish | ✅ 6 bosqich, narx tavsiyasi, qoralama, oldindan ko‘rish |
+| Rasmlar | ✅ Burchaklar ro‘yxati (old, orqa, yon, salon, panel, yukxona), **telefon kamerasi**, brauzerda siqish, ← → va sudrab tartiblash, yorliq, asosiy rasm; serverda qayta kodlash, EXIF/GPS o‘chiriladi |
+| Galereya | ✅ To‘liq ekran, klaviatura va barmoq bilan surish, yorliqlar |
+| Qidiruv va filtrlar | ✅ 13 mezon, server tomonida, URL’da saqlanadi |
+| Bron va kalendar | ✅ Narx serverda muzlatiladi; pending 24 soatda bo‘shaydi; **owner kunlarni yopa oladi** (ta’mir va h.k.) |
+| Onlayn to‘lov | ✅ Click (SHOP API) va Payme (Merchant API) integratsiyasi yozilgan va imzo/parol tekshiruvi bilan test qilingan; **sinov to‘lovi** faqat dev/demo’da, sariq TEST belgisi bilan; kvitansiya (chop etish/PDF) |
+| Qaytarish va o‘tkazmalar | ✅ Bekor qilinganda to‘lov qaytarishga yuboriladi; owner balansi, admin o‘tkazmani qayd etadi |
+| Shikoyatlar | ✅ E’lon ustidan shikoyat → admin: yashirish / bloklash / rad etish |
+| Ma’lumot markazi | ✅ Biz haqimizda, Qanday ishlaydi, Tariflar, Xavfsizlik, FAQ, Aloqa, Qoidalar — **bitta sahifada** |
+| Chat, bildirishnomalar, sharhlar, sevimlilar, tavsiyalar | ✅ |
+| Kabinetlar va admin | ✅ Daromad, to‘lovlar, balans, shikoyatlar, audit jurnali |
+
+## ⏳ Haqiqiy kalit kerak bo‘lganlar (ishlayotgandek ko‘rsatilmaydi)
+
+| Funksiya | Nima kerak | Kalitsiz holat |
+|---|---|---|
+| Haqiqiy email | `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD` | Dev/demo’da kodlar **test pochta qutisiga** (`/dev-inbox.html`, faqat lokal tarmoq) tushadi; productionda tiklash “sozlanmagan” deydi |
+| Haqiqiy SMS | Eskiz.uz: `ESKIZ_EMAIL`, `ESKIZ_PASSWORD` | Xuddi shunday |
+| Click / Payme | Yuridik shaxs shartnomasi va kalitlari | To‘lov oynasida “ulanmagan” deb ko‘rsatiladi; to‘lov joyida |
+| Google / Apple orqali kirish | OAuth kalitlari | Tugmalar ko‘rsatilmaydi |
+
+> Click va Payme kodi rasmiy protokol bo‘yicha yozilgan va avtomatik testlar bilan tekshirilgan, lekin **haqiqiy kalitlar bilan sinab ko‘rilmagan**.
+
+---
+
+## 🛠 Texnologiyalar
+
+| Qatlam | Tanlov |
+|---|---|
+| Backend | Python 3.10+, **Starlette** (ASGI; FastAPI shu ustiga qurilgan), Uvicorn |
+| Validatsiya | Pydantic v2 (xato matnlari uch tilda) |
+| Ma’lumotlar bazasi | SQLite, WAL rejimi, tashqi kalitlar, CHECK cheklovlari; pul — butun so‘m, foiz — basis points |
+| Autentifikatsiya | JWT, `httpOnly; SameSite=Lax` cookie; parol — scrypt |
+| Rasmlar | Pillow: qayta kodlash, EXIF/GPS o‘chirish, 1600 px gacha kichraytirish |
+| Frontend | HTML + CSS + Vanilla JS (build talab qilmaydi), i18n JSON fayllar |
+| Testlar | pytest (53 ta) + Playwright brauzer sinovi (asosiy oqimlar) |
+
+### Arxitektura
+
+```mermaid
+flowchart LR
+    B[Brauzer<br/>uz · ru · en] --> M[Middleware<br/>til · CSRF · CSP]
+    M --> R[Marshrutlar: auth · cars · bookings<br/>social · dashboard · smart]
+    R --> S[security.py<br/>JWT · scrypt · rate limit]
+    R --> D[(SQLite)]
+    R --> U[/uploads — qayta kodlangan rasmlar/]
+```
+
+### Ma’lumotlar bazasi
+
+```mermaid
+erDiagram
+    users ||--o{ cars : "owner sifatida"
+    users ||--o{ bookings : "ijarachi sifatida"
+    cars ||--o{ bookings : ""
+    cars ||--o{ car_images : ""
+    bookings ||--o{ reviews : "2 tagacha (car, renter)"
+    users ||--o{ favorites : ""
+    users ||--o{ messages : ""
+    users ||--o{ notifications : ""
+    users ||--o{ audit_logs : "kim qildi"
+    settings ||--o{ bookings : "komissiya nusxalanadi"
+```
+
+`bookings` jadvalida narx, komissiya foizi, komissiya va owner ulushi bron paytida yoziladi; `CHECK (commission + owner_payout = total_price)` cheklovi hisob buzilmasligini kafolatlaydi.
+
+### Bron hayot sikli
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending: ijarachi so'rov yuboradi (sanalar band bo'ladi)
+    pending --> approved: owner tasdiqlaydi
+    pending --> rejected: owner rad etadi yoki 24 soat o'tdi
+    pending --> cancelled: ijarachi bekor qiladi
+    approved --> cancelled: ijara boshlanguncha
+    approved --> completed: tugash sanasi o'tdi
+    completed --> [*]: ikki tomonlama sharh
+```
+
+### Komissiya hisobi (misol)
+
+| Qator | Summa |
+|---|---|
+| 3 kun × 350 000 | 1 050 000 so‘m |
+| Yetkazib berish | 50 000 so‘m |
+| **Ijarachi to‘laydi** | **1 100 000 so‘m** |
+| Komissiya 10% | 110 000 so‘m |
+| **Owner oladi** | **990 000 so‘m** |
+| Depozit (alohida, qaytariladi) | 500 000 so‘m |
+
+---
+
+## 🔐 Xavfsizlik
+
+| Tahdid | Himoya |
+|---|---|
+| Parol o‘g‘irlanishi | scrypt + tuz; kamida 12 belgi, keng tarqalgan parollar rad etiladi, passphrase qo‘llab-quvvatlanadi |
+| Brute-force, spam | Login: 5 daqiqada 8 urinish; ro‘yxat: IP’dan soatiga 10 ta; chat: daqiqasiga 30 xabar |
+| IDOR / BOLA | Har bir so‘rov egalik bilan filtrlanadi; begona bron, suhbat, e’lon ko‘rinmaydi (testlar bilan isbotlangan) |
+| XSS | Barcha matn `esc()` orqali; qat’iy CSP (`script-src 'self'`, `unsafe-eval` yo‘q) |
+| CSRF | `SameSite=Lax` + majburiy `X-Requested-With` sarlavhasi |
+| SQL injection | Faqat parametrlangan so‘rovlar |
+| Zararli fayl | Format baytlar bo‘yicha, Pillow bilan qayta kodlash, EXIF/GPS o‘chirish, server nomi, hajm va piksel chegarasi |
+| Admin huquqi | Faqat CLI orqali beriladi; muhim amallar audit jurnaliga yoziladi |
+| Shaxsiy ma’lumot | Owner telefoni faqat kirganlarga (va owner xohlasa yashiriladi), ijarachi telefoni faqat tegishli owner’ga |
+| Sessiyalar | Har kirish alohida sessiya; parol o‘zgarsa/tiklansa boshqa sessiyalar bekor; foydalanuvchi o‘zi ko‘radi va yopadi |
+| Bir martalik kodlar | HMAC-xesh, 10 daqiqa, 5 urinish (urinish tranzaksiya bekor bo‘lsa ham hisoblanadi), loglarga yozilmaydi |
+| Akkaunt borligini bilish | Parolni tiklash javobi har doim bir xil |
+| IP soxtalashtirish | `X-Forwarded-For` ga ishonilmaydi; rate limit haqiqiy ulanish manzili bo‘yicha |
+| Katta so‘rov (DoS) | JSON 64 KB, rasm yuklash 25 MB chegarasi |
+| To‘lov callback’lari | Click — md5 imzo, Payme — Basic auth; summa va holat serverda tekshiriladi; takroriy chaqiruv xavfsiz |
+| Test qutisi | Faqat dev rejim **va** lokal tarmoq manzillaridan; productionda mavjud emas |
+
+---
+
+## 🚀 VS Code’da ishga tushirish
+
+Python 3.10+ kerak. Papkani VS Code’da oching, **Terminal → New Terminal**:
+
+```powershell
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+python -m scripts.seed --reset
+python -m uvicorn app.main:app --reload
+```
+
+Brauzerda: **http://localhost:8000**. Yoki shunchaki `run.bat` faylini ikki marta bosing.
+
+### 📱 Telefonda ochish (bir Wi-Fi tarmog‘ida)
+
+1. `run-phone.bat` ni ishga tushiring (yoki `python -m uvicorn app.main:app --host 0.0.0.0 --port 8000`).
+2. Windows “Allow access” deb so‘rasa — **Private networks** uchun ruxsat bering.
+3. Oynada chiqqan manzilni (masalan `http://192.168.1.25:8000`) telefon brauzerida oching.
+
+> “Bosh ekranga qo‘shish” (PWA o‘rnatish) faqat **HTTPS** da ishlaydi — Render’ga joylangandan keyin telefon brauzerida **⋮ → Add to Home screen**.
+
+### Parolni tiklashni sinash (demo)
+
+Kirish → **Parolni unutdingizmi?** → email yoki telefon → **Test pochta qutisini ochish** havolasidagi 6 xonali kodni kiriting. Test qutisi faqat shu kompyuter va lokal tarmoqdan ochiladi.
+
+### Sozlamalar (`.env`)
+
+`.env.example` dan nusxa oling. Asosiylari:
+
+| O‘zgaruvchi | Vazifasi |
+|---|---|
+| `APP_ENV=production` | Test qutisi va sinov to‘lovi o‘chadi, cookie faqat HTTPS |
+| `SECRET_KEY` | Majburiy (productionda) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Haqiqiy email |
+| `ESKIZ_EMAIL`, `ESKIZ_PASSWORD`, `ESKIZ_FROM` | Haqiqiy SMS (Eskiz.uz) |
+| `CLICK_SERVICE_ID`, `CLICK_MERCHANT_ID`, `CLICK_SECRET_KEY` | Click; callback: `/api/payments/click` |
+| `PAYME_MERCHANT_ID`, `PAYME_KEY` | Payme; endpoint: `/api/payments/payme` |
+| `PUBLIC_URL` | To‘lovdan qaytish manzili, masalan `https://carrent.onrender.com` |
+
+### Demo hisoblar (parol: `CarRent-2026`)
+
+| Kim | Email |
+|---|---|
+| Admin | admin@carrent.uz |
+| Owner + ijarachi (bitta akkaunt) | jasur@carrent.uz |
+| Owner (interfeysi ruscha) | nodira@carrent.uz |
+| Ijarachi | aziz@carrent.uz (yoki telefon `+998903334455`), malika@carrent.uz (inglizcha), bekzod@carrent.uz |
+
+Demo e’lonlar saytda **DEMO** belgisi bilan ko‘rinadi. Bazani qayta tiklash: `python -m scripts.seed --reset`.
+Haqiqiy admin: `python -m scripts.create_admin admin@carrent.uz "Ism Familiya"`.
+Tarjimalarni qayta yaratish: `python -m scripts.build_locales`.
+
+### Testlar
+
+```bash
+pip install -r requirements-dev.txt
+pytest -q
+```
+
+---
+
+## 🌐 Internetga joylash
+
+1. GitHub’ga yuklang:
+   ```bash
+   git init && git add . && git commit -m "CarRent"
+   git branch -M main
+   git remote add origin https://github.com/<login>/carrent.git
+   git push -u origin main
+   ```
+2. https://render.com → **New → Blueprint** → repozitoriyni tanlang → **Apply**. `render.yaml` hammasini sozlaydi (`SECRET_KEY` avtomatik).
+3. Bir necha daqiqada `https://carrent-xxxx.onrender.com` havolasi tayyor.
+
+> Render’ning bepul rejasida qayta ishga tushganda baza demo holatiga qaytadi. Doimiy saqlash uchun `render.yaml` dagi `disk` qismini yoqing.
+
+---
+
+## 📁 Tuzilma
+
+```
+carrent/
+├── app/
+│   ├── main.py        # ilova, middleware (til, CSRF, CSP)
+│   ├── i18n.py        # server xabarlari: uz / ru / en
+│   ├── db.py          # sxema, tranzaksiyalar
+│   ├── security.py    # scrypt, JWT, rol va egalik, rate limit
+│   ├── schemas.py     # Pydantic validatsiya
+│   ├── channels.py    # email (SMTP), SMS (Eskiz), test qutisi
+│   └── routes/        # auth, cars, bookings, payments, social, dashboard, smart
+├── static/
+│   ├── locales/       # uz.json, ru.json, en.json
+│   ├── js/            # app.js (i18n, API, chap panel, sana maydoni), widgets.js, pages/*.js
+│   ├── sw.js, manifest.webmanifest   # PWA
+│   └── *.html         # bosh sahifa, mashinalar, avtomobil, auth, kabinet, forma, xabarlar, admin, ma’lumot, sozlamalar, to‘lov, kvitansiya
+├── scripts/           # seed, create_admin, build_locales
+└── tests/             # pytest
+```

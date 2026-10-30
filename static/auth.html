@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08111d">
+  <title data-i18n-doc="page.auth">CarRent</title>
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body class="neon-page">
+<main class="auth-shell neon">
+  <!-- Chap tomon: CarRent suratlari (almashinib turadi) -->
+  <section class="auth-visual" aria-hidden="true">
+    <div class="slides">
+      <div class="slide on" style="background-image:url(/img/auth-renter.jpg)"></div>
+      <div class="slide" style="background-image:url(/img/hero-street.jpg)"></div>
+      <div class="slide" style="background-image:url(/img/auth-owner.jpg)"></div>
+    </div>
+    <div class="auth-visual-inner">
+      <span class="eyebrow light" data-i18n="auth.eyebrow"></span>
+      <h2 id="slideTitle" data-i18n="auth.slide1_t"></h2>
+      <p id="slideText" data-i18n="auth.slide1_b"></p>
+      <div class="slide-dots" id="slideDots"><button class="on"></button><button></button><button></button></div>
+      <div class="auth-quote" id="authQuote"></div>
+    </div>
+  </section>
+
+  <!-- O'ng tomon: neon halqa ichida aylanuvchi karta -->
+  <section class="auth-stage">
+    <div class="ring-wrap">
+      <div class="ring-box">
+        <div class="card-holder">
+          <div class="card3d" id="card3d">
+
+            <!-- OLD TOMON: kirish, parolni tiklash, tasdiqlash -->
+            <div class="face front" id="faceFront">
+              <div class="pane" id="paneLogin">
+                <h1 class="neon-title" data-i18n="auth.welcome_t"></h1>
+                <p class="neon-sub" data-i18n="auth.login_sub"></p>
+                <form id="loginForm" novalidate>
+                  <div class="field nf"><input class="input" id="lLogin" name="login" autocomplete="username" required placeholder=" " data-hint="hint.login">
+                    <label for="lLogin" data-i18n="field.login"></label></div>
+                  <div class="field nf"><div class="pw-wrap"><input class="input" type="password" id="lPassword" name="password" autocomplete="current-password" required placeholder=" ">
+                    <label for="lPassword" data-i18n="field.password"></label><button type="button" class="pw-eye" data-pw="lPassword"></button></div></div>
+                  <div class="neon-options"><span></span><button type="button" class="linkbtn" data-goto="forgot" data-i18n="auth.forgot"></button></div>
+                  <button class="btn btn-block neon-btn" type="submit" data-i18n="nav.login"></button>
+                </form>
+                <p class="neon-switch"><span data-i18n="auth.no_account"></span><br><button type="button" class="linkbtn" data-goto="register" data-i18n="nav.register"></button></p>
+              </div>
+
+              <div class="pane hidden" id="paneForgot">
+                <div id="fStep1">
+                  <h1 class="neon-title" data-i18n="forgot.title"></h1>
+                  <p class="neon-sub" data-i18n="forgot.sub_short"></p>
+                  <div class="seg" role="radiogroup" id="fChannel">
+                    <button type="button" class="on" data-ch="email" role="radio" aria-checked="true"><span id="chMail"></span><span data-i18n="forgot.by_email"></span></button>
+                    <button type="button" data-ch="sms" role="radio" aria-checked="false"><span id="chPhone"></span><span data-i18n="forgot.by_phone"></span></button>
+                  </div>
+                  <form id="forgotForm" novalidate>
+                    <div class="field nf"><input class="input" id="fLogin" autocomplete="username" required placeholder=" " data-hint="hint.forgot_email">
+                      <label for="fLogin" id="fLoginLabel" data-i18n="field.email"></label></div>
+                    <button class="btn btn-block neon-btn" data-i18n="forgot.send"></button>
+                  </form>
+                </div>
+                <div id="fStep2" class="hidden">
+                  <h1 class="neon-title" data-i18n="forgot.code_title"></h1>
+                  <p class="neon-sub" id="fSentTo"></p>
+                  <form id="resetForm" novalidate>
+                    <div class="field"><div id="fOtp"></div></div>
+                    <div class="field nf"><div class="pw-wrap"><input class="input" type="password" id="fPass" autocomplete="new-password" required minlength="12" placeholder=" " data-hint="auth.pw_hint">
+                      <label for="fPass" data-i18n="sec.new"></label><button type="button" class="pw-eye" data-pw="fPass"></button></div></div>
+                    <button class="btn btn-block neon-btn" data-i18n="forgot.save"></button>
+                    <div class="neon-options" style="margin:12px 0 0">
+                      <button type="button" class="linkbtn" id="fResend" data-i18n="otp.resend"></button>
+                      <a class="linkbtn hidden" id="fInbox" href="/dev-inbox.html" target="_blank" rel="noopener" data-i18n="dev.inbox_short"></a>
+                    </div>
+                  </form>
+                </div>
+                <p class="neon-switch"><button type="button" class="linkbtn" data-goto="login"><span id="backIco"></span><span data-i18n="auth.back_login"></span></button></p>
+              </div>
+
+              <div class="pane hidden" id="paneVerify">
+                <h1 class="neon-title" data-i18n="verify.title"></h1>
+                <p class="neon-sub" id="vSentTo"></p>
+                <div class="field"><div id="vOtp"></div><div class="hint show" data-i18n="hint.code"></div></div>
+                <button class="btn btn-block neon-btn" id="vConfirm" data-i18n="verify.confirm"></button>
+                <div class="neon-options" style="margin:12px 0 0">
+                  <button type="button" class="linkbtn" id="vResend" data-i18n="otp.resend"></button>
+                  <a class="linkbtn hidden" id="vInbox" href="/dev-inbox.html" target="_blank" rel="noopener" data-i18n="dev.inbox_short"></a>
+                  <button type="button" class="linkbtn muted" id="vSkip" data-i18n="verify.later"></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ORQA TOMON: ro'yxatdan o'tish -->
+            <div class="face back" id="faceBack">
+              <div class="pane" id="paneRegister">
+                <h1 class="neon-title" data-i18n="auth.signup_t"></h1>
+                <p class="neon-sub" data-i18n="auth.signup_sub"></p>
+                <form id="registerForm" novalidate>
+                  <div class="field nf"><input class="input" id="rName" name="full_name" autocomplete="name" required minlength="3" placeholder=" " data-hint="hint.full_name">
+                    <label for="rName" data-i18n="field.full_name"></label></div>
+                  <div class="field nf"><input class="input" type="email" id="rEmail" name="email" autocomplete="email" required placeholder=" " data-hint="hint.email">
+                    <label for="rEmail" data-i18n="field.email"></label></div>
+                  <div class="field nf"><input class="input" type="tel" id="rPhone" name="phone" autocomplete="tel" required placeholder=" " data-hint="hint.phone">
+                    <label for="rPhone" data-i18n="field.phone"></label></div>
+                  <div class="field nf"><div class="pw-wrap"><input class="input" type="password" id="rPassword" name="password" autocomplete="new-password" required minlength="12" maxlength="128" placeholder=" ">
+                    <label for="rPassword" data-i18n="field.password"></label><button type="button" class="pw-eye" data-pw="rPassword"></button></div>
+                    <div class="meter" aria-hidden="true"><i id="pwMeter"></i></div><div class="hint show" id="pwHint" data-i18n="auth.pw_hint"></div></div>
+                  <label class="check neon-check"><input type="checkbox" name="accept_terms" id="rTerms"><span data-i18n-html="auth.terms"></span></label>
+                  <button class="btn btn-block neon-btn" type="submit" data-i18n="auth.create"></button>
+                </form>
+                <p class="neon-switch"><span data-i18n="auth.have_account"></span><br><button type="button" class="linkbtn" data-goto="login" data-i18n="nav.login"></button></p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="demo-box neon-demo hidden" id="demoBox">
+      <b data-i18n="auth.demo"></b> <span data-i18n="auth.demo_pw"></span> <code>CarRent-2026</code>
+      <div class="demo-grid">
+        <button class="btn btn-sm" data-demo="jasur@carrent.uz" data-i18n="auth.demo_owner"></button>
+        <button class="btn btn-sm" data-demo="+998903334455" data-i18n="auth.demo_renter"></button>
+        <button class="btn btn-sm" data-demo="admin@carrent.uz" data-i18n="auth.demo_admin"></button>
+      </div>
+    </div>
+  </section>
+</main>
+<script src="/js/app.js"></script>
+<script src="/js/pages/auth.js"></script>
+</body>
+</html>

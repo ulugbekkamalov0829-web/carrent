@@ -1,0 +1,22 @@
+# Render.com Blueprint — "New > Blueprint" orqali shu repozitoriyni tanlang
+services:
+  - type: web
+    name: carrent
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: APP_ENV
+        value: production
+      - key: SEED_DEMO
+        value: "true"
+      - key: DEMO_MODE
+        value: "true"
+      # Bepul rejada disk vaqtinchalik: qayta ishga tushganda baza demo holatiga qaytadi.
+      # Doimiy saqlash uchun pullik rejada disk ulang:
+      # disk:
+      #   name: data
+      #   mountPath: /data
+      #   sizeGB: 1

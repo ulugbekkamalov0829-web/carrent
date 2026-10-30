@@ -38,6 +38,8 @@ BOOKING_SELECT = """
 def maintain(db) -> None:
     """Fon vazifa o'rnida (har o'qishda arzon): yakunlangan ijaralar va muddati o'tgan so'rovlar."""
     complete_finished_bookings(db)
+    from .payments import maintain_payments
+    maintain_payments(db)
     expired = rows(db.execute(
         f"""SELECT b.id, b.renter_id, c.brand, c.model, c.year FROM bookings b JOIN cars c ON c.id = b.car_id
             WHERE b.status = 'pending' AND (b.created_at < datetime('now', '-{PENDING_HOLD_HOURS} hours') OR b.start_date < ?)""",
@@ -223,10 +225,22 @@ async def cancel(request: Request):
                 raise HTTPException(400, tr("Ijara boshlangan — bekor qilish uchun egasi bilan bog'laning"))
             db.execute("UPDATE bookings SET status='cancelled', updated_at=datetime('now') WHERE id = ?", (bid,))
             from .payments import refund_for_booking
-            refund_for_booking(db, b)   # onlayn to'langan bo'lsa, pul qaytariladi
+            refund = refund_for_booking(db, b)   # onlayn to'langan bo'lsa, siyosat bo'yicha qaytariladi
             notify(db, b["owner_id"], "booking_cancelled", "/dashboard.html?mode=owner#bookings",
                    name=b["renter_name"], car=car_title(b), start=b["start_date"], end=b["end_date"])
-        return ok(_load(db, bid))
+        return ok({**_load(db, bid), "refund": refund})
+
+
+@require()
+async def cancel_preview_endpoint(request: Request):
+    """Bekor qilishdan oldin: qancha qaytariladi va nega (siyosat qoidasi)."""
+    bid = path_int(request)
+    with get_db() as db:
+        b = _load(db, bid)
+        if b["renter_id"] != request.state.user["id"]:
+            raise HTTPException(403, tr("Bu bron sizga tegishli emas"))
+        from .payments import cancel_preview
+        return ok(cancel_preview(db, b))
 
 
 routes = [
@@ -237,4 +251,5 @@ routes = [
     Route("/api/bookings/{id:int}/approve", approve, methods=["POST"]),
     Route("/api/bookings/{id:int}/reject", reject, methods=["POST"]),
     Route("/api/bookings/{id:int}/cancel", cancel, methods=["POST"]),
+    Route("/api/bookings/{id:int}/cancel-preview", cancel_preview_endpoint, methods=["GET"]),
 ]

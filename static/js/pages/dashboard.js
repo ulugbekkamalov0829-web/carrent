@@ -29,7 +29,8 @@
     view.onclick = null;
     view.innerHTML = `<div class="skeleton" style="height:240px"></div>`;
     const fn = { overview: mode() === "owner" ? ownerOverview : renterOverview, bookings: mode() === "owner" ? ownerBookings : renterBookings,
-      favorites, cars: ownerCars, calendar: ownerCalendar, reviews: ownerReviews, earnings: ownerEarnings, notifications }[tab];
+      favorites, cars: ownerCars, calendar: ownerCalendar, reviews: ownerReviews, earnings: ownerEarnings, notifications,
+      payments: renterPayments, analytics: () => { head("rep.title", mode() === "owner" ? "rep.sub_owner" : "rep.sub_renter"); return Reports.render(view, mode()); } }[tab];
     fn().catch((e) => (view.innerHTML = `<div class="empty card">${esc(e.message)}</div>`));
   }
   window.addEventListener("hashchange", route);
@@ -68,6 +69,33 @@
     view.innerHTML = filterBar(filter) + (items.length ? `<div class="card">${items.map((b) => bookingRow(b, false)).join("")}</div>`
       : `<div class="empty card"><h3>${esc(t("dash.no_bookings"))}</h3><p>${esc(t("dash.no_bookings_hint"))}</p><a class="btn" href="/cars.html">${esc(t("nav.cars"))}</a></div>`);
     bindBookingActions(renterBookings);
+  }
+
+  async function renterPayments() {
+    head("dash.my_payments", "mypay.sub");
+    const d = await api("/api/my/payments");
+    const provName = (k) => (k === "test" ? t("pay.test_name") : k === "click" ? "Click" : "Payme");
+    view.innerHTML = `<div class="stats">
+        ${stat(t("mypay.paid"), money(d.paid_total), esc(t("mypay.paid_sub")))}
+        ${stat(t("mypay.refunded"), money(d.refunded_total), esc(t("mypay.refunded_sub")))}
+        ${stat(t("mypay.waiting"), money(d.refund_waiting), esc(t("mypay.waiting_sub")))}
+      </div>
+      <div class="two-col wide-left">
+        <div class="card"><div class="card-pad" style="padding-bottom:0"><h3>${esc(t("mypay.history"))}</h3></div>
+          ${d.items.length ? `<div class="table-wrap"><table class="table responsive"><thead><tr><th>№</th><th>${esc(t("col.car"))}</th><th>${esc(t("col.dates"))}</th>
+            <th>${esc(t("pay.method"))}</th><th>${esc(t("pay.amount"))}</th><th>${esc(t("col.status"))}</th><th></th></tr></thead><tbody>
+            ${d.items.map((p) => `<tr><td data-label="№">${p.id}</td><td data-label="${esc(t("col.car"))}"><a href="/car.html?id=${p.car_id}">${esc(p.brand)} ${esc(p.model)} ${p.year}</a></td>
+              <td data-label="${esc(t("col.dates"))}" class="small">${fmtDate(p.start_date)} → ${fmtDate(p.end_date)}</td>
+              <td data-label="${esc(t("pay.method"))}">${esc(provName(p.provider))}</td>
+              <td data-label="${esc(t("pay.amount"))}"><b>${money(p.amount)}</b>${p.refund_amount ? `<div class="small" style="color:var(--success-ink)">↩ ${money(p.refund_amount)}</div>` : ""}</td>
+              <td data-label="${esc(t("col.status"))}">${payStatusTag(p.status)}</td>
+              <td>${["paid", "refunded", "refund_pending"].includes(p.status) ? `<a class="btn btn-sm btn-outline" href="/receipt.html?payment=${p.id}">${icon("receipt", 16)} ${esc(t("pay.receipt"))}</a>` : ""}</td></tr>`).join("")}
+            </tbody></table></div>` : `<div class="empty">${esc(t("mypay.empty"))}</div>`}</div>
+        <div class="card card-pad"><h3>${icon("shield", 18)} ${esc(t("policy.title"))}</h3>
+          ${policyList(d.policy)}
+          <p class="small muted" style="margin-top:10px">${esc(t("policy.on_site"))}</p>
+          <p class="small muted">${esc(t("policy.real_providers"))}</p></div>
+      </div>`;
   }
 
   async function favorites() {
@@ -208,27 +236,80 @@
   async function ownerEarnings() {
     head("dash.earnings", "earn.sub");
     const e = await api("/api/my/earnings");
+    const pending = e.requests.find((r) => r.status === "pending");
+    const reqTag = (st) => `<span class="tag ${st === "paid" ? "tag-ok" : st === "pending" ? "tag-pending" : st === "rejected" ? "tag-bad" : "tag-hidden"}">${esc(t("payreq.st_" + st))}</span>`;
+    const method = (r) => r.method === "card" ? `${t("payreq.m_card")} •••• ${r.card_last4}` : t("payreq.m_" + r.method);
     view.innerHTML = `<div class="stats">
-        ${stat(t("earn.online"), money(e.earned_online), esc(t("earn.online_sub")))}
+        ${stat(t("earn.online"), money(e.earned_online), esc(e.compensation ? t("earn.online_sub_comp", { sum: money(e.compensation) }) : t("earn.online_sub")))}
         ${stat(t("earn.paid_out"), money(e.paid_out), esc(t("earn.paid_out_sub")))}
-        ${stat(t("earn.balance"), money(e.balance), esc(t("earn.balance_sub")))}
+        ${stat(t("payreq.available"), money(e.available), esc(e.requested ? t("payreq.available_sub_req", { sum: money(e.requested) }) : t("earn.balance_sub")))}
         ${stat(t("earn.on_site"), money(e.on_site), esc(t("earn.on_site_sub")))}
+      </div>
+      <div class="two-col" style="margin-bottom:18px">
+        <form class="card card-pad" id="payReqForm" novalidate><h3>${icon("wallet", 18)} ${esc(t("payreq.title"))}</h3>
+          ${pending ? `<div class="notice info">${esc(t("payreq.pending_note", { sum: money(pending.amount), d: fmtDate(pending.created_at) }))}</div>
+              <button type="button" class="btn btn-outline btn-sm" style="margin-top:10px" data-cancel-req="${pending.id}">${esc(t("payreq.cancel"))}</button>`
+          : e.available > 0 ? `<p class="small muted">${esc(t("payreq.sub"))}</p>
+            <div class="field"><label for="prA">${esc(t("pay.amount"))}</label>
+              <input class="input" type="number" id="prA" name="amount" min="1" max="${e.available}" value="${e.available}" required data-hint="payreq.amount_hint">
+              <div class="row" style="gap:6px;margin-top:6px">${[0.25, 0.5, 1].map((k) => `<button type="button" class="btn btn-sm btn-soft" data-part="${Math.floor(e.available * k)}">${k === 1 ? esc(t("common.all")) : k * 100 + "%"}</button>`).join("")}</div></div>
+            <div class="field"><label>${esc(t("payreq.method"))}</label><div class="seg" id="prM" role="radiogroup">
+              ${["card", "bank", "cash"].map((m, i) => `<button type="button" role="radio" data-m="${m}" class="${i ? "" : "on"}" aria-checked="${!i}">${esc(t("payreq.m_" + m))}</button>`).join("")}</div></div>
+            <div class="field" id="prCardF"><label for="prC">${esc(t("payreq.card_last4"))}</label>
+              <input class="input" id="prC" name="card_last4" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="1234" data-hint="payreq.card_hint"></div>
+            <div class="field"><label for="prN">${esc(t("block.note"))} <span class="muted small">(${esc(t("common.optional"))})</span></label>
+              <input class="input" id="prN" name="note" maxlength="300" placeholder="${esc(t("payreq.note_ph"))}"></div>
+            <button class="btn btn-block">${esc(t("payreq.send"))}</button>
+            <p class="small muted" style="margin:10px 0 0">${icon("lock", 14)} ${esc(t("payreq.privacy"))}</p>`
+          : `<p class="muted">${esc(t("payreq.nothing"))}</p>`}
+        </form>
+        <div class="card card-pad"><h3>${esc(t("payreq.history"))}</h3>
+          ${e.requests.length ? e.requests.map((r) => `<div class="sum-row" style="align-items:flex-start"><span><b>${money(r.amount)}</b>
+              <span class="small muted"> · ${esc(method(r))} · ${fmtDate(r.created_at)}</span>
+              ${r.admin_note ? `<div class="small muted">${esc(t("payreq.admin_note"))}: ${esc(r.admin_note)}</div>` : ""}</span>${reqTag(r.status)}</div>`).join("")
+            : `<p class="muted small">${esc(t("payreq.none"))}</p>`}</div>
       </div>
       <div class="notice info" style="margin-bottom:16px">${esc(t("earn.note"))}</div>
       <div class="two-col">
         <div class="card"><div class="card-pad" style="padding-bottom:0"><h3>${esc(t("earn.payments"))}</h3></div>
           ${e.payments.length ? `<div class="table-wrap"><table class="table responsive"><thead><tr><th>${esc(t("col.car"))}</th><th>${esc(t("col.dates"))}</th>
             <th>${esc(t("pay.method"))}</th><th>${esc(t("col.status"))}</th><th>${esc(t("booking.yours"))}</th></tr></thead><tbody>
-            ${e.payments.map((p) => `<tr><td data-label="${esc(t("col.car"))}">${esc(p.brand)} ${esc(p.model)} ${p.year}</td>
+            ${e.payments.map((p) => { const cancelled = p.booking_status === "cancelled"; const yours = cancelled ? p.kept_payout : p.owner_payout;
+              return `<tr><td data-label="${esc(t("col.car"))}">${esc(p.brand)} ${esc(p.model)} ${p.year}</td>
               <td data-label="${esc(t("col.dates"))}" class="small">${fmtDate(p.start_date)} → ${fmtDate(p.end_date)}</td>
               <td data-label="${esc(t("pay.method"))}">${esc(p.provider === "test" ? t("pay.test_name") : p.provider === "click" ? "Click" : "Payme")}</td>
-              <td data-label="${esc(t("col.status"))}"><span class="tag ${p.status === "paid" ? "tag-ok" : "tag-pending"}">${esc(t("pay.st_" + p.status))}</span></td>
-              <td data-label="${esc(t("booking.yours"))}"><b>${money(p.owner_payout)}</b></td></tr>`).join("")}</tbody></table></div>`
+              <td data-label="${esc(t("col.status"))}">${cancelled ? `<span class="tag tag-hidden">${esc(t("earn.cancelled_comp"))}</span>` : payStatusTag(p.status)}</td>
+              <td data-label="${esc(t("booking.yours"))}"><b>${money(yours)}</b></td></tr>`; }).join("")}</tbody></table></div>`
             : `<div class="empty">${esc(t("earn.no_payments"))}</div>`}</div>
         <div class="card card-pad"><h3>${esc(t("earn.payouts"))}</h3>
           ${e.payouts.length ? e.payouts.map((x) => `<div class="sum-row"><span>${fmtDate(x.created_at)}${x.note ? ` <span class="muted small">· ${esc(x.note)}</span>` : ""}</span><b>${money(x.amount)}</b></div>`).join("")
             : `<p class="muted small">${esc(t("earn.no_payouts"))}</p>`}</div>
       </div>`;
+    applyHints(view);
+    let methodSel = "card";
+    $$("#prM [data-m]", view).forEach((b) => b.addEventListener("click", () => {
+      methodSel = b.dataset.m;
+      $$("#prM [data-m]", view).forEach((x) => { x.classList.toggle("on", x === b); x.setAttribute("aria-checked", String(x === b)); });
+      $("#prCardF").classList.toggle("hidden", methodSel !== "card");
+    }));
+    $("#prC")?.addEventListener("input", (ev) => { ev.target.value = ev.target.value.replace(/\D/g, "").slice(0, 4); });
+    view.onclick = async (ev) => {
+      const part = ev.target.closest("[data-part]"), cancel = ev.target.closest("[data-cancel-req]");
+      if (part) $("#prA").value = part.dataset.part;
+      if (cancel && await confirmBox(t("payreq.cancel_confirm"), t("common.yes"))) {
+        try { await api(`/api/my/payout-requests/${cancel.dataset.cancelReq}/cancel`, { method: "POST" }); toast(t("common.done"), "ok"); ownerEarnings(); }
+        catch (err) { toast(err.message, "error"); }
+      }
+    };
+    $("#payReqForm").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      if (!$("#prA")) return;
+      const body = { amount: +$("#prA").value, method: methodSel, card_last4: methodSel === "card" ? $("#prC").value.trim() || null : null, note: $("#prN").value.trim() || null };
+      await withLoading($("button.btn-block", ev.target), async () => {
+        try { await api("/api/my/payout-requests", { method: "POST", body }); toast(t("payreq.sent"), "ok"); ownerEarnings(); }
+        catch (err) { showFieldErrors(ev.target, err); toast(err.message, "error"); }
+      });
+    });
   }
 
   async function ownerReviews() {
@@ -257,8 +338,7 @@
       `<a class="btn btn-sm ${k === active ? "" : "btn-outline"}" href="?status=${k}#bookings">${esc(k ? t("status." + k) : t("common.all"))}</a>`).join("")}</div>`;
   }
 
-  const payTag = (b) => b.payment_status && b.payment_status !== "on_site"
-    ? `<span class="tag ${b.payment_status === "paid" ? "tag-ok" : "tag-pending"}">${esc(t("pay.st_" + b.payment_status))}</span>` : "";
+  const payTag = (b) => b.payment_status && b.payment_status !== "on_site" ? payStatusTag(b.payment_status) : "";
 
   function bookingRow(b, owner) {
     const today = isoDate(new Date());
@@ -300,9 +380,17 @@
     view.onclick = async (e) => {
       const act = e.target.closest("[data-act]"), rev = e.target.closest("[data-review]"), pay = e.target.closest("[data-pay]");
       if (act) {
-        if (!(await confirmBox(t("booking.confirm_" + act.dataset.act), t("common.yes"), act.dataset.act !== "approve"))) return;
-        try { await api(`/api/bookings/${act.dataset.id}/${act.dataset.act}`, { method: "POST" }); toast(t("booking.done_" + act.dataset.act), "ok"); reload(); }
-        catch (err) { toast(err.message, "error"); }
+        let text = t("booking.confirm_" + act.dataset.act);
+        if (act.dataset.act === "cancel") {
+          const pv = await api(`/api/bookings/${act.dataset.id}/cancel-preview`).catch(() => null);
+          if (pv?.paid) text += "\n\n" + (pv.refund === pv.amount ? t("policy.preview_full", { sum: money(pv.refund) })
+            : t("policy.preview_part", { pct: pv.pct, sum: money(pv.refund), kept: money(pv.kept), n: pv.days_before }));
+        }
+        if (!(await confirmBox(text, t("common.yes"), act.dataset.act !== "approve"))) return;
+        try {
+          const r = await api(`/api/bookings/${act.dataset.id}/${act.dataset.act}`, { method: "POST" });
+          toast(r.refund?.refund ? t("policy.refund_done", { sum: money(r.refund.refund) }) : t("booking.done_" + act.dataset.act), "ok"); reload();
+        } catch (err) { toast(err.message, "error"); }
       }
       if (rev) reviewModal(rev.dataset.review, rev.dataset.title, rev.dataset.owner === "1", reload);
       if (pay) payModal(+pay.dataset.pay, +pay.dataset.total);

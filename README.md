@@ -37,6 +37,20 @@ CarRent — O‘zbekiston uchun avtomobil ijarasi veb-platformasi. Bitta akkaunt
 | Chat, bildirishnomalar, sharhlar, sevimlilar, tavsiyalar | ✅ |
 | Kabinetlar va admin | ✅ Daromad, to‘lovlar, balans, shikoyatlar, audit jurnali |
 
+## 🆕 3-versiyada qo‘shilganlar
+
+| Modul | Nima qiladi |
+|---|---|
+| 🧭 **Maslahatchi** (`/advisor.html`) | 4 qadamli savolnoma: maqsad (shahar, oila, uzoq safar, tog‘, biznes, to‘y, yuk), yo‘lovchilar va yuk, byudjet/shahar/sana, ustuvorliklar (tejamkorlik, qulaylik, xavfsizlik, nufuz, arzonlik), uzatma, haydovchi tajribasi, kerakli qulayliklar. Natija: har bir mashinaga **moslik foizi**, “nega mos” (✓) va “nimaga e’tibor bering” (⚑) sabablari, “Eng mos / Eng arzon / Eng tejamkor” belgilari, sanalar berilsa jami narx, maqsadga oid maslahatlar. Mos mashina bo‘lmasa shartlar bosqichma-bosqich yumshatiladi va bu ochiq aytiladi. Model qoidaviy va shaffof — pullik ko‘tarish yo‘q |
+| 📊 **Hisobotlar** (owner, ijarachi, admin) | Davr tanlash (7 kun, bu oy, o‘tgan oy, 30 kun, 3 oy, bu yil, ixtiyoriy), **o‘tgan teng davr bilan solishtirish** (▲/▼ %), oddiy tildagi **xulosalar** (“daromad 39% oshdi”, “Camry 83 kun bo‘sh turdi — narxni ko‘rib chiqing”, “1 ta so‘rov javob kutmoqda”), har bir ko‘rsatkich ostida “bu nima degani” izohi, grafik, jadvallar (avtomobillar, shaharlar, kuzov turlari, top ownerlar, to‘lov usullari, so‘rovlar voronkasi), **Excel (CSV)** va **chop etish / PDF** |
+| 💳 **Bekor qilish siyosati** | Ijaragacha 3+ kun — 100%, 1–2 kun — 50% qaytariladi. Bekor qilishdan oldin aniq summa ko‘rsatiladi. Qolgan qism komissiya foizi bo‘yicha bo‘linadi: owner bo‘sh qolgan kunlar uchun kompensatsiya oladi. `qaytarilgan + komissiya + owner ulushi = to‘langan summa` test bilan tekshirilgan |
+| 💳 **To‘lovlarim** (ijarachi) | Barcha to‘lovlar, qaytarishlar, kvitansiyalar va siyosat bir sahifada; kvitansiyada qaytarilgan va yakuniy summa |
+| 💳 **Pul yechish so‘rovi** (owner → admin) | Owner summani va usulni (karta, bank, naqd) tanlab so‘rov yuboradi; admin “O‘tkazildi” yoki sabab bilan “Rad etish”. Bir vaqtda bitta so‘rov, balansdan oshmaydi. **To‘liq karta raqami saqlanmaydi** — faqat oxirgi 4 raqam |
+| 💳 **To‘lov ishonchliligi** | 30 daqiqada tugallanmagan urinishlar avtomatik yopiladi; bron bekor bo‘lsa ochiq urinishlar ham yopiladi. Payme: bitta buyurtmada bitta faol tranzaksiya, kutish paytida bekor qilingan bron uchun pul yechilmaydi, ijara o‘tgach bekor qilib bo‘lmaydi (-31007), `ChangePassword` qo‘llab-quvvatlanadi. **Tuzatilgan xato:** Payme xato javobida undan oldingi holat o‘zgarishi (masalan, vaqti o‘tgan tranzaksiyani yopish) bekor bo‘lib ketardi |
+| 🎨 **Kirish / ro‘yxat oynasi** | Chap surat paneli neon forma bilan bir rang tizimiga keltirildi (to‘q dengiz ko‘ki + feruza duotone), logo, sarlavha, sharh kartasi va belgilash katagi ham shu uslubda |
+
+Testlar: **78 ta** (yangi: to‘lov siyosati va so‘rovlar — 11, maslahatchi va hisobotlar — 10).
+
 ## ⏳ Haqiqiy kalit kerak bo‘lganlar (ishlayotgandek ko‘rsatilmaydi)
 
 | Funksiya | Nima kerak | Kalitsiz holat |
@@ -60,7 +74,7 @@ CarRent — O‘zbekiston uchun avtomobil ijarasi veb-platformasi. Bitta akkaunt
 | Autentifikatsiya | JWT, `httpOnly; SameSite=Lax` cookie; parol — scrypt |
 | Rasmlar | Pillow: qayta kodlash, EXIF/GPS o‘chirish, 1600 px gacha kichraytirish |
 | Frontend | HTML + CSS + Vanilla JS (build talab qilmaydi), i18n JSON fayllar |
-| Testlar | pytest (53 ta) + Playwright brauzer sinovi (asosiy oqimlar) |
+| Testlar | pytest (78 ta) + Playwright brauzer sinovi (asosiy oqimlar) |
 
 ### Arxitektura
 

@@ -33,3 +33,20 @@ function statusBars(b) {
   return `<div class="hbars">${Object.keys(colors).map((k) => `<div class="hb"><span>${esc(t("status." + k))}</span>
     <div class="track"><div class="fill" style="width:${(b[k] / total) * 100}%;background:${colors[k]}"></div></div><b>${b[k]}</b></div>`).join("")}</div>`;
 }
+
+/** To'lov holati yorlig'i — kabinet, admin va kvitansiyada bir xil rang */
+function payStatusTag(st) {
+  const cls = st === "paid" || st === "refunded" ? "tag-ok" : ["refund_pending", "pending", "created"].includes(st) ? "tag-pending" : st === "failed" ? "tag-bad" : "tag-hidden";
+  return `<span class="tag ${cls}">${esc(t("pay.st_" + st))}</span>`;
+}
+
+/** Bekor qilish siyosati: "3+ kun oldin — 100%" ko'rinishidagi ro'yxat (qoidalar serverdan keladi) */
+function policyList(policy = [{ min_days: 3, pct: 100 }, { min_days: 1, pct: 50 }]) {
+  const rows = policy.map((r, i) => {
+    const next = policy[i - 1];
+    const when = next ? t("policy.range", { a: r.min_days, b: next.min_days - 1 }) : t("policy.from", { n: r.min_days });
+    return `<div class="policy-row"><span>${esc(when)}</span><b class="${r.pct === 100 ? "ok" : "mid"}">${r.pct}%</b></div>`;
+  });
+  rows.push(`<div class="policy-row"><span>${esc(t("policy.started"))}</span><b class="no">${esc(t("policy.contact_owner"))}</b></div>`);
+  return `<div class="policy">${rows.join("")}</div>`;
+}

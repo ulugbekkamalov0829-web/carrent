@@ -203,7 +203,7 @@ T = {
     "terms.days_range": ("{a}–{b} kun", "{a}–{b} дн.", "{a}–{b} days"), "terms.km": ("Kunlik masofa", "Пробег в день", "Daily mileage"),
     "terms.unlimited": ("Cheklanmagan", "Без ограничений", "Unlimited"), "terms.delivery": ("Yetkazib berish", "Доставка", "Delivery"),
     "terms.no_delivery": ("Mavjud emas", "Нет", "Not available"), "terms.cancel": ("Bekor qilish", "Отмена", "Cancellation"),
-    "terms.cancel_rule": ("Ijara boshlanguncha bepul", "Бесплатно до начала аренды", "Free until the rental starts"),
+    "terms.cancel_rule": ("3+ kun oldin — 100%, 1–2 kun oldin — 50% qaytariladi", "За 3+ дня — возврат 100%, за 1–2 дня — 50%", "3+ days before — 100% refund, 1–2 days — 50%"),
     "terms.payment": ("To'lov", "Оплата", "Payment"), "terms.on_site": ("Joyida, olishda", "На месте, при получении", "On site, at pick-up"),
     "owner.cars_n": ("{n} ta e'lon", "объявлений: {n}", "{n} listings"), "owner.trips_n": ("{n} ta ijara", "аренд: {n}", "{n} rentals"),
     "owner.since": ("{d} dan beri a'zo", "на сайте с {d}", "member since {d}"),
@@ -507,9 +507,11 @@ T = {
 def build() -> None:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from scripts.locales_extra import T2
-    dup = set(T) & set(T2)
+    from scripts.locales_v3 import T3
+    dup = (set(T) & set(T2)) | (set(T) & set(T3)) | (set(T2) & set(T3))
     assert not dup, f"takroriy kalitlar: {sorted(dup)}"
     T.update(T2)
+    T.update(T3)
     OUT.mkdir(parents=True, exist_ok=True)
     for i, lang in enumerate(("uz", "ru", "en")):
         data = {k: (uz_typo(v[0]) if lang == "uz" else v[i]) for k, v in sorted(T.items())}

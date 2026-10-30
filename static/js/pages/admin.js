@@ -13,7 +13,7 @@
     $("#viewSub").textContent = "";
     view.onclick = null;
     view.innerHTML = `<div class="skeleton" style="height:240px"></div>`;
-    ({ stats, users, cars, bookings, payments, reports, reviews, finance, audit })[tab]().catch((e) => (view.innerHTML = `<div class="empty card">${esc(e.message)}</div>`));
+    ({ stats, users, cars, bookings, payments, reports, reviews, finance, audit, analytics: () => Reports.render(view, "admin") })[tab]().catch((e) => (view.innerHTML = `<div class="empty card">${esc(e.message)}</div>`));
   }
   window.addEventListener("hashchange", route);
   document.addEventListener("langchange", route);
@@ -125,8 +125,25 @@
   }
 
   async function finance() {
-    const [s, cfg] = await Promise.all([api("/api/admin/stats"), api("/api/admin/settings")]);
-    view.innerHTML = `<div class="stats">
+    const [s, cfg, rq] = await Promise.all([api("/api/admin/stats"), api("/api/admin/settings"), api("/api/admin/payout-requests")]);
+    const pend = rq.items.filter((r) => r.status === "pending");
+    const method = (r) => r.method === "card" ? `${t("payreq.m_card")} •••• ${esc(r.card_last4)}` : esc(t("payreq.m_" + r.method));
+    const reqTag = (st) => `<span class="tag ${st === "paid" ? "tag-ok" : st === "pending" ? "tag-pending" : st === "rejected" ? "tag-bad" : "tag-hidden"}">${esc(t("payreq.st_" + st))}</span>`;
+    view.innerHTML = `<div class="card" style="margin-bottom:18px"><div class="card-pad" style="padding-bottom:0">
+        <h3>${icon("wallet", 18)} ${esc(t("payreq.admin_title"))} ${pend.length ? `<span class="tag tag-pending">${pend.length}</span>` : ""}</h3>
+        <p class="small muted">${esc(t("payreq.admin_sub"))}</p></div>
+        ${rq.items.length ? `<div class="table-wrap"><table class="table responsive"><thead><tr><th>${esc(t("col.owner"))}</th><th>${esc(t("pay.amount"))}</th>
+          <th>${esc(t("payreq.method"))}</th><th>${esc(t("col.time"))}</th><th>${esc(t("col.status"))}</th><th></th></tr></thead><tbody>
+          ${rq.items.map((r) => `<tr><td data-label="${esc(t("col.owner"))}"><b>${esc(r.full_name)}</b><div class="small muted">${esc(r.phone || r.email)}</div></td>
+            <td data-label="${esc(t("pay.amount"))}"><b>${money(r.amount)}</b>${r.balance !== undefined ? `<div class="small muted">${esc(t("earn.balance"))}: ${money(r.balance)}</div>` : ""}</td>
+            <td data-label="${esc(t("payreq.method"))}">${method(r)}${r.note ? `<div class="small muted">${esc(r.note)}</div>` : ""}</td>
+            <td data-label="${esc(t("col.time"))}" class="small">${fmtDate(r.created_at)}</td>
+            <td data-label="${esc(t("col.status"))}">${reqTag(r.status)}${r.admin_note ? `<div class="small muted">${esc(r.admin_note)}</div>` : ""}</td>
+            <td>${r.status === "pending" ? `<div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn btn-sm btn-ok" data-req-ok="${r.id}" data-sum="${r.amount}" data-name="${esc(r.full_name)}">✓ ${esc(t("payreq.approve"))}</button>
+              <button class="btn btn-sm btn-danger" data-req-no="${r.id}">${esc(t("payreq.reject"))}</button>
+              <a class="btn btn-sm btn-outline" href="/messages.html?user=${r.owner_id}" title="${esc(t("nav.messages"))}" aria-label="${esc(t("nav.messages"))}">${icon("chat", 16)}</a></div>` : ""}</td></tr>`).join("")}
+          </tbody></table></div>` : `<div class="empty">${esc(t("payreq.admin_empty"))}</div>`}</div>
+      <div class="stats">
         ${stat(t("admin.gmv"), money(s.revenue_total), esc(t("admin.gmv_sub")))}
         ${stat(t("admin.commission_income"), money(s.commission_total), "")}
         ${stat(t("admin.owner_share"), money(s.revenue_total - s.commission_total), "")}
@@ -145,6 +162,19 @@
       try { await api("/api/admin/settings", { method: "PUT", body: { commission_percent: Number($("#pct").value) } }); toast(t("common.saved"), "ok"); finance(); }
       catch (err) { toast(err.message, "error"); }
     });
+    view.onclick = async (e) => {
+      const okB = e.target.closest("[data-req-ok]"), noB = e.target.closest("[data-req-no]");
+      try {
+        if (okB && await confirmBox(t("payreq.approve_confirm", { sum: money(okB.dataset.sum), name: okB.dataset.name }), t("payreq.approve"))) {
+          await api(`/api/admin/payout-requests/${okB.dataset.reqOk}/approve`, { method: "POST", body: {} }); toast(t("common.done"), "ok"); finance();
+        }
+        if (noB) {
+          const note = prompt(t("payreq.reject_reason"));
+          if (note === null) return;
+          await api(`/api/admin/payout-requests/${noB.dataset.reqNo}/reject`, { method: "POST", body: { note: note.trim() } }); toast(t("common.done"), "ok"); finance();
+        }
+      } catch (err) { toast(err.message, "error"); }
+    };
   }
 
   async function payments() {
@@ -165,8 +195,8 @@
         <th>${esc(t("pay.method"))}</th><th>${esc(t("pay.amount"))}</th><th>${esc(t("col.status"))}</th><th>${esc(t("col.time"))}</th><th></th></tr></thead><tbody>
         ${d.items.map((p) => `<tr><td data-label="#">${p.id}</td><td data-label="${esc(t("col.car"))}">${esc(p.brand)} ${esc(p.model)}</td>
           <td data-label="${esc(t("booking.renter"))}">${esc(p.renter_name)}</td><td data-label="${esc(t("pay.method"))}">${esc(provName(p.provider))}</td>
-          <td data-label="${esc(t("pay.amount"))}">${money(p.amount)}</td>
-          <td data-label="${esc(t("col.status"))}"><span class="tag ${p.status === "paid" ? "tag-ok" : ["refund_pending", "pending", "created"].includes(p.status) ? "tag-pending" : "tag-hidden"}">${esc(t("pay.st_" + p.status))}</span></td>
+          <td data-label="${esc(t("pay.amount"))}">${money(p.amount)}${p.refund_amount ? `<div class="small" style="color:var(--success-ink)">↩ ${money(p.refund_amount)}</div>` : ""}</td>
+          <td data-label="${esc(t("col.status"))}">${payStatusTag(p.status)}</td>
           <td data-label="${esc(t("col.time"))}" class="small">${esc(p.paid_at || p.created_at)}</td>
           <td>${p.status === "refund_pending" ? `<button class="btn btn-sm btn-outline" data-refunded="${p.id}">${esc(t("admin.mark_refunded"))}</button>` : `<a class="btn btn-sm btn-outline" href="/receipt.html?payment=${p.id}">${esc(t("pay.receipt"))}</a>`}</td></tr>`).join("")}
       </tbody></table>${d.items.length ? "" : `<div class="empty">${esc(t("admin.no_payments"))}</div>`}</div>`;

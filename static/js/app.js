@@ -180,7 +180,7 @@ function toast(msg, type = "") {
 function confirmBox(text, okText, danger = false) {
   return new Promise((resolve) => {
     const bg = document.createElement("div"); bg.className = "modal-bg";
-    bg.innerHTML = `<div class="modal card card-pad" role="dialog" aria-modal="true"><p style="margin-top:0">${esc(text)}</p>
+    bg.innerHTML = `<div class="modal card card-pad" role="dialog" aria-modal="true"><p style="margin-top:0;white-space:pre-line">${esc(text)}</p>
       <div class="row" style="justify-content:flex-end"><button class="btn btn-outline" data-v="0">${esc(t("common.cancel"))}</button>
       <button class="btn ${danger ? "btn-danger" : ""}" data-v="1">${esc(okText || t("common.yes"))}</button></div></div>`;
     bg.addEventListener("click", (e) => { const v = e.target.dataset.v; if (v !== undefined || e.target === bg) { bg.remove(); resolve(v === "1"); } });
@@ -283,18 +283,24 @@ const ICON_PATHS = {
   eye: "M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
   eyeoff: "M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.6 0 3-.4 4.3-1M9.9 9.9a3 3 0 0 0 4.2 4.2",
   arrowl: "M15 5l-7 7 7 7", arrowr: "M9 5l7 7-7 7",
+  spark: "M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18",
+  download: "M12 4v11M7 10l5 5 5-5M5 20h14",
+  print: "M7 9V3h10v6M7 17H4v-7h16v7h-3M7 14h10v7H7z",
+  bulb: "M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z",
 };
 const icon = (name, size = 20) => `<svg class="ico" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICON_PATHS[name] || ""}"/></svg>`;
 
 /** Kabinet bo'limlari — chap panel va kabinet sahifasi bitta ro'yxatdan foydalanadi */
 const CABINET = {
-  renter: [["overview", "nav.tab_overview", "grid"], ["bookings", "dash.my_bookings", "list"], ["favorites", "dash.favorites", "heart"]],
+  renter: [["overview", "nav.tab_overview", "grid"], ["bookings", "dash.my_bookings", "list"], ["payments", "dash.my_payments", "card"],
+           ["favorites", "dash.favorites", "heart"], ["analytics", "rep.title", "chart"]],
   owner: [["overview", "dash.owner_overview", "grid"], ["cars", "dash.my_cars", "car"], ["bookings", "dash.requests", "list"],
-          ["calendar", "dash.calendar", "calendar"], ["earnings", "dash.earnings", "wallet"], ["reviews", "dash.reviews", "star"]],
+          ["calendar", "dash.calendar", "calendar"], ["earnings", "dash.earnings", "wallet"], ["analytics", "rep.title", "chart"],
+          ["reviews", "dash.reviews", "star"]],
 };
-const ADMIN_TABS = [["stats", "admin.dashboard", "chart"], ["users", "admin.users", "users"], ["cars", "admin.cars", "car"],
-  ["bookings", "admin.bookings", "list"], ["payments", "admin.payments", "card"], ["reports", "admin.reports", "flag"],
-  ["reviews", "admin.reviews", "star"], ["finance", "admin.finance", "wallet"], ["audit", "admin.audit", "log"]];
+const ADMIN_TABS = [["stats", "admin.dashboard", "grid"], ["analytics", "rep.title", "chart"], ["users", "admin.users", "users"], ["cars", "admin.cars", "car"],
+  ["bookings", "admin.bookings", "list"], ["payments", "admin.payments", "card"], ["finance", "admin.finance", "wallet"],
+  ["reports", "admin.reports", "flag"], ["reviews", "admin.reviews", "star"], ["audit", "admin.audit", "log"]];
 
 const Nav = { active: "", poller: null, bare: false, summary: {} };
 
@@ -347,7 +353,8 @@ function renderNavInner() {
   const side = $("#side");
   side.setAttribute("aria-label", t("nav.menu"));
   let nav = `<div class="side-label">${esc(t("nav.section_main"))}</div>`
-    + sideLink("/", "nav.home", "home") + sideLink("/cars.html", "nav.cars", "search") + sideLink("/info.html", "nav.info", "info");
+    + sideLink("/", "nav.home", "home") + sideLink("/cars.html", "nav.cars", "search")
+    + (admin ? "" : sideLink("/advisor.html", "nav.advisor", "spark")) + sideLink("/info.html", "nav.info", "info");
   if (u && admin) {
     nav += `<div class="side-label">${esc(t("nav.admin"))}</div>` + ADMIN_TABS.map(([k, key, ico]) => sideLink(`/admin.html#${k}`, key, ico, { badge: k === "reports" ? "repBadge" : "" })).join("");
   } else if (u) {

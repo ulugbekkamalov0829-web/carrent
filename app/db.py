@@ -214,6 +214,10 @@ CREATE TABLE IF NOT EXISTS payments (
     created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
     paid_at         TEXT,
     cancelled_at    TEXT,
+    -- Bekor qilish siyosati: qancha qaytariladi va qolgan qism kimga tegishli (komissiya / owner)
+    refund_amount   INTEGER NOT NULL DEFAULT 0,
+    kept_commission INTEGER NOT NULL DEFAULT 0,
+    kept_payout     INTEGER NOT NULL DEFAULT 0,
     UNIQUE (provider, provider_txn_id)
 );
 CREATE INDEX IF NOT EXISTS ix_payments_booking ON payments(booking_id, status);
@@ -227,6 +231,24 @@ CREATE TABLE IF NOT EXISTS payouts (
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TEXT    NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Owner'ning pul yechish so'rovlari: owner so'raydi, admin o'tkazib tasdiqlaydi yoki sababini yozib rad etadi.
+-- Karta raqami to'liq saqlanmaydi (faqat oxirgi 4 raqam) — maxfiy moliyaviy ma'lumot bazaga tushmaydi.
+CREATE TABLE IF NOT EXISTS payout_requests (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    amount       INTEGER NOT NULL CHECK (amount > 0),
+    method       TEXT    NOT NULL CHECK (method IN ('card', 'bank', 'cash')),
+    card_last4   TEXT    CHECK (card_last4 IS NULL OR length(card_last4) = 4),
+    note         TEXT,
+    status       TEXT    NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'rejected', 'cancelled')),
+    admin_note   TEXT,
+    payout_id    INTEGER REFERENCES payouts(id) ON DELETE SET NULL,
+    processed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    processed_at TEXT,
+    created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS ix_payout_req ON payout_requests(owner_id, status);
 
 -- Shikoyatlar: e'lon, sharh, foydalanuvchi yoki xabar ustidan
 CREATE TABLE IF NOT EXISTS reports (
@@ -284,6 +306,8 @@ MIGRATIONS = {
         "deleted_at": "TEXT",
     },
     "car_images": {"label": "TEXT NOT NULL DEFAULT 'other'"},
+    "payments": {"refund_amount": "INTEGER NOT NULL DEFAULT 0", "kept_commission": "INTEGER NOT NULL DEFAULT 0",
+                 "kept_payout": "INTEGER NOT NULL DEFAULT 0"},
 }
 
 

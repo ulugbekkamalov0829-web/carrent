@@ -145,3 +145,31 @@ CATALOG: dict[str, tuple[str, str]] = {
     "Shikoyat obyekti topilmadi": ("Объект жалобы не найден", "Report target not found"),
     "Siz bu haqda allaqachon shikoyat yuborgansiz": ("Вы уже отправили жалобу на это", "You've already reported this"),
 }
+
+
+# ---- v3: bekor qilish siyosati, pul yechish so'rovlari, maslahatchi, hisobotlar ----
+CATALOG.update({
+    "Karta raqamining oxirgi 4 raqamini kiriting": ("Введите последние 4 цифры карты", "Enter the last 4 digits of the card"),
+    "Ikkala sanani ham tanlang yoki ikkalasini ham bo'sh qoldiring": ("Выберите обе даты или оставьте обе пустыми", "Pick both dates or leave both empty"),
+    "Noma'lum qulaylik": ("Неизвестная опция", "Unknown feature"),
+    "Bron topilmadi": ("Бронь не найдена", "Booking not found"),
+    "Bu bron sizga tegishli emas": ("Эта бронь вам не принадлежит", "This booking isn't yours"),
+    "Summa mavjud balansdan katta: {n}": ("Сумма больше доступного баланса: {n}", "Amount exceeds the available balance: {n}"),
+    "Sizda ko'rib chiqilayotgan so'rov bor. Avval u yakunlansin": ("У вас уже есть заявка на рассмотрении. Дождитесь её решения", "You already have a request under review. Please wait for it to be processed"),
+    "So'rov topilmadi": ("Заявка не найдена", "Request not found"),
+    "Bu so'rov allaqachon ko'rib chiqilgan": ("Эта заявка уже обработана", "This request has already been processed"),
+    "Rad etish sababini yozing": ("Укажите причину отказа", "Please give a reason for rejecting"),
+    "Davr 366 kundan oshmasligi kerak": ("Период не должен превышать 366 дней", "The period can't exceed 366 days"),
+    "Hisobot turi noto'g'ri": ("Неверный тип отчёта", "Invalid report type"),
+})
+
+CATALOG.update({  # CSV ustunlari va holatlar
+    "Bron №": ("Бронь №", "Booking #"), "Boshlanish": ("Начало", "Start"), "Tugash": ("Окончание", "End"), "Kunlar": ("Дней", "Days"),
+    "Avtomobil": ("Автомобиль", "Car"), "Shahar": ("Город", "City"), "Holat": ("Статус", "Status"), "To'lov": ("Оплата", "Payment"),
+    "Kunlik narx": ("Цена в день", "Daily price"), "Yetkazib berish": ("Доставка", "Delivery"), "Jami": ("Итого", "Total"),
+    "Qaytarilgan": ("Возвращено", "Refunded"), "Komissiya": ("Комиссия", "Commission"), "Owner ulushi": ("Доля владельца", "Owner share"),
+    "Ijarachi": ("Арендатор", "Renter"), "Owner": ("Владелец", "Owner"),
+    "Kutilmoqda": ("Ожидает", "Pending"), "Tasdiqlangan": ("Подтверждена", "Approved"), "Yakunlangan": ("Завершена", "Completed"),
+    "Rad etilgan": ("Отклонена", "Rejected"), "Bekor qilingan": ("Отменена", "Cancelled"), "Joyida": ("На месте", "On site"),
+    "Onlayn to'langan": ("Оплачено онлайн", "Paid online"), "Qaytarish kutilmoqda": ("Ожидает возврата", "Refund pending"),
+})

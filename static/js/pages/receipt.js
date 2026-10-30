@@ -26,6 +26,8 @@
         ${p.provider_txn_id ? `<div class="sum-row"><span class="muted">${esc(t("pay.txn"))}</span><span class="mono">${esc(p.provider_txn_id)}</span></div>` : ""}
         <hr class="dash">
         <div class="sum-row total"><span>${esc(t("pay.amount"))}</span><span>${money(p.amount)}</span></div>
+        ${p.refund_amount ? `<div class="sum-row" style="color:var(--success-ink)"><span>${esc(t(p.status === "refund_pending" ? "pay.refund_waiting" : "pay.refunded_sum"))}</span><b>− ${money(p.refund_amount)}</b></div>
+          <div class="sum-row sub"><span>${esc(t("pay.net_paid"))}</span><span>${money(p.amount - p.refund_amount)}</span></div>` : ""}
         ${p.deposit ? `<div class="sum-row sub"><span>${esc(t("book.deposit"))}</span><span>${esc(t("pay.deposit_on_site", { d: money(p.deposit) }))}</span></div>` : ""}
       </article>
       <div class="row no-print" style="justify-content:center;margin-top:14px"><button class="btn btn-outline" id="printBtn">${icon("receipt", 18)} ${esc(t("pay.print"))}</button>

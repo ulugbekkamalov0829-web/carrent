@@ -3,6 +3,9 @@
 Oqim: owner bronni tasdiqlaydi -> ijarachi "Onlayn to'lash"ni tanlaydi -> provayder sahifasi -> provayder bizga xabar beradi
 -> bron "to'langan" bo'ladi. Depozit har doim joyida (qaytariladigan summa, onlayn olinmaydi).
 Har bir pul summasi butun so'mda; Payme tiyinda ishlaydi (so'm × 100).
+
+Bekor qilish siyosati (REFUND_RULES): ijara boshlanishiga 3+ kun qolganda 100%, 1–2 kun qolganda 50% qaytariladi.
+Qaytarilmagan qism ham komissiya foizi bo'yicha bo'linadi: owner o'z ulushini oladi (bo'sh qolgan kunlar uchun kompensatsiya).
 """
 import base64
 import sqlite3
@@ -19,11 +22,48 @@ from starlette.routing import Route
 from ..config import settings
 from ..db import get_db, one, rows, transaction
 from ..i18n import tr
-from ..schemas import PaymentIn, PayoutIn
+from ..schemas import PaymentIn, PayoutDecisionIn, PayoutIn, PayoutRequestIn
 from ..security import require
-from ..utils import audit, car_title, notify, ok, parse_body, path_int, today
+from ..utils import audit, bps_split, car_title, notify, ok, parse_body, path_int, today
 
 PAYME_TIMEOUT_MS = 12 * 3600 * 1000
+CHECKOUT_TTL_MIN = 30          # yaratilgan, lekin to'lov sahifasiga o'tilmagan urinish shuncha daqiqadan keyin yopiladi
+CLICK_PENDING_TTL_MIN = 60     # Click "prepare"dan keyin "complete" kelmasa
+# (ijara boshlanishiga kamida necha kun qolgan, qaytariladigan foiz) — kattadan kichikka
+REFUND_RULES = ((3, 100), (1, 50))
+
+
+def refund_percent(start_date: str, on=None) -> tuple[int, int]:
+    """(qaytariladigan foiz, boshlanishgacha qolgan kunlar)."""
+    from datetime import date
+    days_before = (date.fromisoformat(start_date) - (on or today())).days
+    for min_days, pct in REFUND_RULES:
+        if days_before >= min_days:
+            return pct, days_before
+    return 0, days_before
+
+
+def cancel_preview(db, booking: dict) -> dict:
+    """Bekor qilinsa nima bo'lishi: ijarachi tasdiqlashdan oldin aniq summani ko'radi."""
+    p = one(db.execute("SELECT * FROM payments WHERE booking_id = ? AND status = 'paid'", (booking["id"],)))
+    pct, days_before = refund_percent(booking["start_date"])
+    if not p:
+        return {"paid": False, "amount": 0, "refund": 0, "kept": 0, "pct": 100, "days_before": days_before}
+    refund = p["amount"] * pct // 100
+    return {"paid": True, "amount": p["amount"], "refund": refund, "kept": p["amount"] - refund, "pct": pct,
+            "days_before": days_before, "provider": p["provider"]}
+
+
+def maintain_payments(db) -> None:
+    """Arzon fon vazifasi: eskirgan urinishlarni yopadi (bron sahifasini ochganda ham, to'lovda ham chaqiriladi)."""
+    db.execute(f"""UPDATE payments SET status = 'cancelled', cancelled_at = datetime('now')
+                   WHERE status = 'created' AND created_at < datetime('now', '-{CHECKOUT_TTL_MIN} minutes')""")
+    db.execute(f"""UPDATE payments SET status = 'cancelled', cancelled_at = datetime('now')
+                   WHERE status = 'pending' AND provider = 'click' AND created_at < datetime('now', '-{CLICK_PENDING_TTL_MIN} minutes')""")
+    # Bron endi tasdiqlangan holatda emas (bekor, rad, yakunlangan) — ochiq urinishlar ham yopiladi (Payme o'z vaqtida yopadi)
+    db.execute("""UPDATE payments SET status = 'cancelled', cancelled_at = datetime('now')
+                  WHERE status IN ('created', 'pending') AND provider != 'payme'
+                  AND booking_id IN (SELECT id FROM bookings WHERE status != 'approved')""")
 
 
 def providers() -> dict:
@@ -31,7 +71,7 @@ def providers() -> dict:
 
 
 async def list_providers(request: Request):
-    return ok(providers())
+    return ok({**providers(), "policy": [{"min_days": d, "pct": p} for d, p in REFUND_RULES]})
 
 
 def _booking_for_payment(db, booking_id: int) -> dict:
@@ -61,6 +101,7 @@ async def create_payment(request: Request):
     if not providers().get(data.provider):
         raise HTTPException(400, tr("Bu to'lov usuli hozircha ulanmagan"))
     with get_db() as db:
+        maintain_payments(db)
         with transaction(db, immediate=True):
             b = _booking_for_payment(db, data.booking_id)
             if b["renter_id"] != user["id"]:
@@ -119,17 +160,29 @@ def mark_paid(db, payment: dict, txn_id: str | None = None) -> None:
     notify(db, b["owner_id"], "payment_paid_owner", "/dashboard.html?mode=owner#earnings", car=car_title(b), total=b["owner_payout"])
 
 
-def refund_for_booking(db, booking: dict) -> str | None:
-    """Bron bekor qilinganda chaqiriladi. Test to'lov darhol qaytariladi; real provayderda admin tasdiqlashi kerak."""
-    p = one(db.execute("SELECT * FROM payments WHERE booking_id = ? AND status = 'paid'", (booking["id"],)))
-    if not p:
+def refund_for_booking(db, booking: dict) -> dict | None:
+    """Bron bekor qilinganda chaqiriladi. Qaytariladigan summa REFUND_RULES bo'yicha.
+    Test to'lov darhol qaytariladi; Click/Payme'da admin pulni qaytarib, tizimda belgilaydi."""
+    pv = cancel_preview(db, booking)
+    if not pv["paid"]:
         return None
-    status = "refunded" if p["provider"] == "test" else "refund_pending"
-    db.execute("UPDATE payments SET status = ?, cancelled_at = datetime('now') WHERE id = ?", (status, p["id"]))
+    p = one(db.execute("SELECT * FROM payments WHERE booking_id = ? AND status = 'paid'", (booking["id"],)))
+    kept_commission, kept_payout = bps_split(pv["kept"], booking["commission_bps"])
+    if pv["refund"] == 0:
+        status = "paid"          # pul qaytarilmaydi: to'lov kuchda qoladi, owner kompensatsiya oladi
+    else:
+        status = "refunded" if p["provider"] == "test" else "refund_pending"
+    db.execute("UPDATE payments SET status = ?, refund_amount = ?, kept_commission = ?, kept_payout = ?, "
+               "cancelled_at = CASE WHEN ? != 'paid' THEN datetime('now') ELSE cancelled_at END WHERE id = ?",
+               (status, pv["refund"], kept_commission, kept_payout, status, p["id"]))
     db.execute("UPDATE bookings SET payment_status = ? WHERE id = ?", (status, booking["id"]))
-    notify(db, p["user_id"], "payment_refunded" if status == "refunded" else "payment_refund_pending",
-           f"/receipt.html?payment={p['id']}", total=p["amount"])
-    return status
+    if pv["refund"]:
+        notify(db, p["user_id"], "payment_refunded" if status == "refunded" else "payment_refund_pending",
+               f"/receipt.html?payment={p['id']}", total=pv["refund"])
+    if kept_payout:
+        notify(db, booking["owner_id"], "cancel_compensation", "/dashboard.html?mode=owner#earnings",
+               car=car_title(booking), total=kept_payout)
+    return {**pv, "status": status}
 
 
 # ---------------- Test provayder (faqat dev/demo) ----------------
@@ -230,15 +283,21 @@ def _payme_ms() -> int:
     return int(time.time() * 1000)
 
 
-def _payme_auth_ok(request: Request) -> bool:
+def _payme_key(db) -> str:
+    """Payme kassasi kalitni ChangePassword orqali almashtirishi mumkin: yangisi bazada saqlanadi va .env'dagidan ustun."""
+    from ..db import get_setting
+    return get_setting(db, "payme_key", "") or settings.PAYME_KEY
+
+
+def _payme_auth_ok(request: Request, key_expected: str) -> bool:
     auth = request.headers.get("authorization", "")
-    if not auth.startswith("Basic "):
+    if not auth.startswith("Basic ") or not key_expected:
         return False
     try:
         login, _, key = base64.b64decode(auth[6:]).decode().partition(":")
     except Exception:
         return False
-    return login == "Paycom" and hmac.compare_digest(key, settings.PAYME_KEY)
+    return login == "Paycom" and hmac.compare_digest(key.encode(), key_expected.encode())
 
 
 def _payme_order(db, account: dict, amount_tiyin: int) -> dict:
@@ -265,7 +324,9 @@ def _payme_txn(p: dict) -> dict:
 
 def payme_dispatch(db, method: str, params: dict) -> dict:
     if method == "CheckPerformTransaction":
-        _payme_order(db, params.get("account"), int(params.get("amount", 0)))
+        p = _payme_order(db, params.get("account"), int(params.get("amount", 0)))
+        if p["status"] == "pending" and p["provider_txn_id"]:
+            raise PaymeError(-31050, "Order has an active transaction", "order_id")   # bir buyurtma — bitta faol tranzaksiya
         return {"allow": True}
     if method == "CreateTransaction":
         txn_id = str(params.get("id", ""))
@@ -303,6 +364,12 @@ def payme_dispatch(db, method: str, params: dict) -> dict:
                 db.execute("UPDATE payments SET provider_state = -1, reason = 4, status = 'cancelled', cancelled_at = datetime('now') "
                            "WHERE id = ?", (p["id"],))
                 raise PaymeError(-31008, "Transaction timed out")
+            b = _booking_for_payment(db, p["booking_id"])
+            if b["status"] != "approved" or b["payment_status"] == "paid":
+                # Ijarachi kutish paytida bronni bekor qildi yoki boshqa usulda to'ladi: pul yechilmaydi
+                db.execute("UPDATE payments SET provider_state = -1, reason = 3, status = 'cancelled', cancelled_at = datetime('now') "
+                           "WHERE id = ?", (p["id"],))
+                raise PaymeError(-31008, "Order is no longer available")
             db.execute("UPDATE payments SET provider_state = 2 WHERE id = ?", (p["id"],))
             mark_paid(db, p)
             paid_at = db.execute("SELECT paid_at FROM payments WHERE id = ?", (p["id"],)).fetchone()[0]
@@ -312,10 +379,16 @@ def payme_dispatch(db, method: str, params: dict) -> dict:
         if p["provider_state"] in (-1, -2):
             return {"transaction": str(p["id"]), "cancel_time": p["cancel_ms"], "state": p["provider_state"]}
         new_state = -1 if p["provider_state"] == 1 else -2
-        db.execute("UPDATE payments SET provider_state = ?, reason = ?, status = ?, cancelled_at = datetime('now') WHERE id = ?",
-                   (new_state, reason, "cancelled" if new_state == -1 else "refunded", p["id"]))
+        if new_state == -2:
+            b = _booking_for_payment(db, p["booking_id"])
+            if b["status"] == "completed":
+                raise PaymeError(-31007, "Unable to cancel: service already provided")   # ijara o'tib bo'lgan
+        db.execute("UPDATE payments SET provider_state = ?, reason = ?, status = ?, cancelled_at = datetime('now'), "
+                   "refund_amount = CASE WHEN ? = -2 THEN amount ELSE refund_amount END, kept_commission = 0, kept_payout = 0 WHERE id = ?",
+                   (new_state, reason, "cancelled" if new_state == -1 else "refunded", new_state, p["id"]))
         if new_state == -2:
             db.execute("UPDATE bookings SET payment_status = 'refunded' WHERE id = ?", (p["booking_id"],))
+            notify(db, p["user_id"], "payment_refunded", f"/receipt.html?payment={p['id']}", total=p["amount"])
         return {"transaction": str(p["id"]), "cancel_time": _payme_ms(), "state": new_state}
     if method == "GetStatement":
         items = rows(db.execute("SELECT * FROM payments WHERE provider = 'payme' AND provider_time BETWEEN ? AND ? ORDER BY provider_time",
@@ -327,6 +400,13 @@ def payme_dispatch(db, method: str, params: dict) -> dict:
             out.append({"id": p["provider_txn_id"], "time": p["provider_time"], "amount": p["amount"] * 100,
                         "account": {"order_id": str(p["id"])}, **_payme_txn(p)})
         return {"transactions": out}
+    if method == "ChangePassword":
+        new = str(params.get("password", ""))
+        if len(new) < 8:
+            raise PaymeError(-32600, "Invalid password")
+        db.execute("INSERT INTO settings (key, value) VALUES ('payme_key', ?) "
+                   "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')", (new,))
+        return {"success": True}
     raise PaymeError(-32601, "Method not found")
 
 
@@ -345,17 +425,23 @@ async def payme_rpc(request: Request):
     except Exception:
         return JSONResponse({"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Parse error"}})
     rid = body.get("id") if isinstance(body, dict) else None
-    if not _payme_auth_ok(request):
+    with get_db() as db:
+        key = _payme_key(db)
+    if not _payme_auth_ok(request, key):
         return JSONResponse({"jsonrpc": "2.0", "id": rid, "error": {"code": -32504, "message": "Insufficient privileges"}})
-    try:
-        with get_db() as db, transaction(db, immediate=True):
-            result = payme_dispatch(db, str(body.get("method", "")), body.get("params") or {})
+    # PaymeError tranzaksiyani bekor qilmaydi: xatodan oldingi holat o'zgarishi (masalan, vaqti o'tgan
+    # tranzaksiyani "bekor" deb belgilash) saqlanib qolishi kerak — aks holda Payme keyingi so'rovda eski holatni ko'radi.
+    with get_db() as db, transaction(db, immediate=True):
+        try:
+            result, error = payme_dispatch(db, str(body.get("method", "")), body.get("params") or {}), None
+        except PaymeError as e:
+            result, error = None, e
+    if error is None:
         return JSONResponse({"jsonrpc": "2.0", "id": rid, "result": result})
-    except PaymeError as e:
-        err = {"code": e.code, "message": {"uz": e.msg, "ru": e.msg, "en": e.msg}}
-        if e.data:
-            err["data"] = e.data
-        return JSONResponse({"jsonrpc": "2.0", "id": rid, "error": err})
+    err = {"code": error.code, "message": {"uz": error.msg, "ru": error.msg, "en": error.msg}}
+    if error.data:
+        err["data"] = error.data
+    return JSONResponse({"jsonrpc": "2.0", "id": rid, "error": err})
 
 
 # ---------------- Owner daromadi va admin moliya ----------------
@@ -363,11 +449,18 @@ def owner_balance(db, owner_id: int) -> dict:
     earned = db.execute(
         "SELECT COALESCE(SUM(b.owner_payout), 0) FROM bookings b JOIN cars c ON c.id = b.car_id "
         "WHERE c.owner_id = ? AND b.payment_status = 'paid' AND b.status IN ('approved', 'completed')", (owner_id,)).fetchone()[0]
+    compensation = db.execute(
+        "SELECT COALESCE(SUM(p.kept_payout), 0) FROM payments p JOIN bookings b ON b.id = p.booking_id JOIN cars c ON c.id = b.car_id "
+        "WHERE c.owner_id = ? AND b.status = 'cancelled' AND p.status IN ('paid', 'refunded', 'refund_pending')", (owner_id,)).fetchone()[0]
+    earned += compensation
+    requested = db.execute("SELECT COALESCE(SUM(amount), 0) FROM payout_requests WHERE owner_id = ? AND status = 'pending'",
+                           (owner_id,)).fetchone()[0]
     on_site = db.execute(
         "SELECT COALESCE(SUM(b.owner_payout), 0) FROM bookings b JOIN cars c ON c.id = b.car_id "
         "WHERE c.owner_id = ? AND b.payment_status = 'on_site' AND b.status IN ('approved', 'completed')", (owner_id,)).fetchone()[0]
     paid_out = db.execute("SELECT COALESCE(SUM(amount), 0) FROM payouts WHERE owner_id = ?", (owner_id,)).fetchone()[0]
-    return {"earned_online": earned, "on_site": on_site, "paid_out": paid_out, "balance": earned - paid_out}
+    return {"earned_online": earned, "compensation": compensation, "on_site": on_site, "paid_out": paid_out,
+            "balance": earned - paid_out, "requested": requested, "available": max(0, earned - paid_out - requested)}
 
 
 @require()
@@ -376,8 +469,10 @@ async def my_earnings(request: Request):
     with get_db() as db:
         bal = owner_balance(db, uid)
         bal["payouts"] = rows(db.execute("SELECT amount, note, created_at FROM payouts WHERE owner_id = ? ORDER BY id DESC LIMIT 50", (uid,)))
+        bal["requests"] = rows(db.execute("SELECT * FROM payout_requests WHERE owner_id = ? ORDER BY id DESC LIMIT 30", (uid,)))
         bal["payments"] = rows(db.execute(
-            """SELECT p.id, p.provider, p.status, p.paid_at, b.owner_payout, b.start_date, b.end_date, c.brand, c.model, c.year
+            """SELECT p.id, p.provider, p.status, p.paid_at, p.refund_amount, p.kept_payout, b.status AS booking_status,
+                      b.owner_payout, b.start_date, b.end_date, c.brand, c.model, c.year
                FROM payments p JOIN bookings b ON b.id = p.booking_id JOIN cars c ON c.id = b.car_id
                WHERE c.owner_id = ? AND p.status IN ('paid', 'refunded', 'refund_pending') ORDER BY p.id DESC LIMIT 100""", (uid,)))
     return ok(bal)
@@ -401,10 +496,11 @@ async def admin_mark_refunded(request: Request):
         p = one(db.execute("SELECT * FROM payments WHERE id = ?", (pid,)))
         if not p or p["status"] != "refund_pending":
             raise HTTPException(400, tr("Bu to'lov qaytarish kutilayotgan holatda emas"))
-        db.execute("UPDATE payments SET status = 'refunded' WHERE id = ?", (pid,))
+        refund = p["refund_amount"] or p["amount"]
+        db.execute("UPDATE payments SET status = 'refunded', refund_amount = ? WHERE id = ?", (refund, pid))
         db.execute("UPDATE bookings SET payment_status = 'refunded' WHERE id = ?", (p["booking_id"],))
-        notify(db, p["user_id"], "payment_refunded", f"/receipt.html?payment={pid}", total=p["amount"])
-        audit(db, request, "payment_refunded", "payment", pid, amount=p["amount"])
+        notify(db, p["user_id"], "payment_refunded", f"/receipt.html?payment={pid}", total=refund)
+        audit(db, request, "payment_refunded", "payment", pid, amount=refund)
     return ok()
 
 
@@ -413,7 +509,7 @@ async def admin_payout(request: Request):
     data = await parse_body(request, PayoutIn)
     with get_db() as db:
         bal = owner_balance(db, data.owner_id)
-        if data.amount > bal["balance"]:
+        if data.amount > bal["available"]:
             raise HTTPException(400, tr("Summa owner balansidan katta"))
         db.execute("INSERT INTO payouts (owner_id, amount, note, created_by) VALUES (?, ?, ?, ?)",
                    (data.owner_id, data.amount, data.note, request.state.user["id"]))
@@ -422,8 +518,115 @@ async def admin_payout(request: Request):
         return ok(owner_balance(db, data.owner_id))
 
 
+# ---------------- Ijarachi: to'lovlar tarixi ----------------
+@require()
+async def my_payments(request: Request):
+    uid = request.state.user["id"]
+    with get_db() as db:
+        maintain_payments(db)
+        items = rows(db.execute(
+            """SELECT p.id, p.provider, p.status, p.amount, p.refund_amount, p.created_at, p.paid_at, p.cancelled_at,
+                      b.id AS booking_id, b.start_date, b.end_date, b.days, b.status AS booking_status, c.id AS car_id, c.brand, c.model, c.year
+               FROM payments p JOIN bookings b ON b.id = p.booking_id JOIN cars c ON c.id = b.car_id
+               WHERE p.user_id = ? AND p.status != 'created' ORDER BY p.id DESC LIMIT 200""", (uid,)))
+        paid = sum(i["amount"] for i in items if i["status"] in ("paid", "refunded", "refund_pending"))
+        refunded = sum(i["refund_amount"] for i in items if i["status"] == "refunded")
+        waiting = sum(i["refund_amount"] for i in items if i["status"] == "refund_pending")
+    return ok({"items": items, "paid_total": paid, "refunded_total": refunded, "refund_waiting": waiting,
+               "policy": [{"min_days": d, "pct": p} for d, p in REFUND_RULES]})
+
+
+# ---------------- Owner: pul yechish so'rovlari ----------------
+@require("user")
+async def create_payout_request(request: Request):
+    data = await parse_body(request, PayoutRequestIn)
+    uid = request.state.user["id"]
+    with get_db() as db:
+        with transaction(db, immediate=True):
+            if db.execute("SELECT 1 FROM payout_requests WHERE owner_id = ? AND status = 'pending'", (uid,)).fetchone():
+                raise HTTPException(409, tr("Sizda ko'rib chiqilayotgan so'rov bor. Avval u yakunlansin"))
+            bal = owner_balance(db, uid)
+            if data.amount > bal["available"]:
+                raise HTTPException(400, tr("Summa mavjud balansdan katta: {n}", n=f"{bal['available']:,}".replace(",", " ")))
+            cur = db.execute("INSERT INTO payout_requests (owner_id, amount, method, card_last4, note) VALUES (?, ?, ?, ?, ?)",
+                             (uid, data.amount, data.method, data.card_last4, data.note))
+            for (admin_id,) in db.execute("SELECT id FROM users WHERE role = 'admin' AND is_active = 1").fetchall():
+                notify(db, admin_id, "payout_requested", "/admin.html#finance", name=request.state.user["full_name"], total=data.amount)
+        return ok({"id": cur.lastrowid, **owner_balance(db, uid)}, 201)
+
+
+@require("user")
+async def cancel_payout_request(request: Request):
+    rid, uid = path_int(request), request.state.user["id"]
+    with get_db() as db:
+        n = db.execute("UPDATE payout_requests SET status = 'cancelled', processed_at = datetime('now') "
+                       "WHERE id = ? AND owner_id = ? AND status = 'pending'", (rid, uid)).rowcount
+        if not n:
+            raise HTTPException(404, tr("So'rov topilmadi"))
+        return ok(owner_balance(db, uid))
+
+
+@require("admin")
+async def admin_payout_requests(request: Request):
+    with get_db() as db:
+        items = rows(db.execute(
+            """SELECT r.*, u.full_name, u.email, u.phone FROM payout_requests r JOIN users u ON u.id = r.owner_id
+               ORDER BY (r.status = 'pending') DESC, r.id DESC LIMIT 200"""))
+        for it in items:
+            if it["status"] == "pending":
+                it["balance"] = owner_balance(db, it["owner_id"])["balance"]
+    return ok({"items": items})
+
+
+async def _decide(request: Request, approve: bool):
+    rid = path_int(request)
+    data = await parse_body(request, PayoutDecisionIn)
+    if not approve and not data.note:
+        raise HTTPException(400, tr("Rad etish sababini yozing"))
+    admin = request.state.user
+    with get_db() as db:
+        with transaction(db, immediate=True):
+            r = one(db.execute("SELECT * FROM payout_requests WHERE id = ?", (rid,)))
+            if not r:
+                raise HTTPException(404, tr("So'rov topilmadi"))
+            if r["status"] != "pending":
+                raise HTTPException(400, tr("Bu so'rov allaqachon ko'rib chiqilgan"))
+            if approve:
+                bal = owner_balance(db, r["owner_id"])
+                if r["amount"] > bal["balance"]:
+                    raise HTTPException(400, tr("Summa owner balansidan katta"))
+                note = data.note or ("**** " + r["card_last4"] if r["card_last4"] else r["method"])
+                cur = db.execute("INSERT INTO payouts (owner_id, amount, note, created_by) VALUES (?, ?, ?, ?)",
+                                 (r["owner_id"], r["amount"], note, admin["id"]))
+                db.execute("UPDATE payout_requests SET status = 'paid', payout_id = ?, admin_note = ?, processed_by = ?, "
+                           "processed_at = datetime('now') WHERE id = ?", (cur.lastrowid, data.note, admin["id"], rid))
+                notify(db, r["owner_id"], "payout_sent", "/dashboard.html?mode=owner#earnings", total=r["amount"])
+            else:
+                db.execute("UPDATE payout_requests SET status = 'rejected', admin_note = ?, processed_by = ?, "
+                           "processed_at = datetime('now') WHERE id = ?", (data.note, admin["id"], rid))
+                notify(db, r["owner_id"], "payout_rejected", "/dashboard.html?mode=owner#earnings", total=r["amount"], note=data.note)
+            audit(db, request, "payout_request_" + ("paid" if approve else "rejected"), "user", r["owner_id"], amount=r["amount"])
+    return ok()
+
+
+@require("admin")
+async def admin_approve_payout_request(request: Request):
+    return await _decide(request, True)
+
+
+@require("admin")
+async def admin_reject_payout_request(request: Request):
+    return await _decide(request, False)
+
+
 routes = [
     Route("/api/payments/providers", list_providers, methods=["GET"]),
+    Route("/api/my/payments", my_payments, methods=["GET"]),
+    Route("/api/my/payout-requests", create_payout_request, methods=["POST"]),
+    Route("/api/my/payout-requests/{id:int}/cancel", cancel_payout_request, methods=["POST"]),
+    Route("/api/admin/payout-requests", admin_payout_requests, methods=["GET"]),
+    Route("/api/admin/payout-requests/{id:int}/approve", admin_approve_payout_request, methods=["POST"]),
+    Route("/api/admin/payout-requests/{id:int}/reject", admin_reject_payout_request, methods=["POST"]),
     Route("/api/payments", create_payment, methods=["POST"]),
     Route("/api/payments/{id:int}", get_payment, methods=["GET"]),
     Route("/api/payments/{id:int}/test/confirm", test_confirm, methods=["POST"]),

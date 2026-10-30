@@ -244,6 +244,67 @@ class PayoutIn(Base):
     note: Optional[str] = Field(default=None, max_length=200)
 
 
+class PayoutRequestIn(Base):
+    """Owner pul yechish so'rovi. To'liq karta raqami qabul qilinmaydi — faqat oxirgi 4 raqam (tekshirish uchun)."""
+    amount: int = Field(gt=0, le=10_000_000_000)
+    method: Literal["card", "bank", "cash"]
+    card_last4: Optional[str] = Field(default=None, pattern=r"^[0-9]{4}$")
+    note: Optional[str] = Field(default=None, max_length=300)
+
+    @model_validator(mode="after")
+    def _card(self):
+        if self.method == "card" and not self.card_last4:
+            raise ValueError("Karta raqamining oxirgi 4 raqamini kiriting")
+        if self.method != "card":
+            self.card_last4 = None
+        return self
+
+
+class PayoutDecisionIn(Base):
+    note: Optional[str] = Field(default=None, max_length=300)
+
+
+AdvisorPurpose = Literal["city", "family", "trip", "mountain", "business", "event", "cargo"]
+AdvisorPriority = Literal["economy", "comfort", "safety", "prestige", "price"]
+
+
+class AdvisorIn(Base):
+    """Maslahatchi: ijarachi o'z xohishlarini kiritadi, tizim mos avtomobillarni sabablari bilan tavsiya qiladi."""
+    purpose: AdvisorPurpose = "city"
+    passengers: int = Field(default=2, ge=1, le=15)
+    luggage: Literal["none", "small", "medium", "large"] = "small"
+    budget_max: Optional[int] = Field(default=None, gt=0, le=100_000_000)
+    city: Optional[str] = Field(default=None, max_length=60)
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    transmission: Optional[Transmission] = None
+    experience: Literal["new", "normal"] = "normal"
+    priorities: list[AdvisorPriority] = Field(default_factory=list, max_length=3)
+    features: list[str] = Field(default_factory=list, max_length=8)
+    delivery: bool = False
+
+    @field_validator("features")
+    @classmethod
+    def _feats(cls, v):
+        bad = [f for f in v if f not in FEATURES]
+        if bad:
+            raise ValueError("Noma'lum qulaylik")
+        return list(dict.fromkeys(v))
+
+    @field_validator("priorities")
+    @classmethod
+    def _prio(cls, v):
+        return list(dict.fromkeys(v))
+
+    @model_validator(mode="after")
+    def _dates(self):
+        if bool(self.start_date) != bool(self.end_date):
+            raise ValueError("Ikkala sanani ham tanlang yoki ikkalasini ham bo'sh qoldiring")
+        if self.start_date and self.end_date < self.start_date:
+            raise ValueError("Tugash sanasi boshlanish sanasidan oldin bo'lmasligi kerak")
+        return self
+
+
 class AdminUserPatch(Base):
     is_active: bool
 

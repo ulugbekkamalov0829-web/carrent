@@ -36,6 +36,8 @@ def _message(err: dict) -> str:
     if t.startswith("date"):
         return tr("Sana noto'g'ri (YYYY-MM-DD)")
     if t == "string_pattern_mismatch":
+        if "card_last4" in (err.get("loc") or ()):
+            return tr("Karta raqamining oxirgi 4 raqamini kiriting")
         return tr("Kod 6 ta raqamdan iborat bo'lishi kerak")
     if t == "extra_forbidden":
         return tr("Ortiqcha maydon")

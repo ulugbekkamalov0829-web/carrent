@@ -1,9 +1,9 @@
-"""O'zbekiston hududlari va tumanlari: bitta manba — static/data/regions.json (sahifalar ham shu faylni o'qiydi)."""
+"""O'zbekiston hududlari va tumanlari: bitta manba — static/geo/regions.json (sahifalar ham shu faylni o'qiydi)."""
 import json
 from functools import lru_cache
 from pathlib import Path
 
-FILE = Path(__file__).resolve().parent.parent / "static" / "data" / "regions.json"
+FILE = Path(__file__).resolve().parent.parent / "static" / "geo" / "regions.json"
 
 
 @lru_cache(maxsize=1)

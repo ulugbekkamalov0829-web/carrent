@@ -1,0 +1,50 @@
+{
+  "_comment": "O'zbekiston hududlari va tumanlari (shaharlar ham). Kalit — bazada saqlanadigan nom; ru/en — ko'rsatish uchun.",
+  "regions": [
+    {"key": "Toshkent shahri", "ru": "г. Ташкент", "en": "Tashkent city", "districts": [
+      "Bektemir", "Chilonzor", "Mirobod", "Mirzo Ulug'bek", "Olmazor", "Sergeli", "Shayxontohur", "Uchtepa",
+      "Yakkasaroy", "Yangihayot", "Yashnobod", "Yunusobod"]},
+    {"key": "Toshkent viloyati", "ru": "Ташкентская обл.", "en": "Tashkent region", "districts": [
+      "Nurafshon shahri", "Olmaliq shahri", "Angren shahri", "Bekobod shahri", "Chirchiq shahri", "Ohangaron shahri", "Yangiyo'l shahri",
+      "Bekobod tumani", "Bo'ka", "Bo'stonliq", "Chinoz", "Qibray", "Ohangaron tumani", "Oqqo'rg'on", "Parkent", "Piskent",
+      "Quyichirchiq", "O'rtachirchiq", "Yangiyo'l tumani", "Yuqorichirchiq", "Zangiota", "Toshkent tumani"]},
+    {"key": "Andijon", "ru": "Андижанская обл.", "en": "Andijan region", "districts": [
+      "Andijon shahri", "Xonobod shahri", "Andijon tumani", "Asaka", "Baliqchi", "Bo'ston", "Buloqboshi", "Izboskan", "Jalaquduq",
+      "Xo'jaobod", "Qo'rg'ontepa", "Marhamat", "Oltinko'l", "Paxtaobod", "Shahrixon", "Ulug'nor"]},
+    {"key": "Buxoro", "ru": "Бухарская обл.", "en": "Bukhara region", "districts": [
+      "Buxoro shahri", "Kogon shahri", "Buxoro tumani", "Vobkent", "G'ijduvon", "Jondor", "Kogon tumani", "Olot", "Peshku",
+      "Qorako'l", "Qorovulbozor", "Romitan", "Shofirkon"]},
+    {"key": "Farg'ona", "ru": "Ферганская обл.", "en": "Fergana region", "districts": [
+      "Farg'ona shahri", "Marg'ilon shahri", "Qo'qon shahri", "Quvasoy shahri", "Bag'dod", "Beshariq", "Buvayda", "Dang'ara",
+      "Farg'ona tumani", "Furqat", "Qo'shtepa", "Quva", "Rishton", "So'x", "Toshloq", "Uchko'prik", "O'zbekiston", "Oltiariq", "Yozyovon"]},
+    {"key": "Jizzax", "ru": "Джизакская обл.", "en": "Jizzakh region", "districts": [
+      "Jizzax shahri", "Arnasoy", "Baxmal", "Do'stlik", "Forish", "G'allaorol", "Sharof Rashidov", "Mirzacho'l", "Paxtakor",
+      "Yangiobod", "Zomin", "Zafarobod", "Zarbdor"]},
+    {"key": "Xorazm", "ru": "Хорезмская обл.", "en": "Khorezm region", "districts": [
+      "Urganch shahri", "Xiva shahri", "Bog'ot", "Gurlan", "Xazorasp", "Xiva tumani", "Xonqa", "Qo'shko'pir", "Shovot",
+      "Urganch tumani", "Yangiariq", "Yangibozor", "Tuproqqal'a"]},
+    {"key": "Namangan", "ru": "Наманганская обл.", "en": "Namangan region", "districts": [
+      "Namangan shahri", "Chortoq", "Chust", "Davlatobod", "Kosonsoy", "Mingbuloq", "Namangan tumani", "Norin", "Pop",
+      "To'raqo'rg'on", "Uchqo'rg'on", "Uychi", "Yangiqo'rg'on"]},
+    {"key": "Navoiy", "ru": "Навоийская обл.", "en": "Navoi region", "districts": [
+      "Navoiy shahri", "Zarafshon shahri", "G'ozg'on shahri", "Karmana", "Konimex", "Qiziltepa", "Navbahor", "Nurota", "Tomdi",
+      "Uchquduq", "Xatirchi"]},
+    {"key": "Qashqadaryo", "ru": "Кашкадарьинская обл.", "en": "Kashkadarya region", "districts": [
+      "Qarshi shahri", "Shahrisabz shahri", "Chiroqchi", "Dehqonobod", "G'uzor", "Qamashi", "Qarshi tumani", "Kasbi", "Kitob",
+      "Koson", "Ko'kdala", "Mirishkor", "Muborak", "Nishon", "Shahrisabz tumani", "Yakkabog'"]},
+    {"key": "Qoraqalpog'iston", "ru": "Каракалпакстан", "en": "Karakalpakstan", "districts": [
+      "Nukus shahri", "Amudaryo", "Beruniy", "Bo'zatov", "Chimboy", "Ellikqal'a", "Kegeyli", "Mo'ynoq", "Nukus tumani",
+      "Qanliko'l", "Qo'ng'irot", "Qorao'zak", "Shumanay", "Taxiatosh", "Taxtako'pir", "To'rtko'l", "Xo'jayli"]},
+    {"key": "Samarqand", "ru": "Самаркандская обл.", "en": "Samarkand region", "districts": [
+      "Samarqand shahri", "Kattaqo'rg'on shahri", "Bulung'ur", "Ishtixon", "Jomboy", "Kattaqo'rg'on tumani", "Qo'shrabot",
+      "Narpay", "Nurobod", "Oqdaryo", "Paxtachi", "Payariq", "Pastdarg'om", "Samarqand tumani", "Toyloq", "Urgut"]},
+    {"key": "Sirdaryo", "ru": "Сырдарьинская обл.", "en": "Syrdarya region", "districts": [
+      "Guliston shahri", "Shirin shahri", "Yangiyer shahri", "Boyovut", "Guliston tumani", "Mirzaobod", "Oqoltin", "Sardoba",
+      "Sayxunobod", "Sirdaryo tumani", "Xovos"]},
+    {"key": "Surxondaryo", "ru": "Сурхандарьинская обл.", "en": "Surkhandarya region", "districts": [
+      "Termiz shahri", "Angor", "Bandixon", "Boysun", "Denov", "Jarqo'rg'on", "Qiziriq", "Qumqo'rg'on", "Muzrabot", "Oltinsoy",
+      "Sariosiyo", "Sherobod", "Sho'rchi", "Termiz tumani", "Uzun"]}
+  ],
+  "aliases": {"Toshkent": "Toshkent shahri", "Tashkent": "Toshkent shahri", "Fargona": "Farg'ona", "Qoraqalpogiston": "Qoraqalpog'iston",
+              "Nukus": "Qoraqalpog'iston"}
+}

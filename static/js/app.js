@@ -153,7 +153,7 @@ function applyMasks(root = document) {
 const Places = {
   data: null,
   async load() {
-    if (!this.data) this.data = await (await fetch("/data/regions.json")).json();
+    if (!this.data) this.data = await (await fetch("/geo/regions.json")).json();
     return this.data;
   },
   regionName(key) {

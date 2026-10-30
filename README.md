@@ -41,7 +41,7 @@ CarRent — O‘zbekiston uchun avtomobil ijarasi veb-platformasi. Bitta akkaunt
 
 | Modul | Nima qiladi |
 |---|---|
-| 🗺 **Viloyat + tuman** | 14 hudud va ularning tumanlari (`static/data/regions.json` — bitta fayl, server ham, sahifalar ham shuni o‘qiydi). Ro‘yxatdan o‘tishda, sozlamalarda, e’lon formasida, qidiruv filtrida va maslahatchida: viloyat tanlansa — faqat o‘sha viloyat tumanlari chiqadi. Server tumanning viloyatga tegishliligini tekshiradi. Eski yozuvlar (“Toshkent”) avtomatik “Toshkent shahri” ga o‘tkaziladi |
+| 🗺 **Viloyat + tuman** | 14 hudud va ularning tumanlari (`static/geo/regions.json` — bitta fayl, server ham, sahifalar ham shuni o‘qiydi). Ro‘yxatdan o‘tishda, sozlamalarda, e’lon formasida, qidiruv filtrida va maslahatchida: viloyat tanlansa — faqat o‘sha viloyat tumanlari chiqadi. Server tumanning viloyatga tegishliligini tekshiradi. Eski yozuvlar (“Toshkent”) avtomatik “Toshkent shahri” ga o‘tkaziladi |
 | ☎️ **Telefon shabloni** | Barcha telefon maydonlarida `+998 90 123 45 67` — bo‘shliqlar yozish paytida qo‘yiladi, `+998` o‘chmaydi; ko‘rsatishda ham shu ko‘rinish |
 | 💰 **Narx formatlash** | Barcha pul maydonlarida `600 000` (yozish paytida ham); serverga raqam bo‘lib boradi |
 | 🔎 **Marka/model takliflari** | Qidiruvda CarRent’dagi barcha mashinalar nomi (e’lonlar soni bilan); e’lon formasida markaga mos modellar |

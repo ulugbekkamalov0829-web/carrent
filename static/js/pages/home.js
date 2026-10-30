@@ -14,7 +14,16 @@
   });
 
   const [meta, reco, reviews] = await Promise.all([api("/api/meta"), api("/api/recommendations?limit=8"), api("/api/reviews/latest")]);
-  $("#city").insertAdjacentHTML("beforeend", meta.cities.map((c) => `<option value="${esc(c.city)}">${esc(c.city)}</option>`).join(""));
+  await Places.load();
+  const counts = Object.fromEntries(meta.cities.map((c) => [c.city, c.count]));
+  const drawCities = () => {
+    const v = $("#city").value;
+    $("#city").innerHTML = `<option value="">${esc(t("search.any_city"))}</option>` + Places.data.regions.map((r) =>
+      `<option value="${esc(r.key)}">${esc(Places.regionName(r.key))}${counts[r.key] ? ` (${counts[r.key]})` : ""}</option>`).join("");
+    $("#city").value = v;
+  };
+  drawCities();
+  document.addEventListener("langchange", drawCities);
 
   function draw() {
     $("#heroStats").innerHTML = `<span><b>${meta.cars_total}</b>${esc(t("home.stat_cars"))}</span><span><b>${meta.cities.length}</b>${esc(t("home.stat_cities"))}</span>
@@ -24,7 +33,7 @@
     $("#reco").innerHTML = reco.items.length ? reco.items.map((c) => carCard(c, { reason: !!user })).join("")
       : `<div class="empty card" style="grid-column:1/-1">${esc(t("cars.empty"))}</div>`;
     $("#regions").innerHTML = meta.cities.map((c) => `<a class="card region" href="/cars.html?city=${encodeURIComponent(c.city)}">
-      <b>${esc(c.city)}</b><span class="muted small">${esc(t("regions.count", { n: c.count }))}</span></a>`).join("");
+      <b>${esc(Places.regionName(c.city))}</b><span class="muted small">${esc(t("regions.count", { n: c.count }))}</span></a>`).join("");
     $("#testimonials").innerHTML = reviews.items.length ? reviews.items.slice(0, 3).map((r) => `<figure class="card quote" style="margin:0">
       <div class="stars">${stars(r.rating)}</div><p>“${esc(r.comment)}”</p>
       <figcaption class="row"><span class="avatar">${esc(initials(r.author))}</span><div><b>${esc(r.author)}</b>

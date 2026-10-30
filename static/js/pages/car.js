@@ -22,7 +22,7 @@
     const images = car.images.length ? car.images : [null];
     root.innerHTML = `
       ${hidden ? `<div class="notice" style="margin-bottom:16px">${esc(t(!car.is_approved ? "car.hidden_admin" : "car.hidden_owner"))}</div>` : ""}
-      <nav class="small muted" style="margin-bottom:10px" aria-label="breadcrumb"><a href="/cars.html">${esc(t("nav.cars"))}</a> › <a href="/cars.html?city=${encodeURIComponent(car.city)}">${esc(car.city)}</a> › ${esc(car.brand)}</nav>
+      <nav class="small muted" style="margin-bottom:10px" aria-label="breadcrumb"><a href="/cars.html">${esc(t("nav.cars"))}</a> › <a href="/cars.html?city=${encodeURIComponent(car.city)}">${esc(Places.regionName(car.city))}</a> › ${esc(car.brand)}</nav>
       <div class="detail">
         <div>
           <div class="gallery-main" id="mainImg">${carImage(car, images[imgIndex]?.path)}
@@ -35,7 +35,7 @@
           <h1 style="margin-top:8px">${esc(carName(car))} <span class="muted" style="font-weight:600">${esc(car.year)}</span></h1>
           <div class="row small">
             ${car.rating ? `<span class="stars">${stars(car.rating)}</span><b>${car.rating}</b><a href="#reviews">${esc(t("car.reviews_n", { n: car.reviews_count }))}</a>` : `<span class="muted">${esc(t("car.no_reviews"))}</span>`}
-            <span class="muted">· 📍 ${esc(car.city)}</span>
+            <span class="muted">· 📍 ${esc(Places.label(car.city, car.district))}</span>
           </div>
           <div class="specs">
             ${spec("spec.trans", t("trans." + car.transmission))}${spec("spec.fuel", t("fuel." + car.fuel))}${spec("spec.seats", car.seats)}
@@ -115,7 +115,7 @@
     if (!user) box.innerHTML = `<a class="btn btn-outline btn-block" href="/auth.html?next=${next}#login">${esc(t("owner.login_to_contact"))}</a>`;
     else if (car.is_mine) box.innerHTML = `<a class="btn btn-outline btn-block" href="/car-form.html?id=${car.id}">${esc(t("car.edit"))}</a>
       <div class="small muted">${esc(t("car.views_n", { n: car.views }))}</div>`;
-    else box.innerHTML = `${car.owner.phone ? `<a class="btn btn-outline btn-block" href="tel:${esc(car.owner.phone.replace(/[^+\d]/g, ""))}">📞 ${esc(car.owner.phone)}</a>` : ""}
+    else box.innerHTML = `${car.owner.phone ? `<a class="btn btn-outline btn-block" href="tel:${esc(car.owner.phone.replace(/[^+\d]/g, ""))}">📞 ${esc(fmtPhone(car.owner.phone))}</a>` : ""}
       <a class="btn btn-soft btn-block" href="/messages.html?user=${car.owner_id}&car=${car.id}">💬 ${esc(t("owner.message"))}</a>`;
   }
 

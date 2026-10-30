@@ -22,7 +22,7 @@ from starlette.routing import Route
 from ..config import settings
 from ..db import get_db, one, rows, transaction
 from ..i18n import tr
-from ..schemas import PaymentIn, PayoutDecisionIn, PayoutIn, PayoutRequestIn
+from ..schemas import FeeSettlementIn, PaymentIn, PayoutDecisionIn, PayoutIn, PayoutRequestIn
 from ..security import require
 from ..utils import audit, bps_split, car_title, notify, ok, parse_body, path_int, today
 
@@ -458,9 +458,19 @@ def owner_balance(db, owner_id: int) -> dict:
     on_site = db.execute(
         "SELECT COALESCE(SUM(b.owner_payout), 0) FROM bookings b JOIN cars c ON c.id = b.car_id "
         "WHERE c.owner_id = ? AND b.payment_status = 'on_site' AND b.status IN ('approved', 'completed')", (owner_id,)).fetchone()[0]
+    # Yakunlangan joyida-to'lov ijaralar: pul ownerda, komissiya platformaga qarz
+    site = db.execute(
+        "SELECT COALESCE(SUM(b.total_price), 0), COALESCE(SUM(b.commission), 0) FROM bookings b JOIN cars c ON c.id = b.car_id "
+        "WHERE c.owner_id = ? AND b.payment_status = 'on_site' AND b.status = 'completed'", (owner_id,)).fetchone()
+    settled = db.execute("SELECT COALESCE(SUM(amount), 0) FROM fee_settlements WHERE owner_id = ?", (owner_id,)).fetchone()[0]
+    fee_owed = max(0, site[1] - settled)
     paid_out = db.execute("SELECT COALESCE(SUM(amount), 0) FROM payouts WHERE owner_id = ?", (owner_id,)).fetchone()[0]
+    balance = earned - paid_out
     return {"earned_online": earned, "compensation": compensation, "on_site": on_site, "paid_out": paid_out,
-            "balance": earned - paid_out, "requested": requested, "available": max(0, earned - paid_out - requested)}
+            "site_collected": site[0], "fee_total": site[1], "fee_settled": settled, "fee_owed": fee_owed,
+            "balance": balance, "requested": requested,
+            # Yechib olinadigan summa: balans − ko'rib chiqilayotgan so'rovlar − komissiya qarzi (qarz balansdan ushlanishi mumkin)
+            "available": max(0, balance - requested - fee_owed)}
 
 
 @require()
@@ -486,7 +496,31 @@ async def admin_payments(request: Request):
                JOIN cars c ON c.id = b.car_id JOIN users ru ON ru.id = p.user_id ORDER BY p.id DESC LIMIT 300"""))
         owners = rows(db.execute("SELECT DISTINCT u.id, u.full_name FROM users u JOIN cars c ON c.owner_id = u.id ORDER BY u.full_name"))
         balances = [{**o, **owner_balance(db, o["id"])} for o in owners]
-    return ok({"items": items, "balances": [b for b in balances if b["earned_online"] or b["paid_out"]], "providers": providers()})
+    return ok({"items": items, "balances": [b for b in balances if b["earned_online"] or b["paid_out"] or b["fee_owed"]],
+               "providers": providers()})
+
+
+@require("admin")
+async def admin_fee_settlement(request: Request):
+    """Komissiya qarzini yopish: naqd to'landi deb belgilash yoki owner onlayn balansidan ushlash."""
+    data = await parse_body(request, FeeSettlementIn)
+    admin = request.state.user
+    with get_db() as db:
+        with transaction(db, immediate=True):
+            bal = owner_balance(db, data.owner_id)
+            if data.amount > bal["fee_owed"]:
+                raise HTTPException(400, tr("Summa komissiya qarzidan katta"))
+            if data.from_balance and data.amount > bal["balance"] - bal["requested"]:
+                raise HTTPException(400, tr("Summa owner balansidan katta"))
+            note = data.note or tr("Komissiya qarzi hisobidan")
+            if data.from_balance:   # balansdagi pul platformada qoladi: bu owner uchun "o'tkazma" sifatida yoziladi
+                db.execute("INSERT INTO payouts (owner_id, amount, note, created_by) VALUES (?, ?, ?, ?)",
+                           (data.owner_id, data.amount, note, admin["id"]))
+            db.execute("INSERT INTO fee_settlements (owner_id, amount, from_balance, note, created_by) VALUES (?, ?, ?, ?, ?)",
+                       (data.owner_id, data.amount, int(data.from_balance), note, admin["id"]))
+            notify(db, data.owner_id, "fee_settled", "/dashboard.html?mode=owner#earnings", total=data.amount)
+            audit(db, request, "fee_settled", "user", data.owner_id, amount=data.amount, from_balance=data.from_balance)
+        return ok(owner_balance(db, data.owner_id))
 
 
 @require("admin")
@@ -637,4 +671,5 @@ routes = [
     Route("/api/admin/payments", admin_payments, methods=["GET"]),
     Route("/api/admin/payments/{id:int}/refunded", admin_mark_refunded, methods=["POST"]),
     Route("/api/admin/payouts", admin_payout, methods=["POST"]),
+    Route("/api/admin/fee-settlements", admin_fee_settlement, methods=["POST"]),
 ]

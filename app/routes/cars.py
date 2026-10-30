@@ -16,7 +16,7 @@ from ..utils import audit, complete_finished_bookings, ok, parse_body, path_int,
 
 CAR_COLUMNS = """
     c.id, c.owner_id, c.brand, c.model, c.year, c.color, c.body_type, c.seats, c.transmission, c.fuel, c.engine_l,
-    c.mileage_km, c.drive, c.features, c.city, c.description, c.price_per_day, c.deposit, c.min_days, c.max_days,
+    c.mileage_km, c.drive, c.features, c.city, c.district, c.description, c.price_per_day, c.deposit, c.min_days, c.max_days,
     c.km_limit, c.delivery_price, c.is_active, c.is_approved, c.views, c.is_demo, c.created_at, c.updated_at,
     (SELECT path FROM car_images i WHERE i.car_id = c.id ORDER BY position, id LIMIT 1) AS cover,
     (SELECT ROUND(AVG(rating), 1) FROM reviews r WHERE r.car_id = c.id AND r.kind = 'car') AS rating,
@@ -101,7 +101,12 @@ def search_where(request: Request) -> tuple[list[str], list]:
     if q := q_str(request, "q"):
         where.append("(c.brand || ' ' || c.model LIKE ? OR c.description LIKE ?)")
         params += [f"%{q}%", f"%{q}%"]
-    for field in ("city", "brand", "body_type", "transmission", "fuel"):
+    if city := q_str(request, "city"):
+        from ..regions import normalize_region
+        where.append("c.city = ?"); params.append(normalize_region(city) or city)
+    if district := q_str(request, "district"):
+        where.append("c.district = ?"); params.append(district)
+    for field in ("brand", "body_type", "transmission", "fuel"):
         if val := q_str(request, field):
             where.append(f"c.{field} = ? COLLATE NOCASE"); params.append(val)
     for field, col, op in (("min_price", "c.price_per_day", ">="), ("max_price", "c.price_per_day", "<="),
@@ -147,12 +152,15 @@ async def meta(request: Request):
     with get_db() as db:
         cities = [dict(city=r[0], count=r[1]) for r in db.execute(f"SELECT city, COUNT(*) {base} GROUP BY city ORDER BY 2 DESC")]
         brands = [r[0] for r in db.execute(f"SELECT DISTINCT brand {base} ORDER BY brand")]
+        # Marka/model maydoni uchun takliflar: CarRent'dagi barcha faol e'lonlar (nechta e'lon borligi bilan)
+        models = [dict(brand=r[0], model=r[1], count=r[2]) for r in db.execute(
+            f"SELECT brand, model, COUNT(*) {base} GROUP BY brand, model ORDER BY brand, model")]
         lo, hi, total = db.execute(f"SELECT MIN(price_per_day), MAX(price_per_day), COUNT(*) {base}").fetchone()
         owners = db.execute(f"SELECT COUNT(DISTINCT owner_id) {base}").fetchone()[0]
         done = db.execute("SELECT COUNT(*) FROM bookings WHERE status = 'completed'").fetchone()[0]
         bps = int(db.execute("SELECT value FROM settings WHERE key = 'commission_bps'").fetchone()[0])
         support = db.execute("SELECT id FROM users WHERE role = 'admin' AND is_active = 1 ORDER BY id LIMIT 1").fetchone()
-    return ok({"cities": cities, "brands": brands, "price_min": lo or 0, "price_max": hi or 0, "cars_total": total,
+    return ok({"cities": cities, "brands": brands, "models": models, "price_min": lo or 0, "price_max": hi or 0, "cars_total": total,
                "owners_total": owners, "completed_total": done, "commission_bps": bps, "support_user_id": support[0] if support else None,
                "demo": settings.DEMO_MODE, "max_images": settings.MAX_IMAGES_PER_CAR, "max_image_mb": settings.MAX_IMAGE_MB,
                "dev_inbox": settings.DEV_INBOX, "email_real": settings.email_enabled,
@@ -306,11 +314,11 @@ async def my_cars(request: Request):
 
 def _values(d: CarIn) -> tuple:
     return (d.brand, d.model, d.year, d.color, d.body_type, d.seats, d.transmission, d.fuel, d.engine_l, d.mileage_km,
-            d.drive, json.dumps(d.features), d.city, d.description, d.price_per_day, d.deposit, d.min_days, d.max_days,
+            d.drive, json.dumps(d.features), d.city, d.district, d.description, d.price_per_day, d.deposit, d.min_days, d.max_days,
             d.km_limit, d.delivery_price, int(d.is_active))
 
 
-FIELDS = ("brand, model, year, color, body_type, seats, transmission, fuel, engine_l, mileage_km, drive, features, city, "
+FIELDS = ("brand, model, year, color, body_type, seats, transmission, fuel, engine_l, mileage_km, drive, features, city, district, "
           "description, price_per_day, deposit, min_days, max_days, km_limit, delivery_price, is_active")
 
 
@@ -320,7 +328,7 @@ async def create_car(request: Request):
     data = await parse_body(request, CarIn)
     uid = request.state.user["id"]
     with get_db() as db:
-        cur = db.execute(f"INSERT INTO cars (owner_id, {FIELDS}) VALUES (?{', ?' * 21})", (uid, *_values(data)))
+        cur = db.execute(f"INSERT INTO cars (owner_id, {FIELDS}) VALUES (?{', ?' * 22})", (uid, *_values(data)))
         # Birinchi e'londan keyin foydalanuvchi owner rejimiga o'tadi (faqat interfeys holati)
         db.execute("UPDATE users SET active_mode = 'owner' WHERE id = ?", (uid,))
         car = get_car_row(db, cur.lastrowid, uid)

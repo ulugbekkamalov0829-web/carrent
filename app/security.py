@@ -103,7 +103,7 @@ def clear_auth_cookie(response) -> None:
     response.delete_cookie(settings.COOKIE_NAME, path="/")
 
 
-PUBLIC_USER_FIELDS = ("id, full_name, email, phone, region, role, active_mode, lang, is_active, created_at, "
+PUBLIC_USER_FIELDS = ("id, full_name, email, phone, region, district, role, active_mode, lang, is_active, created_at, "
                       "email_verified, phone_verified, avatar, show_phone, marketing_ok, notify_prefs")
 
 

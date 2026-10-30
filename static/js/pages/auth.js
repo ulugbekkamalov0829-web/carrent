@@ -125,18 +125,22 @@
 
   // ---- Ro'yxatdan o'tish ----
   const reg = $("#registerForm");
+  Places.bind($("#rRegion"), $("#rDistrict"), { short: true });
+  document.addEventListener("langchange", () => Places.bind($("#rRegion"), $("#rDistrict"), { region: $("#rRegion").value, district: $("#rDistrict").value, short: true }));
   reg.addEventListener("submit", async (e) => {
     e.preventDefault();
     const okName = fieldError("rName", $("#rName").value.trim().length >= 3 ? "" : t("val.name"));
     const okEmail = fieldError("rEmail", /^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$/.test($("#rEmail").value.trim()) ? "" : t("val.email"));
-    const okPhone = fieldError("rPhone", /^\+?[0-9 ()-]{7,20}$/.test($("#rPhone").value.trim()) ? "" : t("val.phone"));
+    const okPhone = fieldError("rPhone", /^998\d{9}$/.test($("#rPhone").value.replace(/\D/g, "")) ? "" : t("val.phone"));
+    const okPlace = fieldError("rRegion", $("#rRegion").value ? "" : t("place.need_region")) && fieldError("rDistrict", $("#rDistrict").value ? "" : t("place.need_district"));
     const okPw = fieldError("rPassword", $("#rPassword").value.length >= 12 ? "" : t("auth.pw_short", { n: 12 - $("#rPassword").value.length }));
     if (!$("#rTerms").checked) { toast(t("val.terms"), "error"); return; }
-    if (!(okName && okEmail && okPhone && okPw)) return;
+    if (!(okName && okEmail && okPhone && okPlace && okPw)) return;
     await withLoading($("#registerForm button[type=submit]"), async () => {
       try {
         const { user } = await api("/api/auth/register", { method: "POST", body: {
           full_name: $("#rName").value.trim(), email: $("#rEmail").value.trim(), phone: $("#rPhone").value.trim(),
+          region: $("#rRegion").value, district: $("#rDistrict").value,
           password: $("#rPassword").value, accept_terms: true, marketing_ok: false, lang: I18N.lang } });
         toast(t("auth.welcome", { name: user.full_name }), "ok");
         await metaP;

@@ -194,6 +194,9 @@ async def advise(request: Request):
             c.update(score_car(c, data, newest))
             if days:
                 c["total"] = days * c["price_per_day"] + ((c["delivery_price"] or 0) if data.delivery else 0)
+            if data.district and c.get("district") == data.district:
+                c["pros"].insert(0, {"code": "same_district", "p": {"district": c["district"]}})
+                c["match"] = min(99, c["match"] + 4)     # o'z tumaningizda — olib ketish oson
             if data.city and c["city"] != data.city:
                 c["cons"].insert(0, {"code": "other_city", "p": {"city": c["city"]}})
                 c["match"] = max(1, c["match"] - 12)     # boshqa shaharga borish noqulay — o'z shahringizdagisi oldinda

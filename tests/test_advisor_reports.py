@@ -15,7 +15,9 @@ def d(n: int) -> str:
 # ---------------- Maslahatchi ----------------
 def _fleet():
     owner, _ = make_user()
-    city = f"Shahar{date.today().toordinal()}{id(owner) % 10000}"
+    city = "Navoiy"   # har test o'z parkini oladi: oldingi testlardagi Navoiy e'lonlari yashiriladi
+    with get_db() as db:
+        db.execute("UPDATE cars SET is_active = 0 WHERE city = ?", (city,))
     cars = {
         "minivan": make_car(owner, brand="Kia", model="Carnival", body_type="minivan", seats=7, city=city, price_per_day=550_000,
                             features=["ac", "child_seat", "camera"]),

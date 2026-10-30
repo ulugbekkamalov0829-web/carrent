@@ -5,12 +5,13 @@
   await boot("");
   const box = $("#advisor"), out = $("#advResults");
   const meta = await api("/api/meta").catch(() => ({ cities: [] }));
-  const PURPOSES = [["city", "🏙️"], ["family", "👨‍👩‍👧"], ["trip", "🛣️"], ["mountain", "⛰️"], ["business", "💼"], ["event", "🎉"], ["cargo", "📦"]];
-  const LUGGAGE = [["none", "👜"], ["small", "🎒"], ["medium", "🧳"], ["large", "📦"]];
+  // 3D realistik ikonkalar (Microsoft Fluent Emoji, MIT) — /img/adv/
+  const PURPOSES = ["city", "family", "trip", "mountain", "business", "event", "cargo"].map((k) => [k, `/img/adv/${k}.png`]);
+  const LUGGAGE = ["none", "small", "medium", "large"].map((k) => [k, `/img/adv/lug_${k}.png`]);
   const PRIOS = ["economy", "comfort", "safety", "prestige", "price"];
-  const FEATS = ["child_seat", "ac", "camera", "bluetooth", "carplay", "cruise", "heated_seats", "navigation"];
+  const FEATS = ["child_seat", "isofix", "ac", "climate", "camera", "bluetooth", "carplay", "cruise", "heated_seats", "navigation", "roof_rack", "pets_ok"];
   const BUDGETS = [250000, 400000, 600000, 1000000];
-  const DEFAULTS = { purpose: "city", passengers: 2, luggage: "small", budget_max: null, city: Auth.user?.region || "", start_date: "", end_date: "",
+  const DEFAULTS = { purpose: "city", passengers: 2, luggage: "small", budget_max: null, city: Auth.user?.region || "", district: Auth.user?.district || "", start_date: "", end_date: "",
     transmission: "", experience: "normal", priorities: [], features: [], delivery: false };
   let ans = { ...DEFAULTS };
   try { ans = { ...DEFAULTS, ...(JSON.parse(localStorage.getItem("adv.answers") || "{}")) }; } catch {}
@@ -19,7 +20,7 @@
   const STEPS = ["purpose", "people", "budget", "prefs"];
 
   const tile = (group, value, emoji, on, sub = "") => `<button type="button" class="adv-tile ${on ? "on" : ""}" data-g="${group}" data-v="${value}" aria-pressed="${on}">
-    <span class="em" aria-hidden="true">${emoji}</span><b>${esc(t(`adv.${group}_${value}`))}</b>${sub ? `<span class="small muted">${esc(sub)}</span>` : ""}</button>`;
+    <img class="em" src="${emoji}" alt="" width="56" height="56" loading="lazy"><b>${esc(t(`adv.${group}_${value}`))}</b>${sub ? `<span class="small muted">${esc(sub)}</span>` : ""}</button>`;
   const chip = (group, value, label, on) => `<button type="button" class="chip-btn ${on ? "on" : ""}" data-g="${group}" data-v="${value}" aria-pressed="${on}">${esc(label)}</button>`;
 
   function stepHtml() {
@@ -36,11 +37,10 @@
       <div class="chips">${BUDGETS.map((b) => chip("budget", b, t("adv.upto", { sum: shortMoney(b) }), ans.budget_max === b)).join("")}
         ${chip("budget", "", t("common.any"), !ans.budget_max)}</div>
       <div class="field" style="max-width:280px;margin-top:12px"><label for="advBudget">${esc(t("adv.budget_own"))}</label>
-        <input class="input" type="number" id="advBudget" min="50000" step="10000" value="${ans.budget_max || ""}" placeholder="350000"></div>
+        <input class="input" type="text" data-money id="advBudget" value="${ans.budget_max || ""}" placeholder="350 000"></div>
       <div class="grid-2" style="margin-top:6px">
-        <div class="field"><label for="advCity">${esc(t("adv.q_city"))}</label><select class="input" id="advCity">
-          <option value="">${esc(t("adv.any_city"))}</option>${meta.cities.map((c) => `<option ${c.city === ans.city ? "selected" : ""}>${esc(c.city)}</option>`).join("")}</select></div>
-        <div></div>
+        <div class="field"><label for="advCity">${esc(t("adv.q_city"))}</label><select class="input" id="advCity"></select></div>
+        <div class="field"><label for="advDist">${esc(t("place.district"))} <span class="muted small">(${esc(t("common.optional"))})</span></label><select class="input" id="advDist"></select></div>
         <div class="field"><label for="advS">${esc(t("adv.from"))} <span class="muted small">(${esc(t("common.optional"))})</span></label><input class="input" type="date" id="advS" value="${esc(ans.start_date)}"></div>
         <div class="field"><label for="advE">${esc(t("adv.to"))}</label><input class="input" type="date" id="advE" value="${esc(ans.end_date)}"></div>
       </div><p class="small muted">${esc(t("adv.dates_hint"))}</p>`;
@@ -71,8 +71,8 @@
   }
 
   function readInputs() {
-    if ($("#advBudget")) { const v = +$("#advBudget").value; ans.budget_max = v >= 50000 ? v : null; }
-    if ($("#advCity")) ans.city = $("#advCity").value;
+    if ($("#advBudget")) { const v = moneyVal($("#advBudget").value); ans.budget_max = v >= 50000 ? v : null; }
+    if ($("#advCity")) { ans.city = $("#advCity").value; ans.district = $("#advDist").value; }
     if ($("#advS")) { ans.start_date = $("#advS").value; ans.end_date = $("#advE").value; }
     if ($("#advDel")) ans.delivery = $("#advDel").checked;
     try { localStorage.setItem("adv.answers", JSON.stringify(ans)); } catch {}
@@ -92,7 +92,7 @@
         else { toast(t("adv.max3_toast"), "error"); return; }
       }
       if (g === "feat") ans.features = ans.features.includes(v) ? ans.features.filter((x) => x !== v) : [...ans.features, v].slice(0, 8);
-      if (g === "budget" && $("#advBudget")) $("#advBudget").value = ans.budget_max || "";
+      if (g === "budget" && $("#advBudget")) $("#advBudget").value = fmtMoneyInput(ans.budget_max || "");
       readInputs();
       if (g === "purpose") { step++; draw(); return; }      // bitta bosish bilan keyingi savolga
       draw();
@@ -100,6 +100,15 @@
     $$("[data-pass]", box).forEach((b) => b.addEventListener("click", () => {
       ans.passengers = Math.max(1, Math.min(15, ans.passengers + +b.dataset.pass)); $("#passN").textContent = ans.passengers; readInputs();
     }));
+    if ($("#advCity")) {
+      Places.bind($("#advCity"), $("#advDist"), { region: ans.city, district: ans.district, any: true });
+      $("#advDist").addEventListener("change", readInputs); $("#advCity").addEventListener("change", readInputs);
+    }
+    applyMasks(box);
+    $("#advBudget")?.addEventListener("input", () => {   // yozilgan summa tayyor variantga teng bo'lsa — o'sha tugma belgilanadi
+      const v = moneyVal($("#advBudget").value);
+      $$("[data-g=budget]", box).forEach((c) => c.classList.toggle("on", c.dataset.v ? +c.dataset.v === v : !v));
+    });
     const today = isoDate(new Date());
     if ($("#advS")) {
       $("#advS").min = today; $("#advE").min = ans.start_date || today;
@@ -117,7 +126,7 @@
 
   async function run() {
     readInputs();
-    const body = { ...ans, budget_max: ans.budget_max || null, city: ans.city || null, transmission: ans.transmission || null,
+    const body = { ...ans, budget_max: ans.budget_max || null, city: ans.city || null, district: (ans.city && ans.district) || null, transmission: ans.transmission || null,
       start_date: ans.start_date || null, end_date: ans.end_date || null };
     try {
       const r = await api("/api/advisor", { method: "POST", body });
@@ -139,7 +148,7 @@
   function results(r) {
     const qs = ans.start_date ? `&start=${ans.start_date}&end=${ans.end_date}` : "";
     const summary = [t(`adv.purpose_${ans.purpose}`), t("adv.n_people", { n: ans.passengers }), ans.budget_max ? t("adv.upto", { sum: money(ans.budget_max) }) : null,
-      ans.city || null, ans.transmission ? t("trans." + ans.transmission) : null].filter(Boolean).join(" · ");
+      ans.city ? Places.label(ans.city, ans.district) : null, ans.transmission ? t("trans." + ans.transmission) : null].filter(Boolean).join(" · ");
     if (!r.items.length) {
       out.innerHTML = `<div class="empty card" style="margin-top:18px"><h3>${esc(t("adv.none"))}</h3><p>${esc(t("adv.none_hint"))}</p>
         <a class="btn btn-outline" href="/cars.html">${esc(t("nav.cars"))}</a></div>`;
@@ -155,7 +164,7 @@
         <div class="adv-main">
           <div class="row" style="justify-content:space-between;gap:8px;flex-wrap:nowrap;align-items:flex-start">
             <div><a class="car-title" href="/car.html?id=${c.id}${qs}">${esc(carName(c))} <span class="muted small">${c.year}</span></a>
-              <div class="small muted">📍 ${esc(c.city)} · ${esc(t("body." + c.body_type))} · ${esc(t("trans." + c.transmission))} · ${esc(t("fuel." + c.fuel))} · ${esc(t("car.seats_n", { n: c.seats }))}</div></div>
+              <div class="small muted">📍 ${esc(Places.label(c.city, c.district))} · ${esc(t("body." + c.body_type))} · ${esc(t("trans." + c.transmission))} · ${esc(t("fuel." + c.fuel))} · ${esc(t("car.seats_n", { n: c.seats }))}</div></div>
             <div class="match" style="--m:${c.match}" title="${esc(t("adv.match_hint"))}"><b>${c.match}%</b><span>${esc(t("adv.match"))}</span></div>
           </div>
           <ul class="why">${c.pros.map((x) => `<li class="pro">${icon("check", 15)} ${esc(reasonText(x))}</li>`).join("")}

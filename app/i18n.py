@@ -173,3 +173,28 @@ CATALOG.update({  # CSV ustunlari va holatlar
     "Rad etilgan": ("Отклонена", "Rejected"), "Bekor qilingan": ("Отменена", "Cancelled"), "Joyida": ("На месте", "On site"),
     "Onlayn to'langan": ("Оплачено онлайн", "Paid online"), "Qaytarish kutilmoqda": ("Ожидает возврата", "Refund pending"),
 })
+
+CATALOG.update({  # v4: komissiya qarzi
+    "Summa komissiya qarzidan katta": ("Сумма больше долга по комиссии", "Amount exceeds the fee owed"),
+    "Komissiya qarzi hisobidan": ("В счёт долга по комиссии", "Against the commission owed"),
+})
+
+CATALOG.update({  # v4: hududlar
+    "Viloyatni tanlang": ("Выберите область", "Choose a region"),
+    "Viloyat ro'yxatda yo'q": ("Такой области нет в списке", "This region isn't in the list"),
+    "Tuman yoki shaharni tanlang": ("Выберите район или город", "Choose a district or city"),
+    "Bu tuman tanlangan viloyatga tegishli emas": ("Этот район не относится к выбранной области", "This district doesn't belong to the selected region"),
+})
+
+CATALOG.update({  # v4: nizolar va kanallar
+    "Nizo topilmadi": ("Спор не найден", "Dispute not found"),
+    "Bu bron bo'yicha nizo ochib bo'lmaydi": ("По этой брони нельзя открыть спор", "A dispute can't be opened for this booking"),
+    "Nizo ijara tugaganidan keyin {n} kun ichida ochiladi": ("Спор можно открыть в течение {n} дней после окончания аренды", "A dispute can be opened within {n} days after the rental ends"),
+    "Bu bron bo'yicha ochiq nizo bor": ("По этой брони уже есть открытый спор", "This booking already has an open dispute"),
+    "Javobni faqat ikkinchi tomon yozadi": ("Ответ пишет только вторая сторона", "Only the other party can reply"),
+    "Nizo yopilgan": ("Спор закрыт", "The dispute is closed"),
+    "Nizoni faqat uni ochgan foydalanuvchi qaytarib oladi": ("Отозвать спор может только тот, кто его открыл", "Only the person who opened the dispute can withdraw it"),
+    "Nizo allaqachon ko'rib chiqilmoqda yoki yopilgan": ("Спор уже рассматривается или закрыт", "The dispute is already in review or closed"),
+    "Faqat nizo ishtirokchisini bloklash mumkin": ("Заблокировать можно только участника спора", "Only a party to the dispute can be blocked"),
+    "Kanal sozlanmagan": ("Канал не настроен", "Channel isn't configured"),
+})

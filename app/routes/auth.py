@@ -79,8 +79,10 @@ async def register(request: Request):
             raise HTTPException(409, tr("Bu telefon raqam bilan allaqachon ro'yxatdan o'tilgan"))
         try:
             cur = db.execute(
-                "INSERT INTO users (full_name, email, phone, phone_norm, password_hash, lang, marketing_ok) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (data.full_name, data.email, data.phone, data.phone, hash_password(data.password), data.lang, int(data.marketing_ok)))
+                "INSERT INTO users (full_name, email, phone, phone_norm, password_hash, lang, marketing_ok, region, district) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (data.full_name, data.email, data.phone, data.phone, hash_password(data.password), data.lang, int(data.marketing_ok),
+                 data.region, data.district))
         except sqlite3.IntegrityError:
             raise HTTPException(409, tr("Bu email bilan allaqachon ro'yxatdan o'tilgan"))
         uid = cur.lastrowid
@@ -265,9 +267,9 @@ async def update_me(request: Request):
                                                           (data.phone, uid)).fetchone():
             raise HTTPException(409, tr("Bu telefon raqam bilan allaqachon ro'yxatdan o'tilgan"))
         changed_phone = data.phone != old["phone_norm"]
-        db.execute("UPDATE users SET full_name = ?, phone = ?, phone_norm = ?, region = ?, phone_verified = "
+        db.execute("UPDATE users SET full_name = ?, phone = ?, phone_norm = ?, region = ?, district = ?, phone_verified = "
                    "CASE WHEN ? THEN 0 ELSE phone_verified END WHERE id = ?",
-                   (data.full_name, data.phone, data.phone, data.region, int(changed_phone), uid))
+                   (data.full_name, data.phone, data.phone, data.region, data.district, int(changed_phone), uid))
         return ok({"user": user_payload(db, uid)})
 
 

@@ -28,8 +28,10 @@
     <aside class="card card-pad filters" id="filters" aria-labelledby="filtersTitle">
       <h3><span id="filtersTitle" data-i18n="cars.filters"></span> <button class="btn btn-sm btn-outline" type="button" id="resetFilters" data-i18n="cars.reset"></button></h3>
       <form id="filterForm">
-        <div class="field"><label for="q" data-i18n="filter.q"></label><input class="input" id="q" name="q" data-i18n-placeholder="filter.q_ph"></div>
-        <div class="field"><label for="city" data-i18n="filter.city"></label><select class="input" id="city" name="city"><option value="" data-i18n="search.any_city"></option></select></div>
+        <div class="field"><label for="q" data-i18n="filter.q"></label><input class="input" id="q" name="q" data-i18n-placeholder="filter.q_ph" list="carNames" autocomplete="off"><datalist id="carNames"></datalist>
+          <div class="hint show small muted" data-i18n="filter.q_hint"></div></div>
+        <div class="field"><label for="city" data-i18n="place.region"></label><select class="input" id="city" name="city"></select></div>
+        <div class="field"><label for="district" data-i18n="place.district"></label><select class="input" id="district" name="district"></select></div>
         <div class="grid-2">
           <div class="field"><label for="start" data-i18n="search.start"></label><input class="input" type="date" id="start" name="start"></div>
           <div class="field"><label for="end" data-i18n="search.end"></label><input class="input" type="date" id="end" name="end"></div>
@@ -41,8 +43,8 @@
             <option value="crossover" data-i18n="body.crossover"></option><option value="suv" data-i18n="body.suv"></option>
             <option value="minivan" data-i18n="body.minivan"></option><option value="pickup" data-i18n="body.pickup"></option><option value="coupe" data-i18n="body.coupe"></option></select></div>
         <div class="field"><label data-i18n="filter.price"></label>
-          <div class="grid-2 pair"><input class="input" type="number" name="min_price" data-i18n-placeholder="filter.from" min="0" step="10000" data-i18n-aria="filter.price_min">
-          <input class="input" type="number" name="max_price" data-i18n-placeholder="filter.to" min="0" step="10000" data-i18n-aria="filter.price_max"></div></div>
+          <div class="grid-2 pair"><input class="input" type="text" data-money name="min_price" data-i18n-placeholder="filter.from" data-i18n-aria="filter.price_min">
+          <input class="input" type="text" data-money name="max_price" data-i18n-placeholder="filter.to" data-i18n-aria="filter.price_max"></div></div>
         <div class="grid-2">
           <div class="field"><label for="transmission" data-i18n="filter.trans"></label>
             <select class="input" id="transmission" name="transmission"><option value="" data-i18n="common.any"></option>
@@ -66,7 +68,7 @@
       </form>
     </aside>
     <div>
-      <a class="adv-promo compact" href="/advisor.html"><span class="adv-promo-ico" aria-hidden="true">🧭</span>
+      <a class="adv-promo compact" href="/advisor.html"><img class="adv-promo-ico" src="/img/adv/compass.png" alt="" width="52" height="52">
         <span><b data-i18n="home.adv_t"></b><span class="small" data-i18n="home.adv_b"></span></span><span class="btn btn-sm" data-i18n="home.adv_cta"></span></a>
       <div class="cars-grid" id="cars"></div>
       <div class="pagination" id="pager"></div>

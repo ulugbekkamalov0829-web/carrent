@@ -16,7 +16,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from .config import settings
 from .db import init_db
 from .i18n import current_lang, detect_lang, tr
-from .routes import advisor, analytics, auth, bookings, cars, dashboard, payments, smart, social
+from .routes import advisor, analytics, auth, bookings, cars, dashboard, ops, payments, smart, social
 from .utils import ApiValidationError
 
 log = logging.getLogger("carrent")
@@ -37,7 +37,7 @@ SECURITY_HEADERS = {
 }
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 # To'lov provayderlari serverdan-serverga chaqiradi: ularda CSRF sarlavhasi yo'q, o'rniga imzo/parol tekshiriladi
-CSRF_EXEMPT = ("/api/payments/click", "/api/payments/payme")
+CSRF_EXEMPT = ("/api/payments/click", "/api/payments/payme", "/api/channels/eskiz/callback")
 UPLOAD_PATHS = ("/images", "/avatar")
 
 
@@ -149,7 +149,7 @@ def create_app() -> Starlette:
     routes = [
         Route("/api/health", health),
         Route("/about.html", moved),
-        *auth.routes, *cars.routes, *bookings.routes, *social.routes, *dashboard.routes, *smart.routes, *payments.routes, *analytics.routes, *advisor.routes,
+        *auth.routes, *cars.routes, *bookings.routes, *social.routes, *dashboard.routes, *smart.routes, *payments.routes, *analytics.routes, *advisor.routes, *ops.routes,
         Route("/api/{rest:path}", api_not_found, methods=["GET", "POST", "PUT", "PATCH", "DELETE"]),
         Mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads"),
         Mount("/", StaticFiles(directory=settings.STATIC_DIR, html=True), name="static"),

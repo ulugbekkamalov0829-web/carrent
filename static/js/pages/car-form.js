@@ -1,5 +1,5 @@
 "use strict";
-const FEATURES = ["ac", "bluetooth", "usb", "camera", "parking_sensors", "cruise", "heated_seats", "child_seat", "navigation", "sunroof", "leather", "abs", "airbags", "carplay"];
+const FEATURES = ["ac", "climate", "bluetooth", "usb", "phone_charger", "carplay", "navigation", "wifi", "camera", "camera360", "parking_sensors", "dashcam", "cruise", "lane_assist", "keyless", "heated_seats", "ventilated_seats", "leather", "sunroof", "child_seat", "isofix", "roof_rack", "winter_tires", "pets_ok", "abs", "airbags"];
 const ANGLES = ["front", "back", "side", "interior", "dashboard", "trunk"];
 const LABELS = [...ANGLES, "other"];
 
@@ -31,13 +31,29 @@ const LABELS = [...ANGLES, "other"];
   }
   drawFeatures();
   applyI18n();
+  // Viloyat -> tuman (tahrirlashda saqlangan qiymat; yangi e'londa — egasining o'z hududi)
+  await Places.bind($("#city"), $("#district"), { region: car?.city || Auth.user.region || "", district: car?.district || (car ? "" : Auth.user.district || "") });
+  document.addEventListener("langchange", () => Places.bind($("#city"), $("#district"), { region: $("#city").value, district: $("#district").value }));
+  applyMasks(form);
+  // Model takliflari: tanlangan markadagi CarRent modellari + ommabop modellar
+  const COMMON_MODELS = { Chevrolet: ["Cobalt", "Gentra", "Nexia 3", "Spark", "Malibu", "Tracker", "Onix", "Damas", "Lacetti", "Captiva", "Equinox", "Tahoe"],
+    Kia: ["K5", "Sportage", "Sonet", "Carnival", "Seltos", "Sorento"], Hyundai: ["Sonata", "Elantra", "Tucson", "Santa Fe", "Creta"],
+    Toyota: ["Camry", "Corolla", "RAV4", "Land Cruiser", "Prado"], BYD: ["Song Plus", "Han", "Chazor", "Seagull", "Tang"],
+    Ravon: ["Nexia R3", "Gentra", "R2"], Lada: ["Granta", "Vesta", "Niva"] };
+  const drawModels = () => {
+    const b = form.brand.value.trim().toLowerCase();
+    const fromSite = (meta.models || []).filter((m) => m.brand.toLowerCase() === b).map((m) => m.model);
+    const common = Object.entries(COMMON_MODELS).find(([k]) => k.toLowerCase() === b)?.[1] || [];
+    $("#modelList").innerHTML = [...new Set([...fromSite, ...common])].map((m) => `<option value="${esc(m)}">`).join("");
+  };
+  form.brand.addEventListener("input", drawModels); drawModels();
   const drawCommission = () => { $("#commissionNote").textContent = t("form.commission_note", { pct: meta.commission_bps / 100 }); };
   drawCommission();
 
-  $("#hasDelivery").addEventListener("change", (e) => { $("#delivery_price").disabled = !e.target.checked; if (e.target.checked && !$("#delivery_price").value) $("#delivery_price").value = 50000; });
+  $("#hasDelivery").addEventListener("change", (e) => { $("#delivery_price").disabled = !e.target.checked; if (e.target.checked && !$("#delivery_price").value) $("#delivery_price").value = fmtMoneyInput(50000); });
 
   // ---------- Bosqichlar ----------
-  const REQUIRED = { 1: ["brand", "model", "year", "seats"], 3: ["city"], 4: ["price_per_day"] };
+  const REQUIRED = { 1: ["brand", "model", "year", "seats"], 3: ["city", "district"], 4: ["price_per_day"] };
   function validStep(n) {
     let ok = true;
     for (const name of REQUIRED[n] || []) {
@@ -85,7 +101,7 @@ const LABELS = [...ANGLES, "other"];
       <div class="small muted" style="margin-top:6px">${esc(t("price.confidence_" + r.confidence))}</div>
       <ul class="small muted" style="margin:6px 0 8px;padding-left:18px">${factors.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>
       <button type="button" class="btn btn-sm" id="applySuggest">${esc(t("price.apply"))}</button></div>`;
-    $("#applySuggest").addEventListener("click", () => { form.price_per_day.value = r.suggested; toast(t("price.applied"), "ok"); });
+    $("#applySuggest").addEventListener("click", () => { form.price_per_day.value = fmtMoneyInput(r.suggested); toast(t("price.applied"), "ok"); });
   });
 
   // ---------- Rasmlar: burchaklar ro'yxati, kamera, siqish, tartiblash, yorliq, asosiy rasm ----------
@@ -209,7 +225,7 @@ const LABELS = [...ANGLES, "other"];
     return {
       brand: d.brand, model: d.model, year: +d.year, color: d.color || null, body_type: d.body_type, seats: +d.seats, transmission: d.transmission,
       fuel: d.fuel, engine_l: num(d.engine_l), mileage_km: num(d.mileage_km), drive: d.drive || null,
-      features: $$("#features input:checked").map((i) => i.value), city: d.city, description: d.description || null,
+      features: $$("#features input:checked").map((i) => i.value), city: d.city, district: d.district || null, description: d.description || null,
       price_per_day: +d.price_per_day, deposit: num(d.deposit) || 0, min_days: +d.min_days || 1, max_days: +d.max_days || 30,
       km_limit: num(d.km_limit), delivery_price: $("#hasDelivery").checked ? num(d.delivery_price) ?? 0 : null, is_active: active,
     };

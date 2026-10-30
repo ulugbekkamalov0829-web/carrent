@@ -5,6 +5,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .regions import normalize_region, valid_district
 from .security import COMMON_PASSWORDS, normalize_phone
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$")
@@ -15,12 +16,32 @@ Fuel = Literal["petrol", "gas", "diesel", "hybrid", "electric"]
 BodyType = Literal["sedan", "hatchback", "crossover", "suv", "minivan", "pickup", "coupe"]
 Drive = Literal["fwd", "rwd", "awd"]
 FEATURES = {"ac", "bluetooth", "usb", "camera", "parking_sensors", "cruise", "heated_seats", "child_seat",
-            "navigation", "sunroof", "leather", "abs", "airbags", "carplay"}
+            "navigation", "sunroof", "leather", "abs", "airbags", "carplay",
+            # v4: yangi qulayliklar
+            "climate", "camera360", "dashcam", "isofix", "keyless", "ventilated_seats", "roof_rack", "winter_tires",
+            "wifi", "phone_charger", "pets_ok", "lane_assist"}
 PASSWORD_MIN = 12
 
 
 class Base(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+
+def _check_place(region: str | None, district: str | None, required: bool) -> tuple[str | None, str | None]:
+    """Hudud ro'yxatdagilardan biri, tuman esa aynan shu hududga tegishli bo'lishi kerak."""
+    if not region:
+        if required:
+            raise ValueError("Viloyatni tanlang")
+        return None, None
+    canon = normalize_region(region)
+    if not canon:
+        raise ValueError("Viloyat ro'yxatda yo'q")
+    district = (district or "").strip() or None
+    if required and not district:
+        raise ValueError("Tuman yoki shaharni tanlang")
+    if not valid_district(canon, district):
+        raise ValueError("Bu tuman tanlangan viloyatga tegishli emas")
+    return canon, district
 
 
 def _check_phone(v: str) -> str:
@@ -43,6 +64,8 @@ class RegisterIn(Base):
     phone: str = Field(max_length=20)
     password: str = Field(min_length=PASSWORD_MIN, max_length=128)
     accept_terms: bool
+    region: Optional[str] = Field(default=None, max_length=40)
+    district: Optional[str] = Field(default=None, max_length=60)
     marketing_ok: bool = False
     lang: Literal["uz", "ru", "en"] = "uz"
 
@@ -60,6 +83,7 @@ class RegisterIn(Base):
     def _cross(self):
         if not self.accept_terms:
             raise ValueError("Foydalanish shartlariga rozilik majburiy")
+        self.region, self.district = _check_place(self.region, self.district, required=True)
         if self.email.split("@")[0] and self.email.split("@")[0] in self.password.lower():
             raise ValueError("Parol email manzilingizni o'z ichiga olmasligi kerak")
         return self
@@ -128,7 +152,13 @@ class ProfileIn(Base):
     full_name: str = Field(min_length=3, max_length=80)
     phone: str = Field(max_length=20)
     region: Optional[str] = Field(default=None, max_length=40)
+    district: Optional[str] = Field(default=None, max_length=60)
     _phone = field_validator("phone")(classmethod(lambda cls, v: _check_phone(v)))
+
+    @model_validator(mode="after")
+    def _place(self):
+        self.region, self.district = _check_place(self.region, self.district, required=False)
+        return self
 
 
 class PasswordChangeIn(Base):
@@ -157,8 +187,9 @@ class CarIn(Base):
     engine_l: Optional[float] = Field(default=None, ge=0.6, le=8.0)
     mileage_km: Optional[int] = Field(default=None, ge=0, le=2_000_000)
     drive: Optional[Drive] = None
-    features: list[str] = Field(default_factory=list, max_length=20)
-    city: str = Field(min_length=2, max_length=40)
+    features: list[str] = Field(default_factory=list, max_length=30)
+    city: str = Field(min_length=2, max_length=40)            # viloyat (hudud)
+    district: Optional[str] = Field(default=None, max_length=60)
     description: Optional[str] = Field(default=None, max_length=2000)
     price_per_day: int = Field(ge=10_000, le=50_000_000)
     deposit: int = Field(default=0, ge=0, le=100_000_000)
@@ -180,6 +211,7 @@ class CarIn(Base):
     def _days(self):
         if self.max_days < self.min_days:
             raise ValueError("Maksimal muddat minimaldan kam bo'lmasligi kerak")
+        self.city, self.district = _check_place(self.city, self.district, required=False)
         return self
 
 
@@ -260,6 +292,13 @@ class PayoutRequestIn(Base):
         return self
 
 
+class FeeSettlementIn(Base):
+    owner_id: int
+    amount: int = Field(gt=0, le=10_000_000_000)
+    from_balance: bool = False
+    note: Optional[str] = Field(default=None, max_length=200)
+
+
 class PayoutDecisionIn(Base):
     note: Optional[str] = Field(default=None, max_length=300)
 
@@ -275,6 +314,7 @@ class AdvisorIn(Base):
     luggage: Literal["none", "small", "medium", "large"] = "small"
     budget_max: Optional[int] = Field(default=None, gt=0, le=100_000_000)
     city: Optional[str] = Field(default=None, max_length=60)
+    district: Optional[str] = Field(default=None, max_length=60)
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     transmission: Optional[Transmission] = None
@@ -302,7 +342,34 @@ class AdvisorIn(Base):
             raise ValueError("Ikkala sanani ham tanlang yoki ikkalasini ham bo'sh qoldiring")
         if self.start_date and self.end_date < self.start_date:
             raise ValueError("Tugash sanasi boshlanish sanasidan oldin bo'lmasligi kerak")
+        self.city, self.district = _check_place(self.city, self.district, required=False)
         return self
+
+
+DisputeType = Literal["damage", "no_show", "late_return", "deposit", "not_as_described", "payment", "fuel_mileage", "other"]
+
+
+class DisputeIn(Base):
+    booking_id: int
+    type: DisputeType
+    description: str = Field(min_length=20, max_length=2000)
+    amount: Optional[int] = Field(default=None, ge=0, le=500_000_000)
+
+
+class DisputeReplyIn(Base):
+    text: str = Field(min_length=5, max_length=2000)
+
+
+class DisputeResolveIn(Base):
+    outcome: Literal["favor_opener", "favor_other", "split", "rejected"]
+    note: str = Field(min_length=5, max_length=2000)
+    compensation: Optional[int] = Field(default=None, ge=0, le=500_000_000)
+    block_user_id: Optional[int] = None
+
+
+class ChannelTestIn(Base):
+    channel: Literal["sms", "email"]
+    to: str = Field(min_length=5, max_length=120)
 
 
 class AdminUserPatch(Base):

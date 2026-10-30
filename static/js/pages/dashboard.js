@@ -30,7 +30,7 @@
     view.innerHTML = `<div class="skeleton" style="height:240px"></div>`;
     const fn = { overview: mode() === "owner" ? ownerOverview : renterOverview, bookings: mode() === "owner" ? ownerBookings : renterBookings,
       favorites, cars: ownerCars, calendar: ownerCalendar, reviews: ownerReviews, earnings: ownerEarnings, notifications,
-      payments: renterPayments, analytics: () => { head("rep.title", mode() === "owner" ? "rep.sub_owner" : "rep.sub_renter"); return Reports.render(view, mode()); } }[tab];
+      payments: renterPayments, disputes: myDisputes, analytics: () => { head("rep.title", mode() === "owner" ? "rep.sub_owner" : "rep.sub_renter"); return Reports.render(view, mode()); } }[tab];
     fn().catch((e) => (view.innerHTML = `<div class="empty card">${esc(e.message)}</div>`));
   }
   window.addEventListener("hashchange", route);
@@ -153,7 +153,7 @@
       <div class="list-item">
         <a class="thumb" href="/car.html?id=${c.id}">${carImage(c)}</a>
         <div><a href="/car.html?id=${c.id}"><b>${esc(carName(c))} ${c.year}</b></a>
-          <div class="small muted">${esc(c.city)} · ${money(c.price_per_day)} ${esc(t("car.per_day"))} · ${c.rating ? `★ ${c.rating} (${c.reviews_count})` : esc(t("car.no_reviews"))} · ${esc(t("car.views_n", { n: c.views }))}</div>
+          <div class="small muted">${esc(Places.label(c.city, c.district))} · ${money(c.price_per_day)} ${esc(t("car.per_day"))} · ${c.rating ? `★ ${c.rating} (${c.reviews_count})` : esc(t("car.no_reviews"))} · ${esc(t("car.views_n", { n: c.views }))}</div>
           <div class="row" style="gap:6px;margin-top:4px">
             ${c.is_approved ? (c.is_active ? `<span class="tag tag-ok">${esc(t("car.state_active"))}</span>` : `<span class="tag tag-hidden">${esc(t("car.state_hidden"))}</span>`) : `<span class="tag tag-bad">${esc(t("car.state_moderated"))}</span>`}
             ${c.pending_count ? `<a href="#bookings" class="tag tag-pending">${esc(t("owner.new_requests", { n: c.pending_count }))}</a>` : ""}
@@ -171,7 +171,7 @@
       if (tog) {
         const c = items.find((x) => x.id == tog.dataset.toggle);
         const body = { brand: c.brand, model: c.model, year: c.year, color: c.color, body_type: c.body_type, seats: c.seats, transmission: c.transmission,
-          fuel: c.fuel, engine_l: c.engine_l, mileage_km: c.mileage_km, drive: c.drive, features: c.features, city: c.city, description: c.description,
+          fuel: c.fuel, engine_l: c.engine_l, mileage_km: c.mileage_km, drive: c.drive, features: c.features, city: c.city, district: c.district, description: c.description,
           price_per_day: c.price_per_day, deposit: c.deposit, min_days: c.min_days, max_days: c.max_days, km_limit: c.km_limit,
           delivery_price: c.delivery_price, is_active: !c.is_active };
         try { await api(`/api/cars/${c.id}`, { method: "PUT", body }); toast(t(body.is_active ? "car.shown" : "car.hidden"), "ok"); ownerCars(); } catch (err) { toast(err.message, "error"); }
@@ -194,7 +194,7 @@
     if (!items.length) { view.innerHTML = `<div class="empty card">${esc(t("owner.empty"))}</div>`; return; }
     const pre = new URLSearchParams(location.search).get("car");
     view.innerHTML = `<div class="two-col"><div class="card card-pad"><div class="field" style="max-width:420px"><label for="calCar">${esc(t("col.car"))}</label>
-      <select class="input" id="calCar">${items.map((c) => `<option value="${c.id}" ${String(c.id) === pre ? "selected" : ""}>${esc(carName(c))} ${c.year} · ${esc(c.city)}</option>`).join("")}</select></div>
+      <select class="input" id="calCar">${items.map((c) => `<option value="${c.id}" ${String(c.id) === pre ? "selected" : ""}>${esc(carName(c))} ${c.year} · ${esc(Places.label(c.city, c.district))}</option>`).join("")}</select></div>
       <div id="calendar"></div></div>
       <div class="card card-pad"><h3>${esc(t("block.title"))}</h3><p class="small muted">${esc(t("block.sub"))}</p>
         <form id="blockForm" novalidate><div class="grid-2">
@@ -235,7 +235,8 @@
 
   async function ownerEarnings() {
     head("dash.earnings", "earn.sub");
-    const e = await api("/api/my/earnings");
+    const [e, prov] = await Promise.all([api("/api/my/earnings"), api("/api/payments/providers")]);
+    const realOnline = prov.click || prov.payme;
     const pending = e.requests.find((r) => r.status === "pending");
     const reqTag = (st) => `<span class="tag ${st === "paid" ? "tag-ok" : st === "pending" ? "tag-pending" : st === "rejected" ? "tag-bad" : "tag-hidden"}">${esc(t("payreq.st_" + st))}</span>`;
     const method = (r) => r.method === "card" ? `${t("payreq.m_card")} •••• ${r.card_last4}` : t("payreq.m_" + r.method);
@@ -243,15 +244,20 @@
         ${stat(t("earn.online"), money(e.earned_online), esc(e.compensation ? t("earn.online_sub_comp", { sum: money(e.compensation) }) : t("earn.online_sub")))}
         ${stat(t("earn.paid_out"), money(e.paid_out), esc(t("earn.paid_out_sub")))}
         ${stat(t("payreq.available"), money(e.available), esc(e.requested ? t("payreq.available_sub_req", { sum: money(e.requested) }) : t("earn.balance_sub")))}
-        ${stat(t("earn.on_site"), money(e.on_site), esc(t("earn.on_site_sub")))}
+        ${stat(t("earn.site_collected"), money(e.site_collected), `${esc(t("earn.site_collected_sub"))}<br>${e.fee_owed
+          ? `<span class="tag tag-pending">${esc(t("earn.fee_debt"))}: ${money(e.fee_owed)}</span>` : `<span class="tag tag-ok">${esc(t("earn.fee_debt"))}: ${esc(t("earn.fee_debt_none"))}</span>`}`)}
       </div>
+      <details class="card card-pad earn-how" ${e.earned_online || e.paid_out ? "" : "open"}><summary><b>${icon("info", 18)} ${esc(t("earn.how_t"))}</b></summary>
+        <div class="how-grid"><div class="how-step"><span class="how-ico">${icon("card", 20)}</span><p>${esc(t("earn.how_online"))}</p></div>
+          <div class="how-step"><span class="how-ico">${icon("wallet", 20)}</span><p>${esc(t("earn.how_site"))}</p></div></div>
+        ${realOnline ? "" : `<div class="notice" style="margin-top:12px">${esc(t("earn.providers_off"))}</div>`}</details>
       <div class="two-col" style="margin-bottom:18px">
         <form class="card card-pad" id="payReqForm" novalidate><h3>${icon("wallet", 18)} ${esc(t("payreq.title"))}</h3>
           ${pending ? `<div class="notice info">${esc(t("payreq.pending_note", { sum: money(pending.amount), d: fmtDate(pending.created_at) }))}</div>
               <button type="button" class="btn btn-outline btn-sm" style="margin-top:10px" data-cancel-req="${pending.id}">${esc(t("payreq.cancel"))}</button>`
           : e.available > 0 ? `<p class="small muted">${esc(t("payreq.sub"))}</p>
             <div class="field"><label for="prA">${esc(t("pay.amount"))}</label>
-              <input class="input" type="number" id="prA" name="amount" min="1" max="${e.available}" value="${e.available}" required data-hint="payreq.amount_hint">
+              <input class="input" type="text" data-money id="prA" name="amount" value="${e.available}" required data-hint="payreq.amount_hint">
               <div class="row" style="gap:6px;margin-top:6px">${[0.25, 0.5, 1].map((k) => `<button type="button" class="btn btn-sm btn-soft" data-part="${Math.floor(e.available * k)}">${k === 1 ? esc(t("common.all")) : k * 100 + "%"}</button>`).join("")}</div></div>
             <div class="field"><label>${esc(t("payreq.method"))}</label><div class="seg" id="prM" role="radiogroup">
               ${["card", "bank", "cash"].map((m, i) => `<button type="button" role="radio" data-m="${m}" class="${i ? "" : "on"}" aria-checked="${!i}">${esc(t("payreq.m_" + m))}</button>`).join("")}</div></div>
@@ -269,7 +275,6 @@
               ${r.admin_note ? `<div class="small muted">${esc(t("payreq.admin_note"))}: ${esc(r.admin_note)}</div>` : ""}</span>${reqTag(r.status)}</div>`).join("")
             : `<p class="muted small">${esc(t("payreq.none"))}</p>`}</div>
       </div>
-      <div class="notice info" style="margin-bottom:16px">${esc(t("earn.note"))}</div>
       <div class="two-col">
         <div class="card"><div class="card-pad" style="padding-bottom:0"><h3>${esc(t("earn.payments"))}</h3></div>
           ${e.payments.length ? `<div class="table-wrap"><table class="table responsive"><thead><tr><th>${esc(t("col.car"))}</th><th>${esc(t("col.dates"))}</th>
@@ -280,12 +285,12 @@
               <td data-label="${esc(t("pay.method"))}">${esc(p.provider === "test" ? t("pay.test_name") : p.provider === "click" ? "Click" : "Payme")}</td>
               <td data-label="${esc(t("col.status"))}">${cancelled ? `<span class="tag tag-hidden">${esc(t("earn.cancelled_comp"))}</span>` : payStatusTag(p.status)}</td>
               <td data-label="${esc(t("booking.yours"))}"><b>${money(yours)}</b></td></tr>`; }).join("")}</tbody></table></div>`
-            : `<div class="empty">${esc(t("earn.no_payments"))}</div>`}</div>
+            : `<div class="empty"><b>${esc(t("earn.no_online_t"))}</b><p class="small muted" style="max-width:460px;margin:6px auto 0">${esc(t("earn.no_online_b"))}</p></div>`}</div>
         <div class="card card-pad"><h3>${esc(t("earn.payouts"))}</h3>
           ${e.payouts.length ? e.payouts.map((x) => `<div class="sum-row"><span>${fmtDate(x.created_at)}${x.note ? ` <span class="muted small">· ${esc(x.note)}</span>` : ""}</span><b>${money(x.amount)}</b></div>`).join("")
             : `<p class="muted small">${esc(t("earn.no_payouts"))}</p>`}</div>
       </div>`;
-    applyHints(view);
+    applyHints(view); applyMasks(view);
     let methodSel = "card";
     $$("#prM [data-m]", view).forEach((b) => b.addEventListener("click", () => {
       methodSel = b.dataset.m;
@@ -295,7 +300,7 @@
     $("#prC")?.addEventListener("input", (ev) => { ev.target.value = ev.target.value.replace(/\D/g, "").slice(0, 4); });
     view.onclick = async (ev) => {
       const part = ev.target.closest("[data-part]"), cancel = ev.target.closest("[data-cancel-req]");
-      if (part) $("#prA").value = part.dataset.part;
+      if (part) $("#prA").value = fmtMoneyInput(part.dataset.part);
       if (cancel && await confirmBox(t("payreq.cancel_confirm"), t("common.yes"))) {
         try { await api(`/api/my/payout-requests/${cancel.dataset.cancelReq}/cancel`, { method: "POST" }); toast(t("common.done"), "ok"); ownerEarnings(); }
         catch (err) { toast(err.message, "error"); }
@@ -304,7 +309,7 @@
     $("#payReqForm").addEventListener("submit", async (ev) => {
       ev.preventDefault();
       if (!$("#prA")) return;
-      const body = { amount: +$("#prA").value, method: methodSel, card_last4: methodSel === "card" ? $("#prC").value.trim() || null : null, note: $("#prN").value.trim() || null };
+      const body = { amount: moneyVal($("#prA").value) || 0, method: methodSel, card_last4: methodSel === "card" ? $("#prC").value.trim() || null : null, note: $("#prN").value.trim() || null };
       await withLoading($("button.btn-block", ev.target), async () => {
         try { await api("/api/my/payout-requests", { method: "POST", body }); toast(t("payreq.sent"), "ok"); ownerEarnings(); }
         catch (err) { showFieldErrors(ev.target, err); toast(err.message, "error"); }
@@ -354,6 +359,8 @@
       actions += `<button class="btn btn-sm btn-soft" data-review="${b.id}" data-title="${esc(owner ? b.renter_name : `${b.brand} ${b.model}`)}" data-owner="${owner ? 1 : 0}">★ ${esc(t(owner ? "review.rate_renter" : "review.leave"))}</button>`;
     if (!owner && ["completed", "cancelled", "rejected"].includes(b.status))
       actions += `<a class="btn btn-sm btn-outline" href="/car.html?id=${b.car_id}#book">${esc(t("booking.rebook"))}</a>`;
+    if (["approved", "completed", "cancelled"].includes(b.status) && daysBetween(b.end_date, today) <= 31)
+      actions += `<button class="btn btn-sm btn-outline" data-dispute="${b.id}" title="${esc(t("disp.title"))}">${icon("shield", 16)} ${esc(t("disp.open_btn"))}</button>`;
     const partnerId = owner ? b.renter_id : b.owner_id, partner = owner ? b.renter_name : b.owner_name;
     const phone = owner ? b.renter_phone : (["approved", "completed"].includes(b.status) ? b.owner_phone : null);
     actions += `<a class="btn btn-sm btn-outline" href="/messages.html?user=${partnerId}&car=${b.car_id}" aria-label="${esc(t("nav.messages"))}" title="${esc(t("nav.messages"))}">${icon("chat", 16)}</a>`;
@@ -370,7 +377,7 @@
         <div class="small">${money_line}</div>
         <div class="small muted">${esc(t(owner ? "booking.renter" : "booking.owner"))}: ${esc(partner)}${verified}
           ${owner && b.renter_rating ? ` · ★ ${b.renter_rating} (${b.renter_reviews})` : owner ? ` · ${esc(t("booking.new_renter"))}` : ""}
-          ${phone ? ` · <a href="tel:${esc(phone)}">${esc(phone)}</a>` : ""}</div>
+          ${phone ? ` · <a href="tel:${esc(phone.replace(/[^+\d]/g, ""))}">${esc(fmtPhone(phone))}</a>` : ""}</div>
         ${b.note ? `<div class="small muted">${esc(t("booking.note"))}: “${esc(b.note)}”</div>` : ""}
       </div>
       <div class="actions">${actions}</div></div>`;
@@ -379,6 +386,8 @@
   function bindBookingActions(reload) {
     view.onclick = async (e) => {
       const act = e.target.closest("[data-act]"), rev = e.target.closest("[data-review]"), pay = e.target.closest("[data-pay]");
+      const dsp = e.target.closest("[data-dispute]");
+      if (dsp) disputeModal(+dsp.dataset.dispute);
       if (act) {
         let text = t("booking.confirm_" + act.dataset.act);
         if (act.dataset.act === "cancel") {
@@ -425,6 +434,53 @@
         catch (err) { toast(err.message, "error"); }
       });
     });
+  }
+
+  // ===================== NIZOLAR =====================
+  const DISPUTE_TYPES = ["damage", "no_show", "late_return", "deposit", "not_as_described", "payment", "fuel_mileage", "other"];
+  function disputeModal(bookingId) {
+    const bg = document.createElement("div"); bg.className = "modal-bg";
+    bg.innerHTML = `<form class="modal card card-pad" role="dialog" aria-modal="true" aria-labelledby="dspT" novalidate>
+      <h3 id="dspT">${icon("shield", 20)} ${esc(t("disp.title"))}</h3><p class="small muted">${esc(t("disp.sub"))}</p>
+      <div class="field"><label for="dspType">${esc(t("disp.type"))}</label><select class="input" id="dspType" name="type">
+        ${DISPUTE_TYPES.map((k) => `<option value="${k}">${esc(t("disp.t_" + k))}</option>`).join("")}</select></div>
+      <div class="field"><label for="dspDesc">${esc(t("disp.desc"))}</label><textarea class="input" id="dspDesc" name="description" minlength="20" maxlength="2000" required placeholder="${esc(t("disp.desc_ph"))}"></textarea></div>
+      <div class="field"><label for="dspAmt">${esc(t("disp.amount"))} <span class="muted small">(${esc(t("common.optional"))})</span></label>
+        <input class="input" type="text" data-money id="dspAmt" name="amount" placeholder="0"><div class="hint show">${esc(t("disp.amount_hint"))}</div></div>
+      <div class="row" style="justify-content:flex-end"><button type="button" class="btn btn-outline" data-close>${esc(t("common.cancel"))}</button>
+        <button class="btn">${esc(t("disp.send"))}</button></div></form>`;
+    document.body.append(bg);
+    bg.addEventListener("click", (ev) => { if (ev.target === bg || ev.target.matches("[data-close]")) bg.remove(); });
+    $("form", bg).addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const f = formData(ev.target);
+      await withLoading($("button.btn:not(.btn-outline)", bg), async () => {
+        try {
+          await api("/api/disputes", { method: "POST", body: { booking_id: bookingId, type: f.type, description: f.description, amount: f.amount ? +f.amount : null } });
+          bg.remove(); toast(t("disp.sent"), "ok"); location.hash = "#disputes";
+        } catch (err) { showFieldErrors(ev.target, err); toast(err.message, "error"); }
+      });
+    });
+    setTimeout(() => $("#dspDesc", bg).focus(), 50);
+  }
+
+  async function myDisputes() {
+    head("disp.my_title", "disp.sub");
+    const { items } = await api("/api/disputes/mine");
+    const me = Auth.user.id;
+    view.innerHTML = items.length ? `<div class="disp-list">${items.map((d) => disputeCard(d, me)).join("")}</div>`
+      : `<div class="empty card"><h3>${esc(t("disp.none"))}</h3><p class="muted">${esc(t("disp.sub"))}</p></div>`;
+    view.onclick = async (e) => {
+      const w = e.target.closest("[data-withdraw]");
+      if (w && await confirmBox(t("disp.withdraw_confirm"), t("common.yes"))) {
+        try { await api(`/api/disputes/${w.dataset.withdraw}/withdraw`, { method: "POST" }); toast(t("common.done"), "ok"); myDisputes(); } catch (err) { toast(err.message, "error"); }
+      }
+    };
+    $$(".disp-reply", view).forEach((f) => f.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try { await api(`/api/disputes/${f.dataset.id}/reply`, { method: "POST", body: { text: f.text.value.trim() } }); toast(t("common.done"), "ok"); myDisputes(); }
+      catch (err) { toast(err.message, "error"); }
+    }));
   }
 
   function reviewModal(bookingId, title, aboutRenter, reload) {

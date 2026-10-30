@@ -23,8 +23,8 @@
       <section data-pane="1">
         <h2 data-i18n="form.s1"></h2>
         <div class="grid-3">
-          <div class="field"><label for="brand" data-i18n="field.brand"></label><input class="input" id="brand" name="brand" list="brands" required placeholder="Chevrolet" data-hint="hint.brand"></div>
-          <div class="field"><label for="model" data-i18n="field.model"></label><input class="input" id="model" name="model" required placeholder="Malibu" data-hint="hint.model"></div>
+          <div class="field"><label for="brand" data-i18n="field.brand"></label><input class="input" id="brand" name="brand" list="brands" autocomplete="off" required placeholder="Chevrolet" data-hint="hint.brand"></div>
+          <div class="field"><label for="model" data-i18n="field.model"></label><input class="input" id="model" name="model" list="modelList" autocomplete="off" required placeholder="Malibu" data-hint="hint.model"></div>
           <div class="field"><label for="year" data-i18n="field.year"></label><input class="input" type="number" id="year" name="year" min="1990" required inputmode="numeric" data-hint="hint.year"></div>
         </div>
         <datalist id="brands"><option>Chevrolet</option><option>BYD</option><option>Kia</option><option>Hyundai</option><option>Toyota</option><option>Tesla</option><option>Haval</option><option>Chery</option><option>Lada</option><option>Ravon</option></datalist>
@@ -59,25 +59,27 @@
 
       <section data-pane="3" class="hidden">
         <h2 data-i18n="form.s3"></h2>
-        <div class="field" style="max-width:360px"><label for="city" data-i18n="field.city"></label><input class="input" id="city" name="city" list="cities" required placeholder="Toshkent" data-hint="hint.city"></div>
-        <datalist id="cities"><option>Toshkent</option><option>Samarqand</option><option>Buxoro</option><option>Farg'ona</option><option>Andijon</option><option>Namangan</option><option>Xiva</option><option>Qarshi</option><option>Nukus</option><option>Termiz</option><option>Jizzax</option><option>Navoiy</option><option>Guliston</option><option>Urganch</option></datalist>
+        <div class="grid-2" style="max-width:720px">
+          <div class="field"><label for="city" data-i18n="place.region"></label><select class="input" id="city" name="city" required data-hint="hint.city"></select></div>
+          <div class="field"><label for="district" data-i18n="place.district"></label><select class="input" id="district" name="district" required data-hint="hint.district"></select></div>
+        </div>
         <div class="field"><label for="description" data-i18n="field.description"></label><textarea class="input" id="description" name="description" maxlength="2000" data-i18n-placeholder="form.desc_ph" data-hint="hint.description"></textarea><div class="small muted counter" id="descCount"></div></div>
       </section>
 
       <section data-pane="4" class="hidden">
         <h2 data-i18n="form.s4"></h2>
-        <div class="field" style="max-width:420px"><label for="price_per_day" data-i18n="field.price"></label><input class="input" type="number" id="price_per_day" name="price_per_day" min="10000" step="10000" required placeholder="450000" inputmode="numeric" data-hint="hint.price">
+        <div class="field" style="max-width:420px"><label for="price_per_day" data-i18n="field.price"></label><input class="input" data-money inputmode="numeric" type="text" id="price_per_day" name="price_per_day" required placeholder="450 000" data-hint="hint.price">
           <button type="button" class="btn btn-soft btn-sm" id="suggestBtn" style="margin-top:8px" data-i18n="price.suggest_btn"></button>
           <div id="suggestBox"></div></div>
         <div class="grid-3">
-          <div class="field"><label for="deposit" data-i18n="field.deposit"></label><input class="input" type="number" id="deposit" name="deposit" min="0" step="50000" value="0" inputmode="numeric" data-hint="hint.deposit"></div>
+          <div class="field"><label for="deposit" data-i18n="field.deposit"></label><input class="input" data-money inputmode="numeric" type="text" id="deposit" name="deposit" value="0" data-hint="hint.deposit"></div>
           <div class="field"><label for="min_days" data-i18n="field.min_days"></label><input class="input" type="number" id="min_days" name="min_days" min="1" max="60" value="1" inputmode="numeric" data-hint="hint.min_days"></div>
           <div class="field"><label for="max_days" data-i18n="field.max_days"></label><input class="input" type="number" id="max_days" name="max_days" min="1" max="90" value="30" inputmode="numeric" data-hint="hint.max_days"></div>
         </div>
         <div class="grid-2">
           <div class="field"><label for="km_limit" data-i18n="field.km_limit"></label><input class="input" type="number" id="km_limit" name="km_limit" min="50" max="2000" step="50" placeholder="300" inputmode="numeric" data-hint="hint.km_limit"></div>
           <div class="field"><label class="check" style="margin-bottom:8px"><input type="checkbox" id="hasDelivery"><span data-i18n="field.delivery"></span></label>
-            <input class="input" type="number" id="delivery_price" name="delivery_price" min="0" step="10000" data-i18n-placeholder="field.delivery_price" disabled inputmode="numeric" data-hint="hint.delivery"></div>
+            <input class="input" data-money inputmode="numeric" type="text" id="delivery_price" name="delivery_price" data-i18n-placeholder="field.delivery_price" disabled data-hint="hint.delivery"></div>
         </div>
         <div class="notice info" id="commissionNote"></div>
       </section>
@@ -111,6 +113,7 @@
           <button type="submit" class="btn hidden" id="publishBtn" data-i18n="form.publish"></button>
         </div>
       </div>
+    <datalist id="modelList"></datalist>
     </form>
   </div>
 </main>

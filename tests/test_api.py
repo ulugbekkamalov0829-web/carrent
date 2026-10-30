@@ -30,7 +30,7 @@ def finish(booking_id):
 def test_register_login_logout(client):
     r = client.post("/api/auth/register", headers=H, json={
         "full_name": "Ali Valiyev", "email": "Ali@Test.uz", "phone": "+998901112233", "password": PASSWORD,
-        "accept_terms": True, "lang": "ru"})
+        "accept_terms": True, "lang": "ru", "region": "Namangan", "district": "Chust"})
     assert r.status_code == 201
     u = r.json()["user"]
     assert u["email"] == "ali@test.uz" and u["role"] == "user" and u["lang"] == "ru" and "password_hash" not in u
@@ -43,7 +43,8 @@ def test_register_login_logout(client):
 
 
 def test_password_policy_and_terms(client):
-    base = {"full_name": "Test User", "email": "pw@t.uz", "phone": "+998935550000", "accept_terms": True}
+    base = {"full_name": "Test User", "email": "pw@t.uz", "phone": "+998935550000", "accept_terms": True,
+            "region": "Samarqand", "district": "Urgut"}
     assert client.post("/api/auth/register", headers=H, json={**base, "password": "qisqa123"}).status_code == 422
     assert client.post("/api/auth/register", headers=H, json={**base, "password": "qwerty123456"}).status_code == 422
     assert client.post("/api/auth/register", headers=H, json={**base, "password": "pw-parolim-uzun"}).status_code == 422  # emailni o'z ichiga oladi
@@ -159,16 +160,16 @@ def test_messages_are_private():
 # ---------------- Qidiruv ----------------
 def test_search_and_filters(client):
     owner, _ = make_user()
-    make_car(owner, brand="Filtrbrand", model="Han", city="Xiva", price_per_day=1_000_000, fuel="electric", features=["ac", "camera"])
-    make_car(owner, brand="Filtrbrand", model="Spark", city="Xiva", price_per_day=200_000, transmission="manual", body_type="hatchback")
-    hidden = make_car(owner, brand="Filtrbrand", city="Xiva", is_active=False)
+    make_car(owner, brand="Filtrbrand", model="Han", city="Xorazm", district="Xiva shahri", price_per_day=1_000_000, fuel="electric", features=["ac", "camera"])
+    make_car(owner, brand="Filtrbrand", model="Spark", city="Xorazm", district="Xiva shahri", price_per_day=200_000, transmission="manual", body_type="hatchback")
+    hidden = make_car(owner, brand="Filtrbrand", city="Xorazm", district="Xiva shahri", is_active=False)
     r = client.get("/api/cars", params={"brand": "Filtrbrand"}).json()
     assert r["total"] == 2 and hidden["id"] not in [c["id"] for c in r["items"]]
     assert client.get("/api/cars", params={"brand": "Filtrbrand", "fuel": "electric"}).json()["total"] == 1
     assert client.get("/api/cars", params={"brand": "Filtrbrand", "body_type": "hatchback"}).json()["total"] == 1
     assert client.get("/api/cars", params={"brand": "Filtrbrand", "features": "ac,camera"}).json()["total"] == 1
     assert client.get("/api/cars", params={"brand": "Filtrbrand", "max_price": 500000}).json()["items"][0]["model"] == "Spark"
-    items = client.get("/api/cars", params={"city": "xiva", "sort": "price_desc"}).json()["items"]
+    items = client.get("/api/cars", params={"city": "xorazm", "district": "Xiva shahri", "sort": "price_desc"}).json()["items"]
     assert [c["price_per_day"] for c in items] == [1_000_000, 200_000]
     assert client.get(f"/api/cars/{hidden['id']}").status_code == 404
     assert owner.get(f"/api/cars/{hidden['id']}").status_code == 200
@@ -308,13 +309,13 @@ def test_favorites():
 def test_price_suggestion_uses_real_comparables(client):
     owner, _ = make_user()
     for p in (300_000, 320_000, 340_000, 360_000, 380_000):
-        make_car(owner, brand="Narxtest", model="X1", city="Qarshi", year=2022, price_per_day=p)
-    r = client.get("/api/pricing/suggest", params={"brand": "Narxtest", "model": "X1", "year": 2022, "city": "Qarshi",
+        make_car(owner, brand="Narxtest", model="X1", city="Qashqadaryo", year=2022, price_per_day=p)
+    r = client.get("/api/pricing/suggest", params={"brand": "Narxtest", "model": "X1", "year": 2022, "city": "Qashqadaryo",
                                                     "body_type": "sedan"}).json()
     assert r["n"] >= 5 and r["level"] == "same_model_city" and r["low"] <= r["suggested"] <= r["high"]
     base = 340_000 * {6: 1.10, 7: 1.12, 8: 1.10, 12: 1.05, 1: 1.05, 3: 1.05}.get(date.today().month, 1.0)
     assert abs(r["suggested"] - base) <= 10_000
-    newer = client.get("/api/pricing/suggest", params={"brand": "Narxtest", "model": "X1", "year": 2024, "city": "Qarshi",
+    newer = client.get("/api/pricing/suggest", params={"brand": "Narxtest", "model": "X1", "year": 2024, "city": "Qashqadaryo",
                                                         "body_type": "sedan"}).json()
     assert newer["suggested"] > r["suggested"]                                # yangi avtomobil qimmatroq
     none = client.get("/api/pricing/suggest", params={"brand": "Yoq", "model": "Yoq", "city": "Mars", "body_type": "pickup"}).json()

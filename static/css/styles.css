@@ -929,12 +929,12 @@ hr.dash { border: 0; border-top: 1.5px dashed var(--line-2); margin: 14px 0; }
    Suratlar kichik o'lchamli, shuning uchun ular duotone qilinadi: xiralik "atmosfera" bo'lib ko'rinadi, ochiq kulrang dog' qolmaydi. */
 .neon-page .topbar .logo b { color: #62ffe0; text-shadow: 0 0 10px rgba(0, 255, 255, .35); }
 .neon-page .topbar .logo-mark { background: rgba(98, 255, 224, .1); box-shadow: inset 0 0 0 1px rgba(98, 255, 224, .3); }
-.neon .slide { filter: grayscale(1) brightness(.62) contrast(1.15); }
-.neon .slides::after { content: ""; position: absolute; inset: 0; background: linear-gradient(160deg, #0f4c5c 0%, #0b2a3f 55%, #08111d 100%);
-  mix-blend-mode: color; opacity: .95; }
+.neon .slide { filter: saturate(.9) brightness(.92) contrast(1.05); }
+.neon .slides::after { content: ""; position: absolute; inset: 0; background: linear-gradient(160deg, #1b6d7d 0%, #123a55 60%, #08111d 100%);
+  mix-blend-mode: soft-light; opacity: .55; }
 .neon .auth-visual::before {
-  background: linear-gradient(180deg, rgba(8, 17, 29, .55) 0%, rgba(8, 17, 29, .35) 35%, rgba(8, 17, 29, .92) 100%),
-              linear-gradient(90deg, transparent 55%, #08111d 100%),
+  background: linear-gradient(180deg, rgba(8, 17, 29, .35) 0%, rgba(8, 17, 29, 0) 30%, rgba(8, 17, 29, .15) 55%, rgba(8, 17, 29, .88) 100%),
+              linear-gradient(90deg, transparent 40%, rgba(8, 17, 29, .55) 75%, #08111d 100%),
               radial-gradient(520px 300px at 0% 100%, rgba(0, 200, 220, .16), transparent 70%),
               radial-gradient(420px 260px at 85% 20%, rgba(0, 255, 255, .07), transparent 70%); }
 /* Ikki yarim orasidagi ingichka neon chiziq — chegarani "tikadi" */
@@ -952,8 +952,8 @@ hr.dash { border: 0; border-top: 1.5px dashed var(--line-2); margin: 14px 0; }
 .neon-check input:checked::after { content: ""; width: 10px; height: 6px; border: solid #62ffe0; border-width: 0 0 2.5px 2.5px; transform: translateY(-1px) rotate(-45deg); }
 
 /* Katta ekranda — videodagidek dumaloq halqa */
-@media (min-width: 1360px) and (min-height: 800px) {
-  .ring-wrap { width: 680px; }
+@media (min-width: 1360px) and (min-height: 860px) {
+  .ring-wrap { width: clamp(640px, calc(100dvh - 150px), 720px); }
   .ring-box { border-radius: 50%; aspect-ratio: 1; }
   .card-holder { border-radius: 50%; height: 100%; display: grid; place-items: center; padding: 0; }
   .card3d { width: 370px; }
@@ -964,6 +964,7 @@ hr.dash { border: 0; border-top: 1.5px dashed var(--line-2); margin: 14px 0; }
   #faceBack .field { margin-bottom: 11px; }
   #faceBack .input { min-height: 46px; }
   #faceBack .nf label { top: 13px; }
+  #faceBack .nf .input:focus + label, #faceBack .nf .input:not(:placeholder-shown) + label { top: -9px; }
   #faceBack .neon-check { margin: 0 4px 12px; }
   #faceBack .neon-btn { min-height: 48px; }
   #faceBack .neon-switch { margin-top: 10px; line-height: 1.5; }
@@ -1076,7 +1077,8 @@ hr.dash { border: 0; border-top: 1.5px dashed var(--line-2); margin: 14px 0; }
 .adv-tile:hover { border-color: var(--line-2); box-shadow: var(--shadow); }
 .adv-tile:active { transform: scale(.98); }
 .adv-tile.on { border-color: var(--primary); background: var(--primary-soft); box-shadow: 0 0 0 3px var(--primary-ring); }
-.adv-tile .em { font-size: 1.7rem; line-height: 1; margin-bottom: 4px; }
+.adv-tile .em { width: 56px; height: 56px; object-fit: contain; margin-bottom: 6px; filter: drop-shadow(0 6px 8px rgba(15, 23, 42, .14)); transition: transform .2s var(--ease); }
+.adv-tile:hover .em, .adv-tile.on .em { transform: translateY(-2px) scale(1.06); }
 .adv-stepper { display: flex; align-items: center; justify-content: center; gap: 22px; margin: 18px 0 6px; }
 .adv-stepper .icon-btn { width: 52px; height: 52px; border-radius: 50%; font-size: 1.5rem; border: 1.5px solid var(--line-2); background: var(--white); }
 .adv-stepper .icon-btn:hover { border-color: var(--primary); color: var(--primary); }
@@ -1122,7 +1124,7 @@ hr.dash { border: 0; border-top: 1.5px dashed var(--line-2); margin: 14px 0; }
 .adv-promo:hover { text-decoration: none; box-shadow: var(--shadow-lg); transform: translateY(-1px); }
 .adv-promo > span:nth-child(2) { flex: 1; display: grid; gap: 2px; }
 .adv-promo .small { color: var(--ink-2); }
-.adv-promo-ico { font-size: 2rem; }
+.adv-promo-ico { width: 52px; height: 52px; flex: none; filter: drop-shadow(0 4px 6px rgba(15, 23, 42, .15)); }
 .adv-promo.compact { margin: 0 0 14px; padding: 12px 16px; }
 @media (max-width: 640px) { .adv-promo { flex-wrap: wrap; } .adv-promo .btn { width: 100%; } }
 .rep-kpi .v { font-size: clamp(1.15rem, 1.6vw, 1.45rem); white-space: nowrap; }
@@ -1131,3 +1133,54 @@ hr.dash { border: 0; border-top: 1.5px dashed var(--line-2); margin: 14px 0; }
 @media (min-width: 1100px) { .two-col.wide-left { grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); } }
 .table td b, .table td .nowrap { white-space: nowrap; }
 .tag { white-space: nowrap; }
+
+/* ---- Ro'yxat: viloyat va tuman (ikki ustun) ---- */
+.place-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.place-row .err { grid-column: 1 / -1; }
+.neon select.input { appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 38px; color: #d8e9ef;
+  background: #050f18 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%2362ffe0' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 16px center; }
+.neon select.input:disabled { opacity: .55; cursor: not-allowed; }
+.neon select.input option { background: #101c28; color: #d8e9ef; }
+.neon select.input:invalid, .neon select.input option[value=""] { color: #6f8796; }
+@media (min-width: 1360px) and (min-height: 860px) { #faceBack .place-row select.input { min-height: 46px; } }
+/* Kirish oynasi: past ekranlarda halqa o'rniga ixcham karta, demo bloki formani pastga surmasin */
+.auth-stage { min-height: 100dvh; }
+@media (max-height: 859px) and (min-width: 961px) {
+  .auth-stage { padding-top: 70px; padding-bottom: 20px; justify-content: flex-start; }
+  #faceBack .neon-sub { min-height: 0; margin-bottom: 12px; }
+  #faceBack .field { margin-bottom: 11px; }
+  #faceBack .input { min-height: 44px; }
+  #faceBack .nf label { top: 12px; }
+  #faceBack .nf .input:focus + label, #faceBack .nf .input:not(:placeholder-shown) + label { top: -9px; }
+  .card-holder { padding: 24px 26px 20px; }
+}
+
+/* ---- Daromad: hisob qanday ishlaydi ---- */
+.earn-how { margin-bottom: 18px; }
+.earn-how summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; }
+.earn-how summary::-webkit-details-marker { display: none; }
+.earn-how summary b { display: inline-flex; align-items: center; gap: 8px; }
+.how-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 12px; }
+.how-step { display: flex; gap: 12px; align-items: flex-start; background: var(--soft); border-radius: 12px; padding: 12px 14px; }
+.how-step p { margin: 0; font-size: .9rem; color: var(--ink-2); }
+.how-ico { flex: none; width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--white); color: var(--primary); }
+@media (max-width: 760px) { .how-grid { grid-template-columns: 1fr; } }
+
+/* ---- Nizolar ---- */
+.disp-list { display: grid; gap: 14px; }
+.disp.active { border-left: 4px solid var(--warning); }
+.disp-amt { text-align: right; display: grid; }
+.disp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.disp-side { background: var(--soft); border-radius: 12px; padding: 12px 14px; }
+.disp-side.other { background: var(--bg); border: 1px dashed var(--line-2); }
+.disp-side p { margin: 6px 0 0; white-space: pre-line; }
+.disp-decision { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--success-soft); color: var(--success-ink); }
+.disp-decision p { margin: 6px 0 0; color: var(--ink); white-space: pre-line; }
+@media (max-width: 760px) { .disp-grid { grid-template-columns: 1fr; } }
+/* ---- Admin: kanallar ---- */
+.chan-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+.chan-card .row { justify-content: space-between; }
+.chan-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; background: var(--danger); }
+.chan-dot.on { background: var(--success); box-shadow: 0 0 0 4px var(--success-soft); }
+.tpl { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .84rem; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 6px 0; }
+@media (max-width: 760px) { .chan-grid { grid-template-columns: 1fr; } }

@@ -108,6 +108,83 @@ const initials = (name) => (name || "?").split(/\s+/).map((p) => p[0]).slice(0, 
 const statusTag = (s) => `<span class="tag tag-${esc(s)}">${esc(t("status." + s))}</span>`;
 const carName = (c) => `${c.brand} ${c.model}`;
 
+// ================= Telefon shabloni va pul summalarini ajratish =================
+/** "+998 90 123 45 67" ko'rinishi: yozish paytida bo'shliqlar avtomatik qo'yiladi, +998 o'chib ketmaydi */
+function fmtPhone(v) {
+  let d = String(v || "").replace(/\D/g, "");
+  if (d.startsWith("998")) d = d.slice(3);
+  else if (d.length > 9 && d.startsWith("8")) d = d.slice(1);
+  d = d.slice(0, 9);
+  const parts = [d.slice(0, 2), d.slice(2, 5), d.slice(5, 7), d.slice(7, 9)].filter(Boolean);
+  return "+998" + (parts.length ? " " + parts.join(" ") : " ");
+}
+/** 600000 -> "600 000" (yozish paytida ham) */
+const fmtMoneyInput = (v) => { const d = String(v ?? "").replace(/\D/g, "").replace(/^0+(?=\d)/, ""); return d ? d.replace(/\B(?=(\d{3})+(?!\d))/g, " ") : ""; };
+const moneyVal = (v) => { const d = String(v ?? "").replace(/\D/g, ""); return d ? +d : null; };
+
+/** Qayta formatlash: kursor o'sha raqamdan keyin qoladi (o'rtadan tahrirlash ham buzilmaydi) */
+function reformatKeepingCaret(el, fmt) {
+  const phone = fmt === fmtPhone;
+  const pos = el.selectionStart ?? el.value.length;
+  const prefix = (v) => (phone && v.startsWith("+998") ? 4 : 0);
+  let n = el.value.slice(prefix(el.value), pos).replace(/\D/g, "").length;   // kursorgacha bo'lgan raqamlar
+  el.value = fmt(el.value);
+  let at = prefix(el.value);
+  if (phone && at && el.value[at] === " ") at++;
+  for (let i = at; i < el.value.length && n > 0; i++) { if (/\d/.test(el.value[i])) n--; at = i + 1; }
+  try { el.setSelectionRange(at, at); } catch {}
+}
+const isPhoneInput = (el) => el.matches?.("input[type=tel], input[data-phone]");
+const isMoneyInput = (el) => el.matches?.("input[data-money]");
+document.addEventListener("input", (e) => {
+  const el = e.target;
+  if (isPhoneInput(el)) reformatKeepingCaret(el, fmtPhone);
+  else if (isMoneyInput(el)) reformatKeepingCaret(el, fmtMoneyInput);
+});
+document.addEventListener("focusin", (e) => { if (isPhoneInput(e.target) && !e.target.value) e.target.value = "+998 "; });
+document.addEventListener("focusout", (e) => { if (isPhoneInput(e.target) && e.target.value.replace(/\D/g, "") === "998") e.target.value = ""; });
+/** Sahifa chizilgandan keyin mavjud qiymatlarni formatlash (masalan, profildagi telefon) */
+function applyMasks(root = document) {
+  $$("input[type=tel], input[data-phone]", root).forEach((el) => { if (el.value) el.value = fmtPhone(el.value); });
+  $$("input[data-money]", root).forEach((el) => { el.value = fmtMoneyInput(el.value); el.setAttribute("inputmode", "numeric"); el.autocomplete = "off"; });
+}
+
+// ================= Viloyat va tumanlar =================
+const Places = {
+  data: null,
+  async load() {
+    if (!this.data) this.data = await (await fetch("/data/regions.json")).json();
+    return this.data;
+  },
+  regionName(key) {
+    const r = this.data?.regions.find((x) => x.key === key);
+    return !r ? (key || "") : I18N.lang === "uz" ? uzTypo(r.key) : r[I18N.lang] || r.key;
+  },
+  label(region, district) { return [district ? uzTypo(district) : "", this.regionName(region)].filter(Boolean).join(", "); },
+  /** Viloyat tanlansa — faqat shu viloyat tumanlari; o'zgartirilsa ro'yxat yangilanadi */
+  async bind(regionSel, districtSel, { region = "", district = "", any = false, counts = null, short = false } = {}) {
+    await this.load();
+    const fillRegions = () => {
+      regionSel.innerHTML = `<option value="">${esc(t(short ? "place.region" : any ? "search.any_city" : "place.pick_region"))}</option>` +
+        this.data.regions.map((r) => `<option value="${esc(r.key)}">${esc(this.regionName(r.key))}${counts && counts[r.key] ? ` (${counts[r.key]})` : ""}</option>`).join("");
+    };
+    const fillDistricts = (keep) => {
+      const r = this.data.regions.find((x) => x.key === regionSel.value);
+      districtSel.innerHTML = `<option value="">${esc(t(short ? "place.district_short" : r ? (any ? "place.any_district" : "place.pick_district") : "place.region_first"))}</option>` +
+        (r ? r.districts.map((d) => `<option value="${esc(d)}">${esc(uzTypo(d))}</option>`).join("") : "");
+      districtSel.disabled = !r;
+      if (keep && r?.districts.includes(keep)) districtSel.value = keep;
+    };
+    fillRegions();
+    regionSel.value = this.data.regions.some((r) => r.key === region) ? region : "";
+    fillDistricts(district);
+    regionSel.onchange = () => { fillDistricts(""); regionSel.dispatchEvent(new CustomEvent("placechange", { bubbles: true })); };
+    return { refresh: () => { const r = regionSel.value, d = districtSel.value; fillRegions(); regionSel.value = r; fillDistricts(d); } };
+  },
+};
+/** O'zbek lotin tipografiyasi: o' g' -> oʻ gʻ (faqat ko'rsatish uchun, qiymat o'zgarmaydi) */
+const uzTypo = (s) => String(s || "").replace(/([OoGg])'/g, "$1ʻ").replace(/(?<=[A-Za-zʻ])'(?=[A-Za-z])/g, "ʼ");
+
 // ================= Rasm bo'lmaganda avtomobil illyustratsiyasi =================
 const PALETTE = ["#1e40af", "#0e7490", "#b45309", "#be123c", "#4d7c0f", "#6d28d9", "#0f766e", "#334155"];
 function carArt(car) {
@@ -139,7 +216,7 @@ function carCard(c, { days = 0, qs = "", reason = false } = {}) {
     <div class="car-body">
       <a class="car-title" href="${href}">${esc(carName(c))} <span class="muted small">${esc(c.year)}</span></a>
       ${reason && c.reason ? `<span class="reason">${esc(t("reason." + c.reason))}</span>` : ""}
-      <div class="car-meta"><span class="chip">📍 ${esc(c.city)}</span><span class="chip">${esc(t("trans." + c.transmission))}</span>
+      <div class="car-meta"><span class="chip" title="${esc(Places.label(c.city, c.district))}">📍 ${esc(c.district ? uzTypo(c.district) : Places.regionName(c.city))}</span><span class="chip">${esc(t("trans." + c.transmission))}</span>
         <span class="chip">${esc(t("fuel." + c.fuel))}</span><span class="chip">${esc(t("car.seats_n", { n: c.seats }))}</span></div>
       <div class="car-foot">
         <div class="price">${money(c.price_per_day)} <small>${esc(t("car.per_day"))}</small>
@@ -198,7 +275,11 @@ function showFieldErrors(form, err) {
 }
 function formData(form) {
   const o = {};
-  new FormData(form).forEach((v, k) => { o[k] = typeof v === "string" ? v.trim() : v; });
+  new FormData(form).forEach((v, k) => {
+    const el = form.elements[k];
+    if (el && el.dataset?.money !== undefined) { o[k] = String(moneyVal(v) ?? ""); return; }
+    o[k] = typeof v === "string" ? v.trim() : v;
+  });
   return o;
 }
 async function withLoading(btn, fn) {
@@ -231,7 +312,7 @@ async function guard(...roles) {
 
 /** Har sahifa boshida: foydalanuvchi, til, header va footer */
 async function boot(active = "", { bare = false } = {}) {
-  const [user] = await Promise.all([Auth.load(), I18N.load(I18N.initial(null))]);
+  const [user] = await Promise.all([Auth.load(), I18N.load(I18N.initial(null)), Places.load().catch(() => null)]);
   const lang = I18N.initial(user?.lang);
   if (lang !== I18N.lang) await I18N.load(lang);
   if (user && user.lang !== I18N.lang) user.lang = I18N.lang;
@@ -240,6 +321,7 @@ async function boot(active = "", { bare = false } = {}) {
   applyI18n();
   applyHints();
   DateField.enhance();
+  applyMasks();
   renderFooter();
   return user;
 }
@@ -293,14 +375,15 @@ const icon = (name, size = 20) => `<svg class="ico" width="${size}" height="${si
 /** Kabinet bo'limlari — chap panel va kabinet sahifasi bitta ro'yxatdan foydalanadi */
 const CABINET = {
   renter: [["overview", "nav.tab_overview", "grid"], ["bookings", "dash.my_bookings", "list"], ["payments", "dash.my_payments", "card"],
-           ["favorites", "dash.favorites", "heart"], ["analytics", "rep.title", "chart"]],
+           ["favorites", "dash.favorites", "heart"], ["analytics", "rep.title", "chart"], ["disputes", "nav.disputes", "flag"]],
   owner: [["overview", "dash.owner_overview", "grid"], ["cars", "dash.my_cars", "car"], ["bookings", "dash.requests", "list"],
           ["calendar", "dash.calendar", "calendar"], ["earnings", "dash.earnings", "wallet"], ["analytics", "rep.title", "chart"],
-          ["reviews", "dash.reviews", "star"]],
+          ["reviews", "dash.reviews", "star"], ["disputes", "nav.disputes", "flag"]],
 };
 const ADMIN_TABS = [["stats", "admin.dashboard", "grid"], ["analytics", "rep.title", "chart"], ["users", "admin.users", "users"], ["cars", "admin.cars", "car"],
   ["bookings", "admin.bookings", "list"], ["payments", "admin.payments", "card"], ["finance", "admin.finance", "wallet"],
-  ["reports", "admin.reports", "flag"], ["reviews", "admin.reviews", "star"], ["audit", "admin.audit", "log"]];
+  ["disputes", "admin.disputes", "shield"], ["reports", "admin.reports", "flag"], ["reviews", "admin.reviews", "star"],
+  ["channels", "admin.channels", "mail"], ["audit", "admin.audit", "log"]];
 
 const Nav = { active: "", poller: null, bare: false, summary: {} };
 

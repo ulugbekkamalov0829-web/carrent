@@ -1,5 +1,5 @@
 "use strict";
-const FEATURE_KEYS = ["ac", "bluetooth", "usb", "camera", "parking_sensors", "cruise", "heated_seats", "child_seat", "navigation", "sunroof", "leather", "abs", "airbags", "carplay"];
+const FEATURE_KEYS = ["ac", "climate", "child_seat", "isofix", "camera", "carplay", "cruise", "heated_seats", "roof_rack", "pets_ok"];
 
 (async () => {
   await boot("cars");
@@ -11,18 +11,22 @@ const FEATURE_KEYS = ["ac", "bluetooth", "usb", "camera", "parking_sensors", "cr
   const drawChips = () => {
     const checked = new Set((state.get("features") || "").split(",").filter(Boolean));
     $$("#featureChips input:checked").forEach((i) => checked.add(i.value));
-    $("#featureChips").innerHTML = FEATURE_KEYS.slice(0, 8).map((k) =>
+    $("#featureChips").innerHTML = FEATURE_KEYS.map((k) =>
       `<label><input type="checkbox" value="${k}" ${checked.has(k) ? "checked" : ""}><span>${esc(t("feature." + k))}</span></label>`).join("");
   };
   drawChips();
 
   const meta = await api("/api/meta");
-  $("#city").insertAdjacentHTML("beforeend", meta.cities.map((c) => `<option value="${esc(c.city)}">${esc(c.city)}</option>`).join(""));
   $("#brand").insertAdjacentHTML("beforeend", meta.brands.map((b) => `<option>${esc(b)}</option>`).join(""));
+  // Marka yoki model: CarRent'dagi barcha mashinalar nomi taklif qilinadi
+  $("#carNames").innerHTML = [...meta.brands.map((b) => `<option value="${esc(b)}">`),
+    ...meta.models.map((m) => `<option value="${esc(m.brand)} ${esc(m.model)}">${esc(t("filter.n_listings", { n: m.count }))}</option>`)].join("");
+  const counts = Object.fromEntries(meta.cities.map((c) => [c.city, c.count]));
+  const places = await Places.bind($("#city"), $("#district"), { region: state.get("city") || "", district: state.get("district") || "", any: true, counts });
 
   // URL'dagi filtrlarni formaga qaytaramiz (havolani ulashish mumkin)
   for (const el of form.elements) {
-    if (!el.name || !state.has(el.name)) continue;
+    if (!el.name || !state.has(el.name) || el.name === "city" || el.name === "district") continue;
     if (el.type === "checkbox") el.checked = state.get(el.name) === el.value; else el.value = state.get(el.name);
   }
   if (state.has("sort")) $("#sort").value = state.get("sort");
@@ -31,7 +35,9 @@ const FEATURE_KEYS = ["ac", "bluetooth", "usb", "camera", "parking_sensors", "cr
     const p = new URLSearchParams();
     for (const el of form.elements) {
       if (!el.name) continue;
-      if (el.type === "checkbox") { if (el.checked) p.set(el.name, el.value); } else if (el.value) p.set(el.name, el.value.trim());
+      if (el.type === "checkbox") { if (el.checked) p.set(el.name, el.value); }
+      else if (el.dataset.money !== undefined) { if (moneyVal(el.value)) p.set(el.name, moneyVal(el.value)); }
+      else if (el.value) p.set(el.name, el.value.trim());
     }
     const feats = $$("#featureChips input:checked").map((i) => i.value);
     if (feats.length) p.set("features", feats.join(","));
@@ -65,7 +71,7 @@ const FEATURE_KEYS = ["ac", "bluetooth", "usb", "camera", "parking_sensors", "cr
       .map((i) => `<button class="btn btn-sm ${i === data.page ? "" : "btn-outline"}" data-page="${i}" aria-label="${esc(t("cars.page", { n: i }))}">${i}</button>`).join("") : "";
   }
 
-  function reset() { form.reset(); $$("#featureChips input").forEach((i) => (i.checked = false)); $("#sort").value = "new"; load(); }
+  function reset() { form.reset(); $("#district").innerHTML = ""; $("#city").dispatchEvent(new Event("change")); $$("#featureChips input").forEach((i) => (i.checked = false)); $("#sort").value = "new"; load(); }
 
   $("#pager").addEventListener("click", (e) => { const b = e.target.closest("[data-page]"); if (b) { load(+b.dataset.page); scrollTo({ top: 0, behavior: "smooth" }); } });
   let timer;
@@ -76,6 +82,7 @@ const FEATURE_KEYS = ["ac", "bluetooth", "usb", "camera", "parking_sensors", "cr
   $("#resetFilters").addEventListener("click", reset);
   $("#filtersToggle").addEventListener("click", () => $("#filters").classList.add("open"));
   $("#applyFilters").addEventListener("click", () => $("#filters").classList.remove("open"));
-  document.addEventListener("langchange", () => { drawChips(); draw(); });
+  applyMasks(form);
+  document.addEventListener("langchange", () => { drawChips(); places.refresh(); draw(); });
   load(+(state.get("page") || 1));
 })();

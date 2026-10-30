@@ -12,6 +12,7 @@ import smtplib
 import ssl
 import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from email.message import EmailMessage
@@ -56,6 +57,24 @@ TEMPLATES = {
 }
 
 
+# SMS uchun qisqa, o'zgarmas matnlar. Eskiz faqat moderatsiyadan o'tgan shablonlarni yuboradi — shu matnlarni
+# Eskiz kabinetida "Shablonlar" bo'limiga AYNAN shunday yuborish kerak ({code}, {ttl}, {title} o'rniga qiymat qo'yiladi).
+SMS_TEMPLATES = {
+    "reset": {"uz": "CarRent: parolni tiklash kodi {code}. Kod {ttl} daqiqa amal qiladi. Kodni hech kimga bermang.",
+              "ru": "CarRent: код восстановления пароля {code}. Действует {ttl} минут. Никому не сообщайте код.",
+              "en": "CarRent: password reset code {code}. Valid for {ttl} minutes. Never share this code."},
+    "verify_phone": {"uz": "CarRent: telefon raqamni tasdiqlash kodi {code}. Kod {ttl} daqiqa amal qiladi.",
+                     "ru": "CarRent: код подтверждения телефона {code}. Действует {ttl} минут.",
+                     "en": "CarRent: phone confirmation code {code}. Valid for {ttl} minutes."},
+    "booking": {"uz": "CarRent: {title}", "ru": "CarRent: {title}", "en": "CarRent: {title}"},
+    "test": {"uz": "CarRent: sinov xabari. SMS yuborish ishlayapti.", "ru": "CarRent: тестовое сообщение. Отправка SMS работает.",
+             "en": "CarRent: test message. SMS delivery works."},
+}
+TEMPLATES["test"] = {"uz": ("CarRent: sinov xati", "Bu sinov xati. Email yuborish ishlayapti."),
+                     "ru": ("CarRent: тестовое письмо", "Это тестовое письмо. Отправка email работает."),
+                     "en": ("CarRent: test email", "This is a test email. Email delivery works.")}
+
+
 class DeliveryUnavailable(Exception):
     """Kanal sozlanmagan va test qutisi ham o'chiq (production)."""
 
@@ -66,20 +85,44 @@ def channel_available(channel: str) -> bool:
     return settings.sms_enabled or settings.DEV_INBOX
 
 
-def render(template: str, lang: str, **params) -> tuple[str, str]:
+def render(template: str, lang: str, channel: str = "email", **params) -> tuple[str, str]:
+    if channel == "sms" and template in SMS_TEMPLATES:
+        body = SMS_TEMPLATES[template].get(lang) or SMS_TEMPLATES[template]["uz"]
+        return "", body.format(**params)
     subj, body = TEMPLATES[template].get(lang) or TEMPLATES[template]["uz"]
     return subj.format(**params), body.format(**params)
+
+
+def _log(db, channel: str, to: str, template: str, status: str, error: str | None = None, provider_id: str | None = None) -> int:
+    """Yuborish jurnali (admin panel uchun). Xat matni va kod YOZILMAYDI — faqat kimga (yashirilgan), qaysi shablon, natija."""
+    sql = "INSERT INTO message_log (channel, to_masked, template, status, error, provider_id) VALUES (?, ?, ?, ?, ?, ?)"
+    args = (channel, mask(to), template, status, (error or "")[:200] or None, provider_id)
+    if db is not None:
+        return db.execute(sql, args).lastrowid
+    with get_db() as conn:
+        return conn.execute(sql, args).lastrowid
+
+
+def _update_log(log_id: int, status: str, error: str | None = None, provider_id: str | None = None) -> None:
+    try:
+        with get_db() as conn:
+            conn.execute("UPDATE message_log SET status = ?, error = COALESCE(?, error), provider_id = COALESCE(?, provider_id), "
+                         "updated_at = datetime('now') WHERE id = ?", (status, (error or "")[:200] or None, provider_id, log_id))
+    except Exception:   # jurnal yozilmasa ham asosiy ish to'xtamaydi
+        pass
 
 
 def send(channel: str, to: str, template: str, lang: str = "uz", db=None, **params) -> str:
     """Xatni yuboradi. Qaytaradi: 'email' | 'sms' | 'dev_inbox'. Sozlanmagan bo'lsa DeliveryUnavailable.
     db berilsa, test qutisiga o'sha ulanish orqali yoziladi (ochiq tranzaksiya ichida bloklanmaslik uchun)."""
-    subject, body = render(template, lang, **params)
+    subject, body = render(template, lang, channel, **params)
     if channel == "email" and settings.email_enabled:
-        threading.Thread(target=_smtp_send, args=(to, subject, body), daemon=True).start()
+        log_id = _log(db, "email", to, template, "queued")
+        threading.Thread(target=_smtp_send, args=(to, subject, body, log_id), daemon=True).start()
         return "email"
     if channel == "sms" and settings.sms_enabled:
-        threading.Thread(target=_eskiz_send, args=(to, body), daemon=True).start()
+        log_id = _log(db, "sms", to, template, "queued")
+        threading.Thread(target=_eskiz_send, args=(to, body, log_id), daemon=True).start()
         return "sms"
     if settings.DEV_INBOX:
         sql = "INSERT INTO dev_outbox (channel, to_addr, subject, body) VALUES (?, ?, ?, ?)"
@@ -88,11 +131,24 @@ def send(channel: str, to: str, template: str, lang: str = "uz", db=None, **para
         else:
             with get_db() as conn:
                 conn.execute(sql, (channel, to, subject or None, body))
+        _log(db, channel, to, template, "dev")
         return "dev_inbox"
     raise DeliveryUnavailable(channel)
 
 
-def _smtp_send(to: str, subject: str, body: str) -> None:
+def send_now(channel: str, to: str, template: str = "test", lang: str = "uz") -> dict:
+    """Admin sinovi: kutib turib yuboradi va provayderning haqiqiy javobini qaytaradi (xato matni bilan)."""
+    subject, body = render(template, lang, channel)
+    if channel == "email" and settings.email_enabled:
+        log_id = _log(None, "email", to, template, "queued")
+        return _smtp_send(to, subject, body, log_id)
+    if channel == "sms" and settings.sms_enabled:
+        log_id = _log(None, "sms", to, template, "queued")
+        return _eskiz_send(to, body, log_id)
+    return {"status": send(channel, to, template, lang)}
+
+
+def _smtp_send(to: str, subject: str, body: str, log_id: int | None = None) -> dict:
     msg = EmailMessage()
     msg["From"], msg["To"], msg["Subject"] = settings.SMTP_FROM, to, subject
     msg.set_content(body)
@@ -110,28 +166,79 @@ def _smtp_send(to: str, subject: str, body: str) -> None:
                 s.send_message(msg)
     except Exception as exc:  # manzil va xato turini yozamiz, xat matnini (kodni) emas
         log.warning("Email yuborilmadi (%s): %s", to.split("@")[-1], type(exc).__name__)
+        err = f"{type(exc).__name__}: {exc}"[:200]
+        if log_id:
+            _update_log(log_id, "failed", err)
+        return {"status": "failed", "error": err}
+    if log_id:
+        _update_log(log_id, "sent")
+    return {"status": "sent"}
 
 
 _eskiz_token = {"value": None, "at": 0.0}
 
 
+ESKIZ_API = "https://notify.eskiz.uz/api/"
+_eskiz_lock = threading.Lock()
+
+
 def _eskiz_post(path: str, data: dict, token: str | None = None) -> dict:
-    req = urllib.request.Request("https://notify.eskiz.uz/api/" + path, data=urllib.parse.urlencode(data).encode(), method="POST")
+    req = urllib.request.Request(ESKIZ_API + path, data=urllib.parse.urlencode(data).encode(), method="POST")
     if token:
         req.add_header("Authorization", "Bearer " + token)
-    with urllib.request.urlopen(req, timeout=15) as r:
-        return json.loads(r.read().decode() or "{}")
-
-
-def _eskiz_send(phone: str, text: str) -> None:
     try:
-        if not _eskiz_token["value"] or time.time() - _eskiz_token["at"] > 20 * 86400:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return json.loads(r.read().decode() or "{}")
+    except urllib.error.HTTPError as e:   # Eskiz xato sababini JSON'da qaytaradi (masalan, shablon tasdiqlanmagan)
+        try:
+            detail = json.loads(e.read().decode() or "{}")
+        except ValueError:
+            detail = {}
+        raise EskizError(e.code, detail.get("message") or detail.get("status") or str(e)) from None
+
+
+class EskizError(Exception):
+    def __init__(self, code: int, msg):
+        super().__init__(f"HTTP {code}: {msg}")
+        self.code = code
+
+
+def _eskiz_token_get(force: bool = False) -> str:
+    """Token 30 kun amal qiladi; 20 kunda yoki 401 javobida qayta olinadi."""
+    with _eskiz_lock:
+        if force or not _eskiz_token["value"] or time.time() - _eskiz_token["at"] > 20 * 86400:
             res = _eskiz_post("auth/login", {"email": settings.ESKIZ_EMAIL, "password": settings.ESKIZ_PASSWORD})
             _eskiz_token.update(value=res["data"]["token"], at=time.time())
-        _eskiz_post("message/sms/send", {"mobile_phone": phone.lstrip("+"), "message": text, "from": settings.ESKIZ_FROM},
-                    _eskiz_token["value"])
+        return _eskiz_token["value"]
+
+
+def _eskiz_send(phone: str, text: str, log_id: int | None = None) -> dict:
+    data = {"mobile_phone": "".join(ch for ch in phone if ch.isdigit()), "message": text, "from": settings.ESKIZ_FROM}
+    if log_id and settings.PUBLIC_URL.startswith("https://"):
+        data["callback_url"] = f"{settings.PUBLIC_URL}/api/channels/eskiz/callback?log={log_id}&sig={callback_sig(log_id)}"
+    try:
+        try:
+            res = _eskiz_post("message/sms/send", data, _eskiz_token_get())
+        except EskizError as e:
+            if e.code != 401:
+                raise
+            res = _eskiz_post("message/sms/send", data, _eskiz_token_get(force=True))   # token eskirgan — bir marta qayta
+        pid = str(res.get("id") or "") or None
+        if log_id:
+            _update_log(log_id, "sent", provider_id=pid)
+        return {"status": "sent", "provider_id": pid}
     except Exception as exc:
         log.warning("SMS yuborilmadi (...%s): %s", phone[-2:], type(exc).__name__)
+        err = str(exc)[:200]
+        if log_id:
+            _update_log(log_id, "failed", err)
+        return {"status": "failed", "error": err}
+
+
+def callback_sig(log_id: int) -> str:
+    import hashlib
+    import hmac
+    return hmac.new(settings.SECRET_KEY.encode(), f"eskiz:{log_id}".encode(), hashlib.sha256).hexdigest()[:24]
 
 
 def mask(target: str) -> str:

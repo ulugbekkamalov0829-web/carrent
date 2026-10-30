@@ -181,3 +181,28 @@ def test_payme_change_password(payme_on):
     assert rpc("ChangePassword", {"password": "yangi-kalit-123"})["result"]["success"] is True
     assert rpc("CheckTransaction", {"id": "x"}, key="paymekey")["error"]["code"] == -32504     # eski kalit endi ishlamaydi
     assert rpc("CheckTransaction", {"id": "x"}, key="yangi-kalit-123")["error"]["code"] == -31003
+
+
+# ---------------- Joyida to'lov: komissiya qarzi ----------------
+def test_on_site_fee_debt_and_settlement():
+    admin, _ = make_user("admin")
+    owner, o = make_user()
+    renter, _ = make_user()
+    car = make_car(owner, price_per_day=300_000)
+    b = renter.post("/api/bookings", headers=H, json={"car_id": car["id"], "start_date": d(3), "end_date": d(4)}).json()
+    owner.post(f"/api/bookings/{b['id']}/approve", headers=H)
+    with get_db() as db:   # joyida to'langan va yakunlangan ijara
+        db.execute("UPDATE bookings SET start_date = ?, end_date = ?, status = 'completed' WHERE id = ?", (d(-5), d(-4), b["id"]))
+    e = owner.get("/api/my/earnings").json()
+    assert e["site_collected"] == 600_000 and e["fee_owed"] == 60_000 and e["available"] == 0
+    # Onlayn tushum keladi -> qarz balansdan ushlanadi
+    owner2, renter2, b2, pay = paid_booking(start=5)
+    oid = o["id"]
+    with get_db() as db:
+        db.execute("UPDATE cars SET owner_id = ? WHERE id = (SELECT car_id FROM bookings WHERE id = ?)", (oid, b2["id"]))
+    e = owner.get("/api/my/earnings").json()
+    assert e["balance"] == 540_000 and e["available"] == 480_000           # 540 000 − 60 000 qarz
+    assert admin.post("/api/admin/fee-settlements", headers=H, json={"owner_id": oid, "amount": 70_000}).status_code == 400
+    r = admin.post("/api/admin/fee-settlements", headers=H, json={"owner_id": oid, "amount": 60_000, "from_balance": True}).json()
+    assert r["fee_owed"] == 0 and r["balance"] == 480_000 and r["available"] == 480_000
+    assert owner.post("/api/admin/fee-settlements", headers=H, json={"owner_id": oid, "amount": 1}).status_code == 403

@@ -50,3 +50,34 @@ function policyList(policy = [{ min_days: 3, pct: 100 }, { min_days: 1, pct: 50 
   rows.push(`<div class="policy-row"><span>${esc(t("policy.started"))}</span><b class="no">${esc(t("policy.contact_owner"))}</b></div>`);
   return `<div class="policy">${rows.join("")}</div>`;
 }
+
+
+/** Nizo kartochkasi: kabinetda (me = foydalanuvchi id) va admin panelda (me = null) bir xil ko'rinish */
+function disputeCard(d, me, admin = false) {
+  const active = ["open", "in_review"].includes(d.status);
+  const stCls = { open: "tag-pending", in_review: "tag-pending", resolved: "tag-ok", rejected: "tag-bad", cancelled: "tag-hidden" }[d.status];
+  const iAmOther = me && d.against_id === me, iOpened = me && d.opened_by === me;
+  return `<article class="card card-pad disp ${active ? "active" : ""}">
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <div><b>${esc(t("disp.t_" + d.type))}</b> <span class="tag ${stCls}">${esc(t("disp.st_" + d.status))}</span>
+        <div class="small muted">${esc(t("disp.booking"))} №${d.booking_id} · <a href="/car.html?id=${d.car_id}">${esc(d.brand)} ${esc(d.model)} ${d.year}</a>
+          · ${fmtDate(d.start_date)} → ${fmtDate(d.end_date)} · ${timeAgo(d.created_at)}</div></div>
+      ${d.amount ? `<div class="disp-amt"><span class="small muted">${esc(t("disp.amount"))}</span><b>${money(d.amount)}</b></div>` : ""}
+    </div>
+    <div class="disp-grid">
+      <div class="disp-side"><span class="small muted">${esc(t("disp.opened_by"))}: <b>${esc(d.opener_name)}</b></span><p>${esc(d.description)}</p></div>
+      <div class="disp-side other"><span class="small muted">${esc(t("disp.answer"))} (${esc(d.against_name)})</span>
+        ${d.response ? `<p>${esc(d.response)}</p>` : iAmOther && active ? `<form class="disp-reply" data-id="${d.id}"><textarea class="input" name="text" minlength="5" maxlength="2000" required placeholder="${esc(t("disp.answer_ph"))}"></textarea>
+          <button class="btn btn-sm" style="margin-top:6px">${esc(t("disp.answer_send"))}</button></form>` : `<p class="muted small">—</p>`}</div>
+    </div>
+    ${d.decision_note ? `<div class="disp-decision"><b>${icon("shield", 16)} ${esc(t("disp.decision"))}: ${esc(t("disp.o_" + d.outcome))}</b>
+      <p>${esc(d.decision_note)}</p>${d.compensation ? `<div class="small">${esc(t("disp.comp"))}: <b>${money(d.compensation)}</b></div>` : ""}</div>` : ""}
+    <div class="row" style="gap:6px;margin-top:10px">
+      ${admin ? `<a class="btn btn-sm btn-outline" href="/messages.html?user=${d.opened_by}">${icon("chat", 16)} ${esc(d.opener_name)}</a>
+        <a class="btn btn-sm btn-outline" href="/messages.html?user=${d.against_id}">${icon("chat", 16)} ${esc(d.against_name)}</a>
+        ${d.status === "open" ? `<button class="btn btn-sm btn-outline" data-take="${d.id}">${esc(t("disp.take"))}</button>` : ""}
+        ${active ? `<button class="btn btn-sm" data-resolve="${d.id}" data-a="${d.opened_by}" data-an="${esc(d.opener_name)}" data-b="${d.against_id}" data-bn="${esc(d.against_name)}">${esc(t("disp.resolve"))}</button>` : ""}`
+      : `<a class="btn btn-sm btn-outline" href="/messages.html?user=${iOpened ? d.against_id : d.opened_by}&car=${d.car_id}">${icon("chat", 16)} ${esc(t("disp.chat_with"))}</a>
+        ${iOpened && active ? `<button class="btn btn-sm btn-outline" data-withdraw="${d.id}">${esc(t("disp.withdraw"))}</button>` : ""}`}
+    </div></article>`;
+}

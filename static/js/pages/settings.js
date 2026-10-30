@@ -27,14 +27,16 @@
         <form id="pForm" novalidate style="max-width:620px">
           <div class="field"><label for="pn">${esc(t("field.full_name"))}</label><input class="input" id="pn" name="full_name" value="${esc(me.full_name)}" required data-hint="hint.full_name"></div>
           <div class="grid-2"><div class="field"><label for="pp">${esc(t("field.phone"))}</label><input class="input" type="tel" id="pp" name="phone" value="${esc(me.phone || "")}" required placeholder="+998 90 123 45 67" data-hint="hint.phone_change"></div>
-          <div class="field"><label for="pr">${esc(t("field.region"))}</label><input class="input" id="pr" name="region" value="${esc(me.region || "")}" placeholder="Toshkent" data-hint="hint.region"></div></div>
+          <div></div>
+          <div class="field"><label for="pr">${esc(t("place.region"))}</label><select class="input" id="pr" name="region" data-hint="hint.region"></select></div>
+          <div class="field"><label for="pdist">${esc(t("place.district"))}</label><select class="input" id="pdist" name="district"></select></div></div>
           <button class="btn">${esc(t("common.save"))}</button></form>`) +
       card("verify", t("set.verify"), t("set.verify_sub"), `
         <div class="status-row"><span class="ico-box">${icon("mail")}</span><div class="grow"><b>${esc(me.email)}</b><span class="small muted">${esc(t("field.email"))}</span></div>
           ${vTag(me.email_verified)}${me.email_verified ? "" : `<button class="btn btn-sm" data-vstart="email" ${can.email ? "" : "disabled"}>${esc(t("verify.send"))}</button>`}
           <button class="btn btn-sm btn-outline" id="emailChangeBtn" ${can.email ? "" : "disabled"}>${esc(t("set.change_email"))}</button>
           <div class="verify-box hidden" id="vbox-email"></div></div>
-        <div class="status-row"><span class="ico-box">${icon("phone")}</span><div class="grow"><b>${esc(me.phone || "—")}</b><span class="small muted">${esc(t("field.phone"))}</span></div>
+        <div class="status-row"><span class="ico-box">${icon("phone")}</span><div class="grow"><b>${esc(me.phone ? fmtPhone(me.phone) : "—")}</b><span class="small muted">${esc(t("field.phone"))}</span></div>
           ${vTag(me.phone_verified)}${me.phone_verified || !me.phone ? "" : `<button class="btn btn-sm" data-vstart="sms" ${can.sms ? "" : "disabled"}>${esc(t("verify.send_sms"))}</button>`}
           <div class="verify-box hidden" id="vbox-sms"></div></div>
         ${!can.email || !can.sms ? `<p class="small muted" style="margin:10px 0 0">${esc(t(!can.email ? "set.channels_off" : "set.sms_off"))}</p>` : ""}
@@ -99,10 +101,13 @@
   }
 
   function bind() {
+    Places.bind($("#pr"), $("#pdist"), { region: u().region || "", district: u().district || "" });
+    applyMasks($("#pForm"));
     $("#pForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const d = formData(e.target);
-      try { const r = await api("/api/auth/me", { method: "PUT", body: { full_name: d.full_name, phone: d.phone, region: d.region || null } });
+      if (d.region && !d.district) { toast(t("place.need_district"), "error"); return; }
+      try { const r = await api("/api/auth/me", { method: "PUT", body: { full_name: d.full_name, phone: d.phone, region: d.region || null, district: d.district || null } });
         const phoneChanged = r.user.phone !== u().phone; Object.assign(Auth.user, r.user); toast(t(phoneChanged ? "set.phone_reverify" : "common.saved"), "ok"); renderNavInner(); draw(); }
       catch (err) { showFieldErrors(e.target, err); toast(err.message, "error"); }
     });

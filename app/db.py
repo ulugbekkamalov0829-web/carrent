@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
     email         TEXT    NOT NULL UNIQUE COLLATE NOCASE,
     phone         TEXT,
     region        TEXT,
+    district      TEXT,
     password_hash TEXT    NOT NULL,
     -- Faqat ikki rol: 'user' (ham ijarachi, ham owner bo'la oladi) va 'admin'
     role          TEXT    NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
@@ -49,6 +50,7 @@ CREATE TABLE IF NOT EXISTS cars (
     drive            TEXT    CHECK (drive IN ('fwd', 'rwd', 'awd')),
     features         TEXT    NOT NULL DEFAULT '[]',   -- JSON ro'yxat: ac, bluetooth, usb, camera, ...
     city             TEXT    NOT NULL,
+    district         TEXT,
     description      TEXT,
     price_per_day    INTEGER NOT NULL CHECK (price_per_day > 0),
     deposit          INTEGER NOT NULL DEFAULT 0 CHECK (deposit >= 0),
@@ -250,6 +252,17 @@ CREATE TABLE IF NOT EXISTS payout_requests (
 );
 CREATE INDEX IF NOT EXISTS ix_payout_req ON payout_requests(owner_id, status);
 
+-- Joyida to'langan ijaralar komissiyasi: owner platformaga qarzdor. Qarz naqd to'lanadi yoki owner balansidan ushlanadi.
+CREATE TABLE IF NOT EXISTS fee_settlements (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    amount       INTEGER NOT NULL CHECK (amount > 0),
+    from_balance INTEGER NOT NULL DEFAULT 0,          -- 1 = onlayn balansdan ushlandi (payouts'da ham yozuv bor)
+    note         TEXT,
+    created_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Shikoyatlar: e'lon, sharh, foydalanuvchi yoki xabar ustidan
 CREATE TABLE IF NOT EXISTS reports (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -274,6 +287,43 @@ CREATE TABLE IF NOT EXISTS dev_outbox (
     body       TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Nizolar: bron ishtirokchilari o'rtasidagi muammo (shikast, kelmaslik, depozit...). Admin ikki tomonni eshitib qaror chiqaradi.
+CREATE TABLE IF NOT EXISTS disputes (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    booking_id    INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+    opened_by     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    against_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type          TEXT    NOT NULL CHECK (type IN ('damage', 'no_show', 'late_return', 'deposit', 'not_as_described', 'payment',
+                                                   'fuel_mileage', 'other')),
+    description   TEXT    NOT NULL,
+    amount        INTEGER CHECK (amount IS NULL OR amount >= 0),
+    status        TEXT    NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'in_review', 'resolved', 'rejected', 'cancelled')),
+    response      TEXT,
+    response_at   TEXT,
+    outcome       TEXT    CHECK (outcome IS NULL OR outcome IN ('favor_opener', 'favor_other', 'split', 'rejected')),
+    decision_note TEXT,
+    compensation  INTEGER CHECK (compensation IS NULL OR compensation >= 0),
+    resolved_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    resolved_at   TEXT,
+    created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS ix_disputes_status ON disputes(status, created_at);
+CREATE INDEX IF NOT EXISTS ix_disputes_booking ON disputes(booking_id);
+
+-- SMS/email yuborish jurnali: matn va kod saqlanmaydi, faqat kimga (yashirilgan), shablon va natija
+CREATE TABLE IF NOT EXISTS message_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    channel     TEXT NOT NULL,
+    to_masked   TEXT NOT NULL,
+    template    TEXT NOT NULL,
+    status      TEXT NOT NULL,          -- queued | sent | delivered | failed | dev
+    error       TEXT,
+    provider_id TEXT,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at  TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_message_log ON message_log(created_at);
 
 -- Admin va xavfsizlik amallari jurnali (faqat qo'shiladi)
 CREATE TABLE IF NOT EXISTS audit_logs (
@@ -303,9 +353,10 @@ MIGRATIONS = {
     "users": {
         "phone_norm": "TEXT", "email_verified": "INTEGER NOT NULL DEFAULT 0", "phone_verified": "INTEGER NOT NULL DEFAULT 0",
         "avatar": "TEXT", "show_phone": "INTEGER NOT NULL DEFAULT 1", "notify_prefs": "TEXT NOT NULL DEFAULT '{}'",
-        "deleted_at": "TEXT",
+        "deleted_at": "TEXT", "district": "TEXT",
     },
     "car_images": {"label": "TEXT NOT NULL DEFAULT 'other'"},
+    "cars": {"district": "TEXT"},
     "payments": {"refund_amount": "INTEGER NOT NULL DEFAULT 0", "kept_commission": "INTEGER NOT NULL DEFAULT 0",
                  "kept_payout": "INTEGER NOT NULL DEFAULT 0"},
 }
@@ -317,6 +368,13 @@ def _migrate(conn) -> None:
         for col, ddl in cols.items():
             if col not in have:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}")
+    # Hudud nomlari kanonik ko'rinishga ("Toshkent" -> "Toshkent shahri"): filtr va tumanlar ro'yxati to'g'ri ishlashi uchun
+    from .regions import normalize_region
+    for table, col in (("cars", "city"), ("users", "region")):
+        for (old,) in conn.execute(f"SELECT DISTINCT {col} FROM {table} WHERE {col} IS NOT NULL").fetchall():
+            new = normalize_region(old)
+            if new and new != old:
+                conn.execute(f"UPDATE {table} SET {col} = ? WHERE {col} = ?", (new, old))
     # Telefon bilan kirish uchun normallashtirilgan raqam yagona bo'lishi kerak
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_users_phone ON users(phone_norm) WHERE phone_norm IS NOT NULL")
 

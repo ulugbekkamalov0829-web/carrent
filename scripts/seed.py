@@ -59,11 +59,19 @@ CARS = [
      "Andijon", 480_000, 700_000, 1, 30, 300, None, "Ishonchli, tejamkor sedan. Narxi hamyonbop.", ["k5_white.jpg"]),
 ]
 PHOTO_DIR = Path(__file__).resolve().parent.parent / "static" / "img" / "demo"
+# Demo foydalanuvchi va e'lonlar uchun (viloyat, tuman)
+USER_PLACES = [("Toshkent shahri", "Yunusobod"), ("Toshkent shahri", "Chilonzor"), ("Samarqand", "Samarqand shahri"),
+               ("Farg'ona", "Farg'ona shahri"), ("Toshkent shahri", "Mirzo Ulug'bek"), ("Toshkent shahri", "Yakkasaroy"),
+               ("Samarqand", "Urgut")]
+CAR_PLACES = {"Toshkent": [("Toshkent shahri", "Chilonzor"), ("Toshkent shahri", "Yunusobod")],
+              "Samarqand": [("Samarqand", "Samarqand shahri"), ("Samarqand", "Kattaqo'rg'on shahri")],
+              "Buxoro": [("Buxoro", "Buxoro shahri")], "Farg'ona": [("Farg'ona", "Farg'ona shahri")],
+              "Andijon": [("Andijon", "Andijon shahri")]}
 
 CAR_COMMENTS = [
     "Avtomobil toza va soz edi, egasi juda xushmuomala.", "Hammasi kelishilgandek bo'ldi, yana ijaraga olaman.",
     "Narxiga arziydi. Konditsioner zo'r ishladi.", "Biroz kechikib topshirildi, lekin umuman yaxshi.",
-    "Juda tejamkor ekan, safarimiz a'lo o'tdi!", "Salon ozoda, hujjatlar tayyor edi. Rahmat!",
+    "Juda tejamkor ekan, safarimiz a'lo o'tdi!", "Mashina saloni toza, hujjatlari tayyor edi. Rahmat!",
 ]
 RENTER_COMMENTS = ["Avtomobilni vaqtida va toza qaytardi.", "Mas'uliyatli ijarachi, tavsiya qilaman.", "Hammasi kelishilgandek."]
 
@@ -82,23 +90,26 @@ def seed(reset: bool = False) -> None:
         today = date.today()
         with transaction(db):
             uids = []
-            for i, (name, email, phone, role, region, lang) in enumerate(USERS):
+            for i, (name, email, phone, role, _region, lang) in enumerate(USERS):
+                region, district = USER_PLACES[i]
                 created = (today - timedelta(days=200 - i * 20)).isoformat()
                 mode = "owner" if i in (1, 2, 3) else "renter"
                 uids.append(db.execute(
-                    "INSERT INTO users (full_name, email, phone, phone_norm, region, password_hash, role, active_mode, lang, created_at, "
-                    "email_verified, phone_verified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    (name, email, phone, phone, region, pw, role, mode, lang, created, 1, int(i % 2 == 1))).lastrowid)
+                    "INSERT INTO users (full_name, email, phone, phone_norm, region, district, password_hash, role, active_mode, lang, "
+                    "created_at, email_verified, phone_verified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (name, email, phone, phone, region, district, pw, role, mode, lang, created, 1, int(i % 2 == 1))).lastrowid)
             cars = []
             for i, c in enumerate(CARS):
                 (o, brand, model, year, color, body, seats, tr_, fuel, eng, km, drv, feats, city, price, dep, mn, mx, kml, dlv, desc, photos) = c
                 created = (today - timedelta(days=90 - i * 5)).isoformat()
+                places = CAR_PLACES[city]
+                city, district = places[i % len(places)]
                 cid = db.execute(
                     """INSERT INTO cars (owner_id, brand, model, year, color, body_type, seats, transmission, fuel, engine_l,
-                       mileage_km, drive, features, city, description, price_per_day, deposit, min_days, max_days, km_limit,
-                       delivery_price, views, is_demo, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)""",
+                       mileage_km, drive, features, city, district, description, price_per_day, deposit, min_days, max_days, km_limit,
+                       delivery_price, views, is_demo, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)""",
                     (uids[o], brand, model, year, color, body, seats, tr_, fuel, eng, km, drv, json.dumps(sorted(set(feats))),
-                     city, desc, price, dep, mn, mx, kml, dlv, random.randint(40, 400), created, created)).lastrowid
+                     city, district, desc, price, dep, mn, mx, kml, dlv, random.randint(40, 400), created, created)).lastrowid
                 cars.append({"id": cid, "price": price, "owner": uids[o], "deposit": dep})
                 for pos, fname in enumerate(photos):
                     src = PHOTO_DIR / fname

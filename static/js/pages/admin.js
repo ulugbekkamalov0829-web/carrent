@@ -13,7 +13,7 @@
     $("#viewSub").textContent = "";
     view.onclick = null;
     view.innerHTML = `<div class="skeleton" style="height:240px"></div>`;
-    ({ stats, users, cars, bookings, payments, reports, reviews, finance, audit, analytics: () => Reports.render(view, "admin") })[tab]().catch((e) => (view.innerHTML = `<div class="empty card">${esc(e.message)}</div>`));
+    ({ stats, users, cars, bookings, payments, reports, reviews, finance, audit, disputes, channels, analytics: () => Reports.render(view, "admin") })[tab]().catch((e) => (view.innerHTML = `<div class="empty card">${esc(e.message)}</div>`));
   }
   window.addEventListener("hashchange", route);
   document.addEventListener("langchange", route);
@@ -55,7 +55,7 @@
       <option value="">${esc(t("common.all"))}</option><option value="owners">${esc(t("admin.owners"))}</option><option value="admins">${esc(t("admin.admins"))}</option></select>`) +
       `<div class="card table-wrap"><table class="table responsive"><thead><tr><th>#</th><th>${esc(t("col.user"))}</th><th>${esc(t("col.role"))}</th><th>${esc(t("col.activity"))}</th>
         <th>${esc(t("col.registered"))}</th><th>${esc(t("col.status"))}</th><th></th></tr></thead><tbody>
-      ${items.map((u) => `<tr><td data-label="#">${u.id}</td><td data-label="${esc(t("col.user"))}"><b>${esc(u.full_name)}</b><div class="small muted">${esc(u.email)} · ${esc(u.phone || "")}</div></td>
+      ${items.map((u) => `<tr><td data-label="#">${u.id}</td><td data-label="${esc(t("col.user"))}"><b>${esc(u.full_name)}</b><div class="small muted">${esc(u.email)} · ${esc(u.phone ? fmtPhone(u.phone) : "")}</div></td>
         <td data-label="${esc(t("col.role"))}">${esc(t("role." + u.role))}</td>
         <td data-label="${esc(t("col.activity"))}" class="small">${esc(t("admin.activity", { c: u.cars, b: u.bookings }))}</td>
         <td data-label="${esc(t("col.registered"))}" class="small">${fmtDate(u.created_at)}</td>
@@ -77,7 +77,7 @@
     const { items } = await api("/api/admin/cars?" + p);
     view.innerHTML = searchBox("admin.search_cars") + `<div class="card table-wrap"><table class="table responsive"><thead><tr>
       <th>#</th><th>${esc(t("col.car"))}</th><th>${esc(t("col.owner"))}</th><th>${esc(t("col.price"))}</th><th>${esc(t("col.status"))}</th><th></th></tr></thead><tbody>
-      ${items.map((c) => `<tr><td data-label="#">${c.id}</td><td data-label="${esc(t("col.car"))}"><a href="/car.html?id=${c.id}"><b>${esc(c.brand)} ${esc(c.model)} ${c.year}</b></a><div class="small muted">${esc(c.city)} · ${fmtDate(c.created_at)}</div></td>
+      ${items.map((c) => `<tr><td data-label="#">${c.id}</td><td data-label="${esc(t("col.car"))}"><a href="/car.html?id=${c.id}"><b>${esc(c.brand)} ${esc(c.model)} ${c.year}</b></a><div class="small muted">${esc(Places.label(c.city, c.district))} · ${fmtDate(c.created_at)}</div></td>
         <td data-label="${esc(t("col.owner"))}">${esc(c.owner_name)}</td><td data-label="${esc(t("col.price"))}">${money(c.price_per_day)}</td>
         <td data-label="${esc(t("col.status"))}">${!c.is_approved ? `<span class="tag tag-bad">${esc(t("car.state_moderated"))}</span>` : c.is_active ? `<span class="tag tag-ok">${esc(t("car.state_active"))}</span>` : `<span class="tag tag-hidden">${esc(t("car.state_hidden"))}</span>`}</td>
         <td><div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn btn-sm btn-outline" data-car="${c.id}" data-approve="${c.is_approved ? 0 : 1}">${esc(t(c.is_approved ? "admin.hide" : "admin.restore"))}</button>
@@ -134,7 +134,7 @@
         <p class="small muted">${esc(t("payreq.admin_sub"))}</p></div>
         ${rq.items.length ? `<div class="table-wrap"><table class="table responsive"><thead><tr><th>${esc(t("col.owner"))}</th><th>${esc(t("pay.amount"))}</th>
           <th>${esc(t("payreq.method"))}</th><th>${esc(t("col.time"))}</th><th>${esc(t("col.status"))}</th><th></th></tr></thead><tbody>
-          ${rq.items.map((r) => `<tr><td data-label="${esc(t("col.owner"))}"><b>${esc(r.full_name)}</b><div class="small muted">${esc(r.phone || r.email)}</div></td>
+          ${rq.items.map((r) => `<tr><td data-label="${esc(t("col.owner"))}"><b>${esc(r.full_name)}</b><div class="small muted">${esc(r.phone ? fmtPhone(r.phone) : r.email)}</div></td>
             <td data-label="${esc(t("pay.amount"))}"><b>${money(r.amount)}</b>${r.balance !== undefined ? `<div class="small muted">${esc(t("earn.balance"))}: ${money(r.balance)}</div>` : ""}</td>
             <td data-label="${esc(t("payreq.method"))}">${method(r)}${r.note ? `<div class="small muted">${esc(r.note)}</div>` : ""}</td>
             <td data-label="${esc(t("col.time"))}" class="small">${fmtDate(r.created_at)}</td>
@@ -186,10 +186,13 @@
       <div class="card" style="margin-bottom:18px"><div class="card-pad" style="padding-bottom:0"><h3>${esc(t("admin.balances"))}</h3>
         <p class="small muted">${esc(t("admin.balances_sub"))}</p></div>
         ${d.balances.length ? `<div class="table-wrap"><table class="table responsive"><thead><tr><th>${esc(t("col.owner"))}</th><th>${esc(t("earn.online"))}</th>
-          <th>${esc(t("earn.paid_out"))}</th><th>${esc(t("earn.balance"))}</th><th></th></tr></thead><tbody>
+          <th>${esc(t("earn.paid_out"))}</th><th>${esc(t("earn.balance"))}</th><th>${esc(t("earn.fee_debt"))}</th><th></th></tr></thead><tbody>
           ${d.balances.map((b) => `<tr><td data-label="${esc(t("col.owner"))}"><b>${esc(b.full_name)}</b></td><td data-label="${esc(t("earn.online"))}">${money(b.earned_online)}</td>
             <td data-label="${esc(t("earn.paid_out"))}">${money(b.paid_out)}</td><td data-label="${esc(t("earn.balance"))}"><b>${money(b.balance)}</b></td>
-            <td>${b.balance > 0 ? `<button class="btn btn-sm" data-payout="${b.id}" data-max="${b.balance}" data-name="${esc(b.full_name)}">${esc(t("admin.payout"))}</button>` : ""}</td></tr>`).join("")}
+            <td data-label="${esc(t("earn.fee_debt"))}">${b.fee_owed ? `<b style="color:var(--warning-ink)">${money(b.fee_owed)}</b>` : "—"}</td>
+            <td><div class="row" style="gap:6px">${b.available > 0 ? `<button class="btn btn-sm" data-payout="${b.id}" data-max="${b.available}" data-name="${esc(b.full_name)}">${esc(t("admin.payout"))}</button>` : ""}
+              ${b.fee_owed && b.balance - b.requested > 0 ? `<button class="btn btn-sm btn-outline" data-fee-net="${b.id}" data-sum="${Math.min(b.fee_owed, b.balance - b.requested)}" data-name="${esc(b.full_name)}">${esc(t("fee.net"))}</button>` : ""}
+              ${b.fee_owed ? `<button class="btn btn-sm btn-outline" data-fee-cash="${b.id}" data-sum="${b.fee_owed}" data-name="${esc(b.full_name)}">${esc(t("fee.cash"))}</button>` : ""}</div></td></tr>`).join("")}
           </tbody></table></div>` : `<div class="empty">${esc(t("admin.no_balances"))}</div>`}</div>
       <div class="card table-wrap"><table class="table responsive"><thead><tr><th>#</th><th>${esc(t("col.car"))}</th><th>${esc(t("booking.renter"))}</th>
         <th>${esc(t("pay.method"))}</th><th>${esc(t("pay.amount"))}</th><th>${esc(t("col.status"))}</th><th>${esc(t("col.time"))}</th><th></th></tr></thead><tbody>
@@ -202,7 +205,16 @@
       </tbody></table>${d.items.length ? "" : `<div class="empty">${esc(t("admin.no_payments"))}</div>`}</div>`;
     view.onclick = async (e) => {
       const r = e.target.closest("[data-refunded]"), po = e.target.closest("[data-payout]");
+      const net = e.target.closest("[data-fee-net]"), cash = e.target.closest("[data-fee-cash]");
       try {
+        if (net && await confirmBox(t("fee.net_confirm", { sum: money(net.dataset.sum), name: net.dataset.name }), t("common.yes"))) {
+          await api("/api/admin/fee-settlements", { method: "POST", body: { owner_id: +net.dataset.feeNet, amount: +net.dataset.sum, from_balance: true } });
+          toast(t("common.done"), "ok"); payments();
+        }
+        if (cash && await confirmBox(t("fee.cash_confirm", { sum: money(cash.dataset.sum), name: cash.dataset.name }), t("common.yes"))) {
+          await api("/api/admin/fee-settlements", { method: "POST", body: { owner_id: +cash.dataset.feeCash, amount: +cash.dataset.sum, from_balance: false } });
+          toast(t("common.done"), "ok"); payments();
+        }
         if (r && await confirmBox(t("admin.refund_confirm"), t("common.yes"))) { await api(`/api/admin/payments/${r.dataset.refunded}/refunded`, { method: "POST" }); toast(t("common.done"), "ok"); payments(); }
         if (po) payoutModal(+po.dataset.payout, +po.dataset.max, po.dataset.name);
       } catch (err) { toast(err.message, "error"); }
@@ -212,7 +224,7 @@
   function payoutModal(ownerId, max, name) {
     const bg = document.createElement("div"); bg.className = "modal-bg";
     bg.innerHTML = `<form class="modal card card-pad" role="dialog" aria-modal="true"><h3>${esc(t("admin.payout"))}: ${esc(name)}</h3>
-      <div class="field"><label for="poA">${esc(t("pay.amount"))}</label><input class="input" id="poA" type="number" min="1" max="${max}" value="${max}" required>
+      <div class="field"><label for="poA">${esc(t("pay.amount"))}</label><input class="input" id="poA" type="text" data-money value="${fmtMoneyInput(max)}" required>
         <div class="hint">${esc(t("admin.payout_hint", { max: money(max) }))}</div></div>
       <div class="field"><label for="poN">${esc(t("block.note"))}</label><input class="input" id="poN" maxlength="200" placeholder="${esc(t("admin.payout_note_ph"))}"></div>
       <div class="row" style="justify-content:flex-end"><button type="button" class="btn btn-outline" data-close>${esc(t("common.cancel"))}</button><button class="btn">${esc(t("common.save"))}</button></div></form>`;
@@ -220,8 +232,99 @@
     bg.addEventListener("click", (e) => { if (e.target === bg || e.target.matches("[data-close]")) bg.remove(); });
     $("form", bg).addEventListener("submit", async (e) => {
       e.preventDefault();
-      try { await api("/api/admin/payouts", { method: "POST", body: { owner_id: ownerId, amount: +$("#poA").value, note: $("#poN").value.trim() || null } }); bg.remove(); toast(t("common.done"), "ok"); payments(); }
+      try { await api("/api/admin/payouts", { method: "POST", body: { owner_id: ownerId, amount: moneyVal($("#poA").value) || 0, note: $("#poN").value.trim() || null } }); bg.remove(); toast(t("common.done"), "ok"); payments(); }
       catch (err) { toast(err.message, "error"); }
+    });
+  }
+
+  // ---------------- Nizolar ----------------
+  async function disputes(status = "active") {
+    $("#viewSub").textContent = t("disp.admin_sub");
+    const d = await api("/api/admin/disputes?status=" + status);
+    const filters = [["active", t("disp.filter_active")], ["resolved", t("disp.st_resolved")], ["rejected", t("disp.st_rejected")],
+      ["cancelled", t("disp.st_cancelled")], ["all", t("common.all")]];
+    view.innerHTML = `<div class="row" style="gap:6px;margin-bottom:12px">${filters.map(([k, l]) =>
+        `<button class="btn btn-sm ${k === status ? "" : "btn-outline"}" data-f="${k}">${esc(l)}${k === "active" && (d.counts.open || d.counts.in_review) ? ` (${(d.counts.open || 0) + (d.counts.in_review || 0)})` : ""}</button>`).join("")}</div>
+      ${d.items.length ? `<div class="disp-list">${d.items.map((x) => disputeCard(x, null, true)).join("")}</div>` : `<div class="empty card">${esc(t("disp.none"))}</div>`}`;
+    view.onclick = async (e) => {
+      const f = e.target.closest("[data-f]"), take = e.target.closest("[data-take]"), res = e.target.closest("[data-resolve]");
+      try {
+        if (f) disputes(f.dataset.f);
+        if (take) { await api(`/api/admin/disputes/${take.dataset.take}/take`, { method: "POST" }); toast(t("common.done"), "ok"); disputes(status); }
+        if (res) resolveModal(res.dataset, () => disputes(status));
+      } catch (err) { toast(err.message, "error"); }
+    };
+  }
+
+  function resolveModal(ds, reload) {
+    const bg = document.createElement("div"); bg.className = "modal-bg";
+    bg.innerHTML = `<form class="modal card card-pad" role="dialog" aria-modal="true" novalidate><h3>${icon("shield", 20)} ${esc(t("disp.resolve_t"))}</h3>
+      <div class="field"><label>${esc(t("disp.outcome"))}</label><div class="stack">${["favor_opener", "favor_other", "split", "rejected"].map((o, i) =>
+        `<label class="check"><input type="radio" name="outcome" value="${o}" ${i ? "" : "checked"}><span>${esc(t("disp.o_" + o))}${o === "favor_opener" ? ` — ${esc(ds.an)}` : o === "favor_other" ? ` — ${esc(ds.bn)}` : ""}</span></label>`).join("")}</div></div>
+      <div class="field"><label for="rsN">${esc(t("disp.note"))}</label><textarea class="input" id="rsN" name="note" minlength="5" maxlength="2000" required></textarea></div>
+      <div class="field"><label for="rsC">${esc(t("disp.comp"))}</label><input class="input" type="text" data-money id="rsC" name="compensation" placeholder="0">
+        <div class="hint show">${esc(t("disp.comp_hint"))}</div></div>
+      <div class="field"><label for="rsB">${esc(t("disp.block_user"))}</label><select class="input" id="rsB" name="block_user_id">
+        <option value="">—</option><option value="${ds.a}">${esc(ds.an)}</option><option value="${ds.b}">${esc(ds.bn)}</option></select></div>
+      <div class="row" style="justify-content:flex-end"><button type="button" class="btn btn-outline" data-close>${esc(t("common.cancel"))}</button>
+        <button class="btn">${esc(t("disp.resolve"))}</button></div></form>`;
+    document.body.append(bg);
+    bg.addEventListener("click", (e) => { if (e.target === bg || e.target.matches("[data-close]")) bg.remove(); });
+    $("form", bg).addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = formData(e.target);
+      try {
+        await api(`/api/admin/disputes/${ds.resolve}/resolve`, { method: "POST", body: { outcome: f.outcome, note: f.note,
+          compensation: f.compensation ? +f.compensation : null, block_user_id: f.block_user_id ? +f.block_user_id : null } });
+        bg.remove(); toast(t("common.done"), "ok"); reload();
+      } catch (err) { showFieldErrors(e.target, err); toast(err.message, "error"); }
+    });
+  }
+
+  // ---------------- SMS va email kanallari ----------------
+  async function channels() {
+    $("#viewSub").textContent = t("chan.sub");
+    const c = await api("/api/admin/channels");
+    const state = (on) => `<span class="chan-dot ${on ? "on" : ""}"></span>${esc(on ? t("chan.on") : c.dev_inbox ? t("chan.off_dev") : t("chan.off_prod"))}`;
+    const stTag = (st) => `<span class="tag ${st === "sent" || st === "delivered" ? "tag-ok" : st === "failed" ? "tag-bad" : st === "dev" ? "tag-hidden" : "tag-pending"}">${esc(t("chan.st_" + st) || st)}</span>`;
+    view.innerHTML = `<div class="chan-grid">
+        <div class="card card-pad chan-card"><h3>${icon("phone", 18)} ${esc(t("chan.sms"))}</h3><p>${state(c.sms.enabled)}</p>
+          ${c.sms.enabled ? `<p class="small muted">${esc(c.sms.account || "")} · from: ${esc(c.sms.from)}</p>` : `<p class="small muted">${esc(t("chan.setup_sms"))}</p>`}</div>
+        <div class="card card-pad chan-card"><h3>${icon("mail", 18)} ${esc(t("chan.email"))}</h3><p>${state(c.email.enabled)}</p>
+          ${c.email.enabled ? `<p class="small muted">${esc(c.email.host || "")} · ${esc(c.email.from)}</p>` : `<p class="small muted">${esc(t("chan.setup_email"))}</p>`}</div>
+      </div>
+      <div class="two-col" style="margin-bottom:18px">
+        <form class="card card-pad" id="chanTest"><h3>${esc(t("chan.test_t"))}</h3>
+          <div class="seg" id="chanSeg" role="radiogroup"><button type="button" class="on" data-ch="sms">SMS</button><button type="button" data-ch="email">Email</button></div>
+          <div class="field" style="margin-top:12px"><label for="chanTo" id="chanToL">${esc(t("chan.test_to_sms"))}</label>
+            <input class="input" id="chanTo" type="tel" required placeholder="+998 90 123 45 67"></div>
+          <button class="btn">${esc(t("chan.test_send"))}</button><div id="chanRes" class="small" style="margin-top:10px"></div></form>
+        <div class="card card-pad"><h3>${esc(t("chan.templates"))}</h3><p class="small muted">${esc(t("chan.templates_sub"))}</p>
+          ${c.templates.map((x) => `<div class="tpl">${esc(x.text)}</div>`).join("")}</div>
+      </div>
+      <div class="card"><div class="card-pad" style="padding-bottom:0"><h3>${esc(t("chan.last"))}</h3></div>
+        ${c.log.length ? `<div class="table-wrap"><table class="table responsive"><thead><tr><th>${esc(t("col.time"))}</th><th>${esc(t("chan.col_channel"))}</th><th>${esc(t("chan.test_to_sms"))}</th><th>${esc(t("chan.col_template"))}</th><th>${esc(t("col.status"))}</th></tr></thead><tbody>
+          ${c.log.map((l) => `<tr><td class="small" data-label="${esc(t("col.time"))}">${esc(l.created_at)}</td><td data-label="${esc(t("chan.col_channel"))}">${esc(l.channel.toUpperCase())}</td>
+            <td data-label="${esc(t("chan.test_to_sms"))}" class="mono">${esc(l.to_masked)}</td><td data-label="${esc(t("chan.col_template"))}">${esc(l.template)}</td>
+            <td data-label="${esc(t("col.status"))}">${stTag(l.status)}${l.error ? `<div class="small muted">${esc(l.error)}</div>` : ""}</td></tr>`).join("")}</tbody></table></div>`
+          : `<div class="empty">${esc(t("chan.log_none"))}</div>`}</div>`;
+    let ch = "sms";
+    $$("#chanSeg [data-ch]").forEach((b) => b.addEventListener("click", () => {
+      ch = b.dataset.ch; $$("#chanSeg [data-ch]").forEach((x) => x.classList.toggle("on", x === b));
+      const to = $("#chanTo"); to.value = ""; to.type = ch === "sms" ? "tel" : "email"; to.placeholder = ch === "sms" ? "+998 90 123 45 67" : "you@gmail.com";
+      $("#chanToL").textContent = t(ch === "sms" ? "chan.test_to_sms" : "chan.test_to_email");
+    }));
+    $("#chanTest").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      await withLoading($("#chanTest .btn:not([data-ch])"), async () => {
+        try {
+          const r = await api("/api/admin/channels/test", { method: "POST", body: { channel: ch, to: $("#chanTo").value.trim() } });
+          $("#chanRes").innerHTML = r.status === "sent" ? `<span class="tag tag-ok">${esc(t("chan.test_ok", { to: r.to }))}</span>`
+            : r.status === "dev_inbox" ? `<span class="tag tag-hidden">${esc(t("chan.test_dev"))}</span> <a href="/dev-inbox.html" target="_blank" rel="noopener">${esc(t("dev.inbox_short"))}</a>`
+            : `<span class="tag tag-bad">${esc(t("chan.st_failed"))}</span> ${esc(r.error || "")}`;
+          setTimeout(channels, 2500);
+        } catch (err) { toast(err.message, "error"); }
+      });
     });
   }
 

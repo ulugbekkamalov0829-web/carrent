@@ -37,6 +37,31 @@ CarRent — O‘zbekiston uchun avtomobil ijarasi veb-platformasi. Bitta akkaunt
 | Chat, bildirishnomalar, sharhlar, sevimlilar, tavsiyalar | ✅ |
 | Kabinetlar va admin | ✅ Daromad, to‘lovlar, balans, shikoyatlar, audit jurnali |
 
+## 🆕 4-versiyada qo‘shilganlar
+
+| Modul | Nima qiladi |
+|---|---|
+| 🗺 **Viloyat + tuman** | 14 hudud va ularning tumanlari (`static/data/regions.json` — bitta fayl, server ham, sahifalar ham shuni o‘qiydi). Ro‘yxatdan o‘tishda, sozlamalarda, e’lon formasida, qidiruv filtrida va maslahatchida: viloyat tanlansa — faqat o‘sha viloyat tumanlari chiqadi. Server tumanning viloyatga tegishliligini tekshiradi. Eski yozuvlar (“Toshkent”) avtomatik “Toshkent shahri” ga o‘tkaziladi |
+| ☎️ **Telefon shabloni** | Barcha telefon maydonlarida `+998 90 123 45 67` — bo‘shliqlar yozish paytida qo‘yiladi, `+998` o‘chmaydi; ko‘rsatishda ham shu ko‘rinish |
+| 💰 **Narx formatlash** | Barcha pul maydonlarida `600 000` (yozish paytida ham); serverga raqam bo‘lib boradi |
+| 🔎 **Marka/model takliflari** | Qidiruvda CarRent’dagi barcha mashinalar nomi (e’lonlar soni bilan); e’lon formasida markaga mos modellar |
+| ✨ **Yangi qulayliklar** | Klimat-kontrol, 360° kamera, videoregistrator, ISOFIX, kalitsiz kirish, o‘rindiq ventilyatsiyasi, tom bagajnigi, qishki shinalar, Wi-Fi, simsiz quvvatlagich, uy hayvoni mumkin, yo‘lak nazorati |
+| 🧭 **Realistik ikonkalar** | Maslahatchida 3D ikonkalar (Microsoft Fluent Emoji, MIT litsenziya — `static/img/adv/`) |
+| 🔐 **Kirish oynasi** | Halqa ekran balandligiga moslashadi (forma pastga tushib ketmaydi); past ekran/zoomda ixcham karta; zoomda yozuv maydon ustiga tushib qolish xatosi tuzatildi; chap rasmlar tabiiy ranglarda |
+| 💵 **Komissiya qarzi** | Joyida to‘langan ijaralarda owner platformaga komissiya qarzdor bo‘ladi — kabinetda ko‘rinadi; admin “Naqd to‘landi” yoki “Balansdan ushlash” bilan yopadi. Yechib olinadigan summa qarzni hisobga oladi |
+| ⚖️ **Nizolar** | Bron ishtirokchisi muammo ochadi (shikast, kelmaslik, kechikish, depozit, e’londagidek emas, to‘lov, yoqilg‘i/probeg); ikkinchi tomon javob yozadi; admin ko‘rib chiqadi va izohli qaror chiqaradi (kompensatsiya, kerak bo‘lsa aybdorni bloklash). Hamma bosqichda bildirishnoma. Ijara tugaganidan keyin 30 kun ichida |
+| 📲 **Haqiqiy SMS/email** | Eskiz: token eskirsa avtomatik qayta kirish, yetkazilganlik holati (callback, HMAC imzo), qisqa SMS shablonlari (moderatsiyaga tayyor). Admin “SMS va email” bo‘limi: kanal holati, sinov xabari (provayderning haqiqiy javobi bilan), yuborish jurnali (kod va matn saqlanmaydi) |
+
+### SMS’ni haqiqatan ishga tushirish (Eskiz.uz)
+1. my.eskiz.uz da ro‘yxatdan o‘ting, balansni to‘ldiring.
+2. Admin panel → **SMS va email** bo‘limidagi shablonlarni Eskiz kabinetida “Shablonlar”ga aynan shunday yuboring (moderatsiya 1–2 kun).
+3. `.env` ga yozing: `ESKIZ_EMAIL=...`, `ESKIZ_PASSWORD=...` (`ESKIZ_FROM=4546` — standart).
+4. Serverni qayta ishga tushiring → **SMS va email** → “Sinov xabari yuborish”.
+
+Email (Gmail): 2 bosqichli himoya → “App passwords” → `.env`: `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, `SMTP_USER=...@gmail.com`, `SMTP_PASSWORD=<16 belgili parol>`.
+
+> Yetkazilganlik holati (callback) Eskiz serveri saytingizga kira olishi uchun `PUBLIC_URL` `https://` bilan boshlanishi kerak (Render’ga joylangandan keyin).
+
 ## 🆕 3-versiyada qo‘shilganlar
 
 | Modul | Nima qiladi |
@@ -74,7 +99,7 @@ Testlar: **78 ta** (yangi: to‘lov siyosati va so‘rovlar — 11, maslahatchi 
 | Autentifikatsiya | JWT, `httpOnly; SameSite=Lax` cookie; parol — scrypt |
 | Rasmlar | Pillow: qayta kodlash, EXIF/GPS o‘chirish, 1600 px gacha kichraytirish |
 | Frontend | HTML + CSS + Vanilla JS (build talab qilmaydi), i18n JSON fayllar |
-| Testlar | pytest (78 ta) + Playwright brauzer sinovi (asosiy oqimlar) |
+| Testlar | pytest (86 ta) + Playwright brauzer sinovi (asosiy oqimlar) |
 
 ### Arxitektura
 

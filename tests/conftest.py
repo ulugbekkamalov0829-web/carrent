@@ -48,7 +48,7 @@ def make_user(role: str = "user") -> tuple[TestClient, dict]:
     else:
         r = c.post("/api/auth/register", headers=H, json={
             "full_name": f"User Test {_counter['n']}", "email": email, "phone": f"+99877{_counter['n']:07d}",
-            "password": PASSWORD, "accept_terms": True})
+            "password": PASSWORD, "accept_terms": True, "region": "Toshkent shahri", "district": "Chilonzor"})
     assert r.status_code in (200, 201), r.text
     return c, r.json()["user"]
 

@@ -169,13 +169,28 @@ async def admin_users(request: Request):
                    "(SELECT COUNT(*) FROM bookings b WHERE b.renter_id = u.id) AS bookings FROM users u WHERE 1 = 1"), []
     if q := q_str(request, "q"):
         sql += " AND (u.full_name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?)"; params += [f"%{q}%"] * 3
-    if q_str(request, "kind") == "owners":
-        sql += " AND EXISTS (SELECT 1 FROM cars c WHERE c.owner_id = u.id)"
-    elif q_str(request, "kind") == "admins":
-        sql += " AND u.role = 'admin'"
+    kind = q_str(request, "kind") or ""
+    if kind in USER_KINDS:
+        sql += " AND " + USER_KINDS[kind]
     with get_db() as db:
         items = rows(db.execute(sql + " ORDER BY u.id DESC LIMIT 300", params))
-    return ok({"items": items})
+        counts = {"all": db.execute("SELECT COUNT(*) FROM users u WHERE u.role = 'user'").fetchone()[0]}
+        for k, cond in USER_KINDS.items():
+            counts[k] = db.execute(f"SELECT COUNT(*) FROM users u WHERE {cond}").fetchone()[0]
+    return ok({"items": items, "counts": counts})
+
+
+ACTIVE_30 = ("(EXISTS (SELECT 1 FROM bookings b WHERE b.renter_id = u.id AND b.created_at >= datetime('now', '-30 days')) "
+             "OR EXISTS (SELECT 1 FROM cars c WHERE c.owner_id = u.id AND c.updated_at >= datetime('now', '-30 days')) "
+             "OR EXISTS (SELECT 1 FROM messages m WHERE m.sender_id = u.id AND m.created_at >= datetime('now', '-30 days')))")
+USER_KINDS = {
+    "renters": "u.role = 'user' AND EXISTS (SELECT 1 FROM bookings b WHERE b.renter_id = u.id)",
+    "owners": "EXISTS (SELECT 1 FROM cars c WHERE c.owner_id = u.id)",
+    "active": "u.role = 'user' AND " + ACTIVE_30,
+    "new": "u.role = 'user' AND u.created_at >= datetime('now', '-7 days')",
+    "blocked": "u.is_active = 0",
+    "admins": "u.role = 'admin'",
+}
 
 
 @require("admin")

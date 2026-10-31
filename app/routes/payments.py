@@ -87,11 +87,13 @@ def checkout_url(provider: str, payment_id: int, amount: int) -> str:
     if provider == "test":
         return f"/pay.html?payment={payment_id}"
     if provider == "click":
+        # Click hujjati: summa N.NN ko'rinishida (docs.click.uz/en/?p=101)
         q = urllib.parse.urlencode({"service_id": settings.CLICK_SERVICE_ID, "merchant_id": settings.CLICK_MERCHANT_ID,
-                                    "amount": amount, "transaction_param": payment_id, "return_url": back})
+                                    "amount": f"{amount:.2f}", "transaction_param": payment_id, "return_url": back})
         return "https://my.click.uz/services/pay?" + q
     raw = f"m={settings.PAYME_MERCHANT_ID};ac.order_id={payment_id};a={amount * 100};c={back}"
-    return "https://checkout.paycom.uz/" + base64.b64encode(raw.encode()).decode()
+    base = "https://test.paycom.uz/" if settings.PAYME_TEST else "https://checkout.paycom.uz/"
+    return base + base64.b64encode(raw.encode()).decode()
 
 
 @require("user")

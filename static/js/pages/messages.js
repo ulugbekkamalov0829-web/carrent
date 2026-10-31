@@ -7,18 +7,32 @@
   const aboutCar = Number(params.get("car")) || null;
   let lastId = 0, convs = [], msgs = [], partner = null;
 
+  // Suhbatlar kabinet bo'yicha: ijarachi sifatida (boshqalarning mashinasi) yoki owner sifatida (o'z mashinangiz)
+  const urlMode = params.get("mode");
+  if (urlMode && ["renter", "owner"].includes(urlMode) && me.role !== "admin" && urlMode !== me.active_mode) await Auth.setMode(urlMode);
+  let filter = me.role === "admin" ? "all" : "mode";
   async function loadConvs() { convs = (await api("/api/messages")).items; drawConvs(); }
+  function drawTabs() {
+    if (me.role === "admin") return;
+    const cm = curMode(), other = convs.filter((c) => c.ctx && c.ctx !== cm && c.unread).reduce((a, c) => a + c.unread, 0);
+    $("#convTabs").innerHTML = `<button class="${filter === "mode" ? "on" : ""}" data-f="mode">${esc(modeLabel(cm))}</button>
+      <button class="${filter === "all" ? "on" : ""}" data-f="all">${esc(t("common.all"))}${other ? ` <i class="cnt">${other}</i>` : ""}</button>`;
+  }
   function drawConvs() {
+    drawTabs();
     const q = $("#convSearch").value.trim().toLowerCase();
-    const list = convs.filter((c) => !q || c.other_name.toLowerCase().includes(q) || c.last_body.toLowerCase().includes(q));
+    const list = convs.filter((c) => (filter === "all" || !c.ctx || c.ctx === curMode() || c.other_id === current)
+      && (!q || c.other_name.toLowerCase().includes(q) || c.last_body.toLowerCase().includes(q)));
     $("#convs").innerHTML = list.length ? list.map((c) => `
       <a class="conv ${c.other_id === current ? "active" : ""}" href="?user=${c.other_id}" data-user="${c.other_id}">
         <span class="avatar">${esc(initials(c.other_name))}</span>
-        <div class="info"><b>${esc(c.other_name)}</b><div class="last">${c.last_is_mine ? esc(t("chat.you")) + ": " : ""}${esc(c.last_body)}</div></div>
+        <div class="info"><b>${esc(c.other_name)}</b>${c.ctx ? ` <span class="mode-tag m-${c.ctx}">${esc(t(c.ctx === "owner" ? "chat.ctx_owner" : "chat.ctx_renter"))}</span>` : ""}<div class="last">${c.last_is_mine ? esc(t("chat.you")) + ": " : ""}${esc(c.last_body)}</div></div>
         ${c.unread ? `<span class="cnt">${c.unread}</span>` : ""}</a>`).join("")
       : `<div class="empty small">${esc(t(q ? "chat.no_results" : "chat.empty"))}</div>`;
   }
 
+  $("#convTabs").addEventListener("click", (e) => { const b = e.target.closest("[data-f]"); if (b) { filter = b.dataset.f; drawConvs(); } });
+  document.addEventListener("summary", () => loadConvs().catch(() => {}));
   async function openThread(userId) {
     current = userId; lastId = 0; msgs = [];
     $("#chat").classList.add("has-thread");

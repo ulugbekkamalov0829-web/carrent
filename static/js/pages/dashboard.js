@@ -504,12 +504,16 @@
   async function notifications() {
     head("dash.notifications");
     const data = await api("/api/notifications");
-    view.innerHTML = `<div class="row" style="margin-bottom:12px"><button class="btn btn-sm btn-outline" id="readAllBtn">${esc(t("notif.read_all"))}</button></div>
-      <div class="card">${data.items.length ? data.items.map((n) => { const x = notifText(n); return `<a class="notif ${n.is_read ? "" : "unread"}" href="${esc(n.link || "#")}" data-id="${n.id}">
-        <div class="t">${esc(x.title)}</div><div class="b">${esc(x.body)}</div><div class="small muted">${timeAgo(n.created_at)}</div></a>`; }).join("")
-        : `<div class="empty">${esc(t("notif.empty"))}</div>`}</div>`;
+    const showAll = new URLSearchParams(location.search).get("all") === "1";
+    const list = showAll ? data.items : data.items.filter(inMode);
+    const hidden = data.items.length - data.items.filter(inMode).length;
+    view.innerHTML = `<div class="row" style="margin-bottom:12px;gap:6px">
+        <a class="btn btn-sm ${showAll ? "btn-outline" : ""}" href="?#notifications">${esc(modeLabel(curMode()))}</a>
+        <a class="btn btn-sm ${showAll ? "" : "btn-outline"}" href="?all=1#notifications">${esc(t("common.all"))}${hidden ? ` (+${hidden})` : ""}</a>
+        <span class="spacer"></span><button class="btn btn-sm btn-outline" id="readAllBtn">${esc(t("notif.read_all"))}</button></div>
+      <div class="card notif-page">${list.length ? list.map(notifRow).join("") : `<div class="empty">${esc(t("notif.empty_mode", { mode: modeLabel(curMode()) }))}</div>`}</div>`;
     $("#readAllBtn").addEventListener("click", async () => { await api("/api/notifications/read-all", { method: "POST" }); pollSummary(); notifications(); });
-    $$(".notif", view).forEach((a) => a.addEventListener("click", () => api(`/api/notifications/${a.dataset.id}/read`, { method: "POST" }).catch(() => {})));
+    $$(".notif", view).forEach((a) => a.addEventListener("click", (e) => openNotif(data.items.find((n) => n.id == a.dataset.id), e)));
   }
 
 })();

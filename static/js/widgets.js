@@ -1,8 +1,10 @@
 /* Kabinet va admin panel uchun umumiy vizual elementlar (real ma'lumotdan chiziladi) */
 "use strict";
 
-function stat(k, v, s = "") {
-  return `<div class="card stat"><div class="k">${esc(k)}</div><div class="v">${typeof v === "number" ? numFmt().format(v) : esc(v)}</div><div class="s">${s}</div></div>`;
+function stat(k, v, s = "", href = "") {
+  const inner = `<div class="k">${esc(k)}</div><div class="v">${typeof v === "number" ? numFmt().format(v) : esc(v)}</div><div class="s">${s}</div>`;
+  return href ? `<a class="card stat stat-link" href="${esc(href)}">${inner}<span class="stat-go" aria-hidden="true">${icon("arrowr", 16)}</span></a>`
+    : `<div class="card stat">${inner}</div>`;
 }
 
 /** Oylik ustunli grafik: ustun = umumiy tushum, ichida owner ulushi va platforma komissiyasi alohida rangda */

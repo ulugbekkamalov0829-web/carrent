@@ -172,7 +172,7 @@
           <div class="adv-foot"><div class="price">${money(c.price_per_day)} <small>${esc(t("car.per_day"))}</small>
             ${c.total ? `<div class="small muted">${esc(t("adv.total_for", { n: r.days }))}: <b>${money(c.total)}</b></div>` : ""}</div>
             <div class="row" style="gap:6px"><a class="btn btn-sm btn-outline" href="/car.html?id=${c.id}${qs}">${esc(t("car.details"))}</a>
-              <a class="btn btn-sm" href="/car.html?id=${c.id}${qs}#book">${esc(t("car.book"))}</a></div></div>
+              <a class="btn btn-sm" href="/car.html?id=${c.id}${qs}#book" data-quickbook="${c.id}">${esc(t("car.book"))}</a></div></div>
         </div></article>`).join("")}</div>
       <div class="card card-pad adv-tips"><h3>${icon("bulb", 18)} ${esc(t("adv.tips"))}</h3><ul>${r.tips.map((k) => `<li>${esc(t("adv." + k))}</li>`).join("")}</ul>
         <p class="small muted" style="margin:8px 0 0">${esc(t("adv.how"))}</p></div>

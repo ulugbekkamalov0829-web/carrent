@@ -116,7 +116,7 @@ async def create_booking(request: Request):
                 (car["id"], user["id"], start, end, days, q["price_per_day"], q["delivery"], q["total"],
                  q["commission_bps"], q["commission"], q["owner_payout"], q["deposit"], data.note))
             bid = cur.lastrowid
-            notify(db, car["owner_id"], "booking_new", "/dashboard.html?mode=owner#bookings",
+            notify(db, car["owner_id"], "booking_new", "/dashboard.html?mode=owner#bookings", actor_id=user["id"],
                    name=user["full_name"], car=car_title(car), start=start, end=end, days=days, total=q["total"])
         booking = one(db.execute(BOOKING_SELECT + " WHERE b.id = ?", (bid,)))
     return ok(booking, 201)
@@ -190,7 +190,7 @@ async def approve(request: Request):
             if _overlap(db, b["car_id"], b["start_date"], b["end_date"], exclude_id=bid, statuses=("approved",)):
                 raise HTTPException(409, tr("Bu sanalarda boshqa tasdiqlangan bron bor"))
             db.execute("UPDATE bookings SET status='approved', updated_at=datetime('now') WHERE id = ?", (bid,))
-            notify(db, b["renter_id"], "booking_approved", "/dashboard.html?mode=renter#bookings",
+            notify(db, b["renter_id"], "booking_approved", "/dashboard.html?mode=renter#bookings", actor_id=uid,
                    car=car_title(b), start=b["start_date"], end=b["end_date"])
         return ok(_load(db, bid))
 
@@ -226,7 +226,7 @@ async def cancel(request: Request):
             db.execute("UPDATE bookings SET status='cancelled', updated_at=datetime('now') WHERE id = ?", (bid,))
             from .payments import refund_for_booking
             refund = refund_for_booking(db, b)   # onlayn to'langan bo'lsa, siyosat bo'yicha qaytariladi
-            notify(db, b["owner_id"], "booking_cancelled", "/dashboard.html?mode=owner#bookings",
+            notify(db, b["owner_id"], "booking_cancelled", "/dashboard.html?mode=owner#bookings", actor_id=b["renter_id"],
                    name=b["renter_name"], car=car_title(b), start=b["start_date"], end=b["end_date"])
         return ok({**_load(db, bid), "refund": refund})
 

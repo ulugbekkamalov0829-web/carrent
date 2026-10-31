@@ -64,7 +64,8 @@ async def open_dispute(request: Request):
             against = b["owner_id"] if me["id"] == b["renter_id"] else b["renter_id"]
             cur = db.execute("INSERT INTO disputes (booking_id, opened_by, against_id, type, description, amount) VALUES (?, ?, ?, ?, ?, ?)",
                              (b["id"], me["id"], against, data.type, data.description, data.amount))
-            notify(db, against, "dispute_opened", "/dashboard.html#disputes", name=me["full_name"], car=car_title(b))
+            notify(db, against, "dispute_opened", "/dashboard.html#disputes", mode="owner" if against == b["owner_id"] else "renter",
+                   actor_id=me["id"], name=me["full_name"], car=car_title(b))
             for a in _admins(db):
                 notify(db, a, "dispute_new_admin", "/admin.html#disputes", name=me["full_name"], car=car_title(b))
         return ok(_load(db, cur.lastrowid), 201)

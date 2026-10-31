@@ -198,3 +198,11 @@ CATALOG.update({  # v4: nizolar va kanallar
     "Faqat nizo ishtirokchisini bloklash mumkin": ("Заблокировать можно только участника спора", "Only a party to the dispute can be blocked"),
     "Kanal sozlanmagan": ("Канал не настроен", "Channel isn't configured"),
 })
+
+CATALOG.update({  # v5: parol qoidalari
+    "Parol kamida {n} ta belgidan iborat bo'lsin": ("Пароль должен содержать не менее {n} символов", "Password must be at least {n} characters"),
+    "Kamida bitta katta harf (A–Z) bo'lsin": ("Нужна хотя бы одна заглавная буква (A–Z)", "Add at least one uppercase letter (A–Z)"),
+    "Kamida bitta kichik harf (a–z) bo'lsin": ("Нужна хотя бы одна строчная буква (a–z)", "Add at least one lowercase letter (a–z)"),
+    "Kamida bitta raqam (0–9) bo'lsin": ("Нужна хотя бы одна цифра (0–9)", "Add at least one digit (0–9)"),
+    "Kamida bitta belgi (! @ # - _ . kabi) bo'lsin": ("Нужен хотя бы один символ (! @ # - _ .)", "Add at least one symbol (! @ # - _ .)"),
+})

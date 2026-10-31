@@ -164,7 +164,7 @@ async def meta(request: Request):
                "owners_total": owners, "completed_total": done, "commission_bps": bps, "support_user_id": support[0] if support else None,
                "demo": settings.DEMO_MODE, "max_images": settings.MAX_IMAGES_PER_CAR, "max_image_mb": settings.MAX_IMAGE_MB,
                "dev_inbox": settings.DEV_INBOX, "email_real": settings.email_enabled,
-               "sms_real": settings.sms_enabled, "payments": {"test": settings.PAYMENT_TEST_MODE, "click": settings.click_enabled,
+               "sms_real": settings.sms_enabled, "code_ttl_min": settings.CODE_TTL_MIN, "payments": {"test": settings.PAYMENT_TEST_MODE, "click": settings.click_enabled,
                                                               "payme": settings.payme_enabled}})
 
 

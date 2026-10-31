@@ -7,13 +7,16 @@
   let tab = "stats";
 
   function route() {
-    tab = TABS.find(([k]) => "#" + k === location.hash)?.[0] || "stats";
+    const [h, sub] = location.hash.slice(1).split("/");
+    tab = TABS.find(([k]) => k === h)?.[0] || "stats";
+    route.sub = sub || "";
     markActive();
     $("#viewTitle").textContent = t(TABS.find(([k]) => k === tab)[1]);
     $("#viewSub").textContent = "";
     view.onclick = null;
     view.innerHTML = `<div class="skeleton" style="height:240px"></div>`;
-    ({ stats, users, cars, bookings, payments, reports, reviews, finance, audit, disputes, channels, analytics: () => Reports.render(view, "admin") })[tab]().catch((e) => (view.innerHTML = `<div class="empty card">${esc(e.message)}</div>`));
+    const arg = { users: () => new URLSearchParams(route.sub ? { kind: route.sub } : {}), bookings: () => route.sub, cars: () => new URLSearchParams(route.sub ? { state: route.sub } : {}) }[tab]?.();
+    ({ stats, users, cars, bookings, payments, reports, reviews, finance, audit, disputes, channels, analytics: () => Reports.render(view, "admin") })[tab](arg).catch((e) => (view.innerHTML = `<div class="empty card">${esc(e.message)}</div>`));
   }
   window.addEventListener("hashchange", route);
   document.addEventListener("langchange", route);
@@ -27,16 +30,16 @@
     const s = await api("/api/admin/stats");
     $("#viewSub").textContent = t("admin.real_data");
     view.innerHTML = `<div class="stats">
-        ${stat(t("admin.users_total"), s.users.total, esc(t("admin.users_sub", { a: s.users.owners, b: s.users.renters, c: s.users.new_week })))}
-        ${stat(t("admin.active_30"), s.users.active_30d, esc(t("admin.active_sub")))}
-        ${stat(t("admin.cars_active"), s.cars.active, esc(t("admin.cars_sub", { n: s.cars.total, h: s.cars.hidden })))}
-        ${stat(t("admin.bookings_total"), Object.values(s.bookings).reduce((a, x) => a + x, 0), esc(t("admin.pending_n", { n: s.bookings.pending })))}
-        ${stat(t("admin.gmv"), money(s.revenue_total), esc(t("admin.gmv_sub")))}
-        ${stat(t("admin.commission_income"), money(s.commission_total), esc(t("admin.commission_rate", { pct: s.commission_bps / 100 })))}
-        ${stat(t("admin.reviews_total"), s.reviews.cnt, s.reviews.avg ? `★ ${s.reviews.avg}` : "")}
-        ${stat(t("admin.blocked"), s.users.blocked, esc(t("admin.blocked_sub")))}
-        ${stat(t("admin.reports_new"), s.reports_new, s.reports_new ? `<a href="#reports">${esc(t("dash.open"))}</a>` : esc(t("owner.all_done")))}
-        ${stat(t("admin.paid_online"), money(s.paid_online), s.refunds_pending ? `<a href="#payments">${esc(t("admin.refunds_n", { n: s.refunds_pending }))}</a>` : "")}
+        ${stat(t("admin.users_total"), s.users.total, esc(t("admin.users_sub", { a: s.users.owners, b: s.users.renters, c: s.users.new_week })), "#users")}
+        ${stat(t("admin.active_30"), s.users.active_30d, esc(t("admin.active_sub")), "#users/active")}
+        ${stat(t("admin.cars_active"), s.cars.active, esc(t("admin.cars_sub", { n: s.cars.total, h: s.cars.hidden })), "#cars")}
+        ${stat(t("admin.bookings_total"), Object.values(s.bookings).reduce((a, x) => a + x, 0), esc(t("admin.pending_n", { n: s.bookings.pending })), "#bookings")}
+        ${stat(t("admin.gmv"), money(s.revenue_total), esc(t("admin.gmv_sub")), "#analytics")}
+        ${stat(t("admin.commission_income"), money(s.commission_total), esc(t("admin.commission_rate", { pct: s.commission_bps / 100 })), "#finance")}
+        ${stat(t("admin.reviews_total"), s.reviews.cnt, s.reviews.avg ? `★ ${s.reviews.avg}` : "", "#reviews")}
+        ${stat(t("admin.blocked"), s.users.blocked, esc(t("admin.blocked_sub")), "#users/blocked")}
+        ${stat(t("admin.reports_new"), s.reports_new, esc(s.reports_new ? t("dash.open") : t("owner.all_done")), "#reports")}
+        ${stat(t("admin.paid_online"), money(s.paid_online), s.refunds_pending ? esc(t("admin.refunds_n", { n: s.refunds_pending })) : "", "#payments")}
       </div>
       <div class="two-col">
         <div class="card card-pad"><h3>${esc(t("admin.monthly"))}</h3>${revenueChart(s.monthly)}</div>
@@ -50,9 +53,13 @@
   }
 
   async function users(p = new URLSearchParams()) {
-    const { items } = await api("/api/admin/users?" + p);
-    view.innerHTML = searchBox("admin.search_users", `<select class="input" name="kind" style="width:auto" aria-label="${esc(t("admin.kind"))}">
-      <option value="">${esc(t("common.all"))}</option><option value="owners">${esc(t("admin.owners"))}</option><option value="admins">${esc(t("admin.admins"))}</option></select>`) +
+    const { items, counts } = await api("/api/admin/users?" + p);
+    const kind = p.get("kind") || "";
+    const KINDS = [["", "common.all"], ["renters", "admin.renters"], ["owners", "admin.owners"], ["active", "admin.active_30"], ["new", "admin.new_week"],
+      ["blocked", "admin.blocked"], ["admins", "admin.admins"]];
+    view.innerHTML = `<div class="stats mini-stats">${KINDS.map(([k, key]) => `<a class="card stat stat-link ${k === kind ? "on" : ""}" href="#users${k ? "/" + k : ""}">
+        <div class="k">${esc(t(key))}</div><div class="v">${numFmt().format(counts[k || "all"] || 0)}</div></a>`).join("")}</div>`
+      + searchBox("admin.search_users", `<input type="hidden" name="kind" value="${esc(kind)}">`) +
       `<div class="card table-wrap"><table class="table responsive"><thead><tr><th>#</th><th>${esc(t("col.user"))}</th><th>${esc(t("col.role"))}</th><th>${esc(t("col.activity"))}</th>
         <th>${esc(t("col.registered"))}</th><th>${esc(t("col.status"))}</th><th></th></tr></thead><tbody>
       ${items.map((u) => `<tr><td data-label="#">${u.id}</td><td data-label="${esc(t("col.user"))}"><b>${esc(u.full_name)}</b><div class="small muted">${esc(u.email)} · ${esc(u.phone ? fmtPhone(u.phone) : "")}</div></td>
@@ -64,6 +71,7 @@
       </tbody></table></div>`;
     for (const [k, v] of p) { const el = $(`#search [name=${k}]`); if (el) el.value = v; }
     onSearch(users);
+    if (!items.length) view.insertAdjacentHTML("beforeend", `<div class="empty card">${esc(t("admin.no_users"))}</div>`);
     view.onclick = async (e) => {
       const b = e.target.closest("[data-user]"); if (!b) return;
       const activate = b.dataset.active === "1";

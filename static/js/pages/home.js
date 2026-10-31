@@ -32,8 +32,11 @@
     if (user && reco.personal && user.role !== "admin") { $("#recoTitle").textContent = t("home.for_you"); $("#recoSub").textContent = t("home.for_you_sub"); }
     $("#reco").innerHTML = reco.items.length ? reco.items.map((c) => carCard(c, { reason: !!user })).join("")
       : `<div class="empty card" style="grid-column:1/-1">${esc(t("cars.empty"))}</div>`;
-    $("#regions").innerHTML = meta.cities.map((c) => `<a class="card region" href="/cars.html?city=${encodeURIComponent(c.city)}">
-      <b>${esc(Places.regionName(c.city))}</b><span class="muted small">${esc(t("regions.count", { n: c.count }))}</span></a>`).join("");
+    // Barcha 14 hudud: e'lonlari borlari oldinda; e'lon yo'q hudud xira turadi va birinchi e'lon qo'shilishi bilan faollashadi
+    const regionsAll = Places.data.regions.map((r) => ({ key: r.key, count: counts[r.key] || 0 })).sort((a, b) => b.count - a.count);
+    $("#regions").innerHTML = regionsAll.map((c) => c.count
+      ? `<a class="card region" href="/cars.html?city=${encodeURIComponent(c.key)}"><b>${esc(Places.regionName(c.key))}</b><span class="muted small">${esc(t("regions.count", { n: c.count }))}</span></a>`
+      : `<div class="card region off" title="${esc(t("regions.soon_hint"))}"><b>${esc(Places.regionName(c.key))}</b><span class="muted small">${esc(t("regions.soon"))}</span></div>`).join("");
     $("#testimonials").innerHTML = reviews.items.length ? reviews.items.slice(0, 3).map((r) => `<figure class="card quote" style="margin:0">
       <div class="stars">${stars(r.rating)}</div><p>“${esc(r.comment)}”</p>
       <figcaption class="row"><span class="avatar">${esc(initials(r.author))}</span><div><b>${esc(r.author)}</b>

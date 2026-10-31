@@ -103,11 +103,28 @@ def today() -> date:
     return date.today()
 
 
-def notify(db, user_id: int, type_: str, link: str = "", **params) -> None:
+RENTER_TYPES = {"booking_approved", "booking_rejected", "booking_expired", "payment_paid", "payment_refunded", "payment_refund_pending"}
+OWNER_TYPES = {"booking_new", "booking_cancelled", "payment_paid_owner", "payout_sent", "payout_rejected", "fee_settled",
+               "cancel_compensation", "car_approved", "car_hidden"}
+
+
+def notif_mode(type_: str, link: str = "") -> str:
+    """Bildirishnoma qaysi kabinetga tegishli: ijarachi, owner, admin yoki umumiy."""
+    if "mode=owner" in (link or "") or type_ in OWNER_TYPES:
+        return "owner"
+    if "mode=renter" in (link or "") or type_ in RENTER_TYPES:
+        return "renter"
+    if (link or "").startswith("/admin.html"):
+        return "admin"
+    return "any"
+
+
+def notify(db, user_id: int, type_: str, link: str = "", *, mode: str | None = None, actor_id: int | None = None, **params) -> None:
     """Bildirishnoma kod + parametrlar bilan saqlanadi; matnni frontend foydalanuvchi tilida chiqaradi.
+    mode — qaysi kabinet uchun (aniqlanmasa turi/havolasidan topiladi), actor_id — kim sabab bo'ldi.
     Foydalanuvchi sozlamalarida yoqilgan bo'lsa, email/SMS'ga ham nusxa yuboriladi."""
-    db.execute("INSERT INTO notifications (user_id, type, params, link) VALUES (?, ?, ?, ?)",
-               (user_id, type_, json.dumps(params, ensure_ascii=False), link))
+    db.execute("INSERT INTO notifications (user_id, type, params, link, mode, actor_id) VALUES (?, ?, ?, ?, ?, ?)",
+               (user_id, type_, json.dumps(params, ensure_ascii=False), link, mode or notif_mode(type_, link), actor_id))
     from .channels import mirror_notification
     try:
         mirror_notification(db, user_id, type_, params, link)

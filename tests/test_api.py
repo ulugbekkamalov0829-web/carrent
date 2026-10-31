@@ -47,10 +47,13 @@ def test_password_policy_and_terms(client):
             "region": "Samarqand", "district": "Urgut"}
     assert client.post("/api/auth/register", headers=H, json={**base, "password": "qisqa123"}).status_code == 422
     assert client.post("/api/auth/register", headers=H, json={**base, "password": "qwerty123456"}).status_code == 422
-    assert client.post("/api/auth/register", headers=H, json={**base, "password": "pw-parolim-uzun"}).status_code == 422  # emailni o'z ichiga oladi
+    assert client.post("/api/auth/register", headers=H, json={**base, "password": "Pw-parolim-2026"}).status_code == 422  # emailni o'z ichiga oladi
+    for weak in ("kichik-harf-2026", "KATTA-HARF-2026", "Raqamsiz-parol", "Belgisiz2026Parol", "Qs-1"):   # har bir qoida alohida
+        r = client.post("/api/auth/register", headers=H, json={**base, "password": weak})
+        assert r.status_code == 422, weak
     assert client.post("/api/auth/register", headers=H, json={**base, "password": PASSWORD, "accept_terms": False}).status_code == 422
-    # passphrase (bo'shliqli uzun ibora) qabul qilinadi
-    assert client.post("/api/auth/register", headers=H, json={**base, "password": "men ertaga samarqandga boraman"}).status_code == 201
+    # barcha qoidalarga mos parol (bo'shliqli ibora ham bo'ladi) qabul qilinadi
+    assert client.post("/api/auth/register", headers=H, json={**base, "password": "Men ertaga Samarqandga 2 kunga!"}).status_code == 201
 
 
 def test_cannot_register_as_admin(client):

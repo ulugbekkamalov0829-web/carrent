@@ -357,6 +357,8 @@ MIGRATIONS = {
     },
     "car_images": {"label": "TEXT NOT NULL DEFAULT 'other'"},
     "cars": {"district": "TEXT"},
+    # Bildirishnoma qaysi kabinetga tegishli (renter | owner | admin | any) va kim sabab bo'lgani (Telegram uslubidagi oyna uchun)
+    "notifications": {"mode": "TEXT NOT NULL DEFAULT 'any'", "actor_id": "INTEGER"},
     "payments": {"refund_amount": "INTEGER NOT NULL DEFAULT 0", "kept_commission": "INTEGER NOT NULL DEFAULT 0",
                  "kept_payout": "INTEGER NOT NULL DEFAULT 0"},
 }
@@ -375,6 +377,12 @@ def _migrate(conn) -> None:
             new = normalize_region(old)
             if new and new != old:
                 conn.execute(f"UPDATE {table} SET {col} = ? WHERE {col} = ?", (new, old))
+    # Eski bildirishnomalarga kabinet belgisi (bir martalik)
+    from .utils import notif_mode
+    for nid, typ, link in conn.execute("SELECT id, type, link FROM notifications WHERE mode = 'any' AND type != 'message'").fetchall():
+        m = notif_mode(typ, link)
+        if m != "any":
+            conn.execute("UPDATE notifications SET mode = ? WHERE id = ?", (m, nid))
     # Telefon bilan kirish uchun normallashtirilgan raqam yagona bo'lishi kerak
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_users_phone ON users(phone_norm) WHERE phone_norm IS NOT NULL")
 

@@ -201,9 +201,11 @@ async def forgot(request: Request):
                 via = "throttled"
         else:
             burn_time()
-    result = {"message": tr(GENERIC_SENT), "channel": channel, "ttl_min": settings.CODE_TTL_MIN}
-    if settings.DEV_INBOX:
-        result["dev_inbox"] = True   # demo: kod test pochta qutisida ko'rinadi
+    real = settings.email_enabled if channel == "email" else settings.sms_enabled
+    result = {"message": tr(GENERIC_SENT), "channel": channel, "ttl_min": settings.CODE_TTL_MIN,
+              "ttl_sec": settings.CODE_TTL_MIN * 60, "resend_sec": settings.CODE_RESEND_SEC, "real": real}
+    if settings.DEV_INBOX and not real:
+        result["dev_inbox"] = True   # kanal ulanmagan: kod test pochta qutisida ko'rinadi (faqat sinov rejimi)
     return ok(result)
 
 
@@ -240,7 +242,8 @@ async def verify_start(request: Request):
             via = _issue_code(db, u, purpose, data.channel, target)
         except channels.DeliveryUnavailable:
             raise HTTPException(503, tr("Bu kanal orqali yuborish hozircha sozlanmagan"))
-    return ok({"sent_to": channels.mask(target), "via": via, "ttl_min": settings.CODE_TTL_MIN})
+    return ok({"sent_to": channels.mask(target), "via": via, "ttl_min": settings.CODE_TTL_MIN, "ttl_sec": settings.CODE_TTL_MIN * 60,
+               "real": via in ("email", "sms")})
 
 
 @require()
@@ -446,11 +449,19 @@ async def summary(request: Request):
     with get_db() as db:
         n = db.execute("SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0", (uid,)).fetchone()[0]
         m = db.execute("SELECT COUNT(*) FROM messages WHERE receiver_id = ? AND is_read = 0", (uid,)).fetchone()[0]
+        # Kabinetlar bo'yicha: ijarachi rejimida turib owner xabarlarini aralashtirmaslik uchun
+        n_by = dict(db.execute("SELECT mode, COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0 GROUP BY mode", (uid,)).fetchall())
+        m_by = dict(db.execute(
+            """SELECT CASE WHEN c.id IS NULL THEN 'any' WHEN c.owner_id = ? THEN 'owner' ELSE 'renter' END AS ctx, COUNT(*)
+               FROM messages m LEFT JOIN cars c ON c.id = m.car_id WHERE m.receiver_id = ? AND m.is_read = 0 GROUP BY ctx""",
+            (uid, uid)).fetchall())
+        last_id = db.execute("SELECT COALESCE(MAX(id), 0) FROM notifications WHERE user_id = ?", (uid,)).fetchone()[0]
         p = db.execute("SELECT COUNT(*) FROM bookings b JOIN cars c ON c.id = b.car_id WHERE c.owner_id = ? AND b.status = 'pending'",
                        (uid,)).fetchone()[0]
         r = (db.execute("SELECT COUNT(*) FROM reports WHERE status = 'new'").fetchone()[0]
              if request.state.user["role"] == "admin" else 0)
-    return ok({"unread_notifications": n, "unread_messages": m, "pending_requests": p, "open_reports": r})
+    return ok({"unread_notifications": n, "unread_messages": m, "pending_requests": p, "open_reports": r,
+               "notif_by_mode": n_by, "msg_by_mode": m_by, "last_notification_id": last_id})
 
 
 def _local_client(request: Request) -> bool:

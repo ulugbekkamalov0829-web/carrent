@@ -509,7 +509,8 @@ def build() -> None:
     from scripts.locales_extra import T2
     from scripts.locales_v3 import T3
     from scripts.locales_v4 import OVERRIDE, T4
-    parts = [T, T2, T3, T4]
+    from scripts.locales_v5 import OVERRIDE5, T5
+    parts = [T, T2, T3, T4, T5]
     dup = {k for i, a in enumerate(parts) for b in parts[i + 1:] for k in set(a) & set(b)}
     assert not dup, f"takroriy kalitlar: {sorted(dup)}"
     for extra in parts[1:]:
@@ -517,6 +518,9 @@ def build() -> None:
     missing = set(OVERRIDE) - set(T)
     assert not missing, f"OVERRIDE'dagi kalit topilmadi: {sorted(missing)}"
     T.update(OVERRIDE)
+    missing = set(OVERRIDE5) - set(T)
+    assert not missing, f"OVERRIDE5'dagi kalit topilmadi: {sorted(missing)}"
+    T.update(OVERRIDE5)
     OUT.mkdir(parents=True, exist_ok=True)
     for i, lang in enumerate(("uz", "ru", "en")):
         data = {k: (uz_typo(v[0]) if lang == "uz" else v[i]) for k, v in sorted(T.items())}

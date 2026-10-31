@@ -53,7 +53,7 @@ class Settings:
     MAX_UPLOAD_BODY: int = 25 * 1024 * 1024         # rasm yuklash so'rovi chegarasi
 
     # Tasdiqlash kodlari (parolni tiklash, email/telefonni tasdiqlash)
-    CODE_TTL_MIN: int = 10
+    CODE_TTL_MIN: int = int(os.getenv("CODE_TTL_MIN", "3"))   # qisqa muddat: kod 3 daqiqa amal qiladi
     CODE_MAX_ATTEMPTS: int = 5
     CODE_RESEND_SEC: int = int(os.getenv("CODE_RESEND_SEC", "60"))
     CODES_PER_DAY: int = int(os.getenv("CODES_PER_DAY", "10"))
@@ -79,6 +79,8 @@ class Settings:
     CLICK_SECRET_KEY: str = os.getenv("CLICK_SECRET_KEY", "")
     PAYME_MERCHANT_ID: str = os.getenv("PAYME_MERCHANT_ID", "")
     PAYME_KEY: str = os.getenv("PAYME_KEY", "")
+    # Payme sinov muhiti: true bo'lsa to'lov sahifasi test.paycom.uz (haqiqiy pul yechilmaydi; kassa "test" kaliti bilan)
+    PAYME_TEST: bool = _bool("PAYME_TEST", False)
 
     def __init__(self) -> None:
         self.DATA_DIR.mkdir(parents=True, exist_ok=True)

@@ -39,7 +39,7 @@ async def create_review(request: Request):
         except sqlite3.IntegrityError:
             raise HTTPException(409, tr("Bu ijara uchun sharh allaqachon qoldirilgan"))
         notify(db, target, "review_new", f"/car.html?id={b['car_id']}#reviews" if kind == "car" else "/dashboard.html",
-               name=user["full_name"], car=car_title(b), rating=data.rating)
+               mode="owner" if kind == "car" else "renter", actor_id=user["id"], name=user["full_name"], car=car_title(b), rating=data.rating)
         review = one(db.execute("SELECT * FROM reviews WHERE id = ?", (cur.lastrowid,)))
     return ok(review, 201)
 
@@ -91,7 +91,10 @@ async def conversations(request: Request):
                 SELECT CASE WHEN sender_id = :me THEN receiver_id ELSE sender_id END AS other_id, MAX(id) AS last_id
                 FROM messages WHERE sender_id = :me OR receiver_id = :me GROUP BY other_id
             )
-            SELECT p.other_id, u.full_name AS other_name,
+            SELECT p.other_id, u.full_name AS other_name, u.avatar AS other_avatar,
+                   (SELECT CASE WHEN c.owner_id = :me THEN 'owner' ELSE 'renter' END FROM messages mm JOIN cars c ON c.id = mm.car_id
+                     WHERE ((mm.sender_id = :me AND mm.receiver_id = p.other_id) OR (mm.sender_id = p.other_id AND mm.receiver_id = :me))
+                     ORDER BY mm.id DESC LIMIT 1) AS ctx,
                    m.body AS last_body, m.created_at AS last_at, m.sender_id = :me AS last_is_mine,
                    (SELECT COUNT(*) FROM messages x WHERE x.sender_id = p.other_id AND x.receiver_id = :me AND x.is_read = 0) AS unread
             FROM pairs p JOIN messages m ON m.id = p.last_id JOIN users u ON u.id = p.other_id
@@ -137,10 +140,13 @@ async def send_message(request: Request):
             car_id = None
         cur = db.execute("INSERT INTO messages (sender_id, receiver_id, car_id, body) VALUES (?, ?, ?, ?)",
                          (me["id"], to["id"], car_id, data.body))
-        link = f"/messages.html?user={me['id']}"
-        if not db.execute("SELECT 1 FROM notifications WHERE user_id = ? AND type = 'message' AND link = ? AND is_read = 0",
-                          (to["id"], link)).fetchone():
-            notify(db, to["id"], "message", link, name=me["full_name"], preview=data.body[:80])
+        car = one(db.execute("SELECT owner_id, brand, model FROM cars WHERE id = ?", (car_id,))) if car_id else None
+        # Qabul qiluvchi uchun kontekst: mashina uniki bo'lsa — owner kabineti, boshqaniki bo'lsa — ijarachi kabineti
+        mode = ("owner" if car["owner_id"] == to["id"] else "renter") if car else "any"
+        link = f"/messages.html?user={me['id']}" + (f"&mode={mode}" if mode != "any" else "")
+        db.execute("DELETE FROM notifications WHERE user_id = ? AND type = 'message' AND link = ? AND is_read = 0", (to["id"], link))
+        notify(db, to["id"], "message", link, mode=mode, actor_id=me["id"], name=me["full_name"], preview=data.body[:80],
+               car=f"{car['brand']} {car['model']}" if car else "")
         msg = one(db.execute("SELECT * FROM messages WHERE id = ?", (cur.lastrowid,)))
     return ok(msg, 201)
 
@@ -177,7 +183,10 @@ async def create_report(request: Request):
 async def notifications(request: Request):
     uid = request.state.user["id"]
     with get_db() as db:
-        items = rows(db.execute("SELECT * FROM notifications WHERE user_id = ? ORDER BY id DESC LIMIT 30", (uid,)))
+        after = q_int(request, "after", 0, lo=0)
+        items = rows(db.execute(
+            """SELECT n.*, a.full_name AS actor_name, a.avatar AS actor_avatar FROM notifications n LEFT JOIN users a ON a.id = n.actor_id
+               WHERE n.user_id = ? AND n.id > ? ORDER BY n.id DESC LIMIT 30""", (uid, after)))
         unread = db.execute("SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0", (uid,)).fetchone()[0]
     for n in items:
         n["params"] = json.loads(n["params"] or "{}")

@@ -20,7 +20,7 @@ FEATURES = {"ac", "bluetooth", "usb", "camera", "parking_sensors", "cruise", "he
             # v4: yangi qulayliklar
             "climate", "camera360", "dashcam", "isofix", "keyless", "ventilated_seats", "roof_rack", "winter_tires",
             "wifi", "phone_charger", "pets_ok", "lane_assist"}
-PASSWORD_MIN = 12
+PASSWORD_MIN = 8
 
 
 class Base(BaseModel):
@@ -51,9 +51,21 @@ def _check_phone(v: str) -> str:
     return norm
 
 
+# Parol qoidalari — sahifadagi ro'yxat (static/js/app.js: PW_RULES) bilan bir xil
+PW_RULES = (
+    ("len", lambda v: len(v) >= PASSWORD_MIN, "Parol kamida {n} ta belgidan iborat bo'lsin"),
+    ("upper", lambda v: any(c.isupper() for c in v), "Kamida bitta katta harf (A–Z) bo'lsin"),
+    ("lower", lambda v: any(c.islower() for c in v), "Kamida bitta kichik harf (a–z) bo'lsin"),
+    ("digit", lambda v: any(c.isdigit() for c in v), "Kamida bitta raqam (0–9) bo'lsin"),
+    ("symbol", lambda v: any(not c.isalnum() and not c.isspace() for c in v), "Kamida bitta belgi (! @ # - _ . kabi) bo'lsin"),
+)
+
+
 def _check_password(v: str) -> str:
-    # Uzun parol va passphrase qo'llab-quvvatlanadi; majburiy belgi turlari yo'q (NIST 800-63B tavsiyasi)
-    if v.lower() in COMMON_PASSWORDS or len(set(v)) <= 3:
+    for _key, test, msg in PW_RULES:
+        if not test(v):
+            raise ValueError(msg.replace("{n}", str(PASSWORD_MIN)))
+    if v.lower() in COMMON_PASSWORDS or len(set(v)) <= 4:
         raise ValueError("Parol juda keng tarqalgan — boshqasini tanlang")
     return v
 

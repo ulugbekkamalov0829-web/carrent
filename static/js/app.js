@@ -224,7 +224,7 @@ function carCard(c, { days = 0, qs = "", reason = false } = {}) {
         <div class="small">${c.rating ? `<span class="stars">★</span> <b>${c.rating}</b> <span class="muted">(${c.reviews_count})</span>` : `<span class="muted">${esc(t("car.new"))}</span>`}</div>
       </div>
       <div class="car-actions"><a class="btn btn-outline btn-sm" href="${href}">${esc(t("car.details"))}</a>
-        ${own ? "" : `<a class="btn btn-sm" href="${href}#book">${esc(t("car.book"))}</a>`}</div>
+        ${own ? "" : `<a class="btn btn-sm" href="${href}#book" data-quickbook="${c.id}">${icon("calendar", 15)} ${esc(t("car.book"))}</a>`}</div>
     </div></article>`;
 }
 
@@ -401,7 +401,7 @@ function renderNav() {
     window.addEventListener("hashchange", markActive);
   }
   renderNavInner();
-  if (Auth.user && !Nav.poller) { pollSummary(); Nav.poller = setInterval(pollSummary, 20000); }
+  if (Auth.user && !Nav.poller) { pollSummary(); Nav.poller = setInterval(pollSummary, 10000); }
 }
 
 function toggleSide(open) {
@@ -532,22 +532,85 @@ function notifText(n) {
   return { title: t(`notif.${n.type}.t`, p), body: t(`notif.${n.type}.b`, p) };
 }
 
+// ================= Bildirishnomalar: kabinetlar bo'yicha ajratilgan =================
+/** Joriy foydalanuvchi qaysi kabinetda turibdi: admin | renter | owner */
+const curMode = () => (Auth.user?.role === "admin" ? "admin" : Auth.user?.active_mode || "renter");
+/** Bildirishnoma joriy kabinetga tegishlimi ("any" — hamma joyda ko'rinadi) */
+const inMode = (n) => !n.mode || n.mode === "any" || n.mode === curMode();
+const otherMode = () => (curMode() === "owner" ? "renter" : "owner");
+const modeLabel = (m) => t(m === "owner" ? "notif.for_owner" : m === "renter" ? "notif.for_renter" : m === "admin" ? "nav.admin" : "notif.for_all");
+
+function notifIcon(n) {
+  if (n.actor_name) return n.actor_avatar ? `<img class="avatar" src="${esc(n.actor_avatar)}" alt="">` : `<span class="avatar">${esc(initials(n.actor_name))}</span>`;
+  const ico = n.type.startsWith("payment") || n.type.startsWith("payout") || n.type.startsWith("fee") ? "wallet"
+    : n.type.startsWith("booking") ? "calendar" : n.type.startsWith("dispute") ? "shield" : n.type.startsWith("review") ? "star" : "bell";
+  return `<span class="avatar ico">${icon(ico, 18)}</span>`;
+}
+
+/** Bitta bildirishnoma qatori: kimdan, qaysi kabinet uchun, nima bo'ldi */
+function notifRow(n) {
+  const x = notifText(n);
+  return `<a class="notif ${n.is_read ? "" : "unread"}" href="${esc(n.link || "#")}" data-id="${n.id}" data-mode="${esc(n.mode || "any")}">
+    ${notifIcon(n)}<div class="nb"><div class="nh"><b>${esc(n.actor_name || "CarRent")}</b>${n.mode && n.mode !== "any" ? `<span class="mode-tag m-${n.mode}">${esc(modeLabel(n.mode))}</span>` : ""}</div>
+    <div class="t">${esc(x.title)}</div><div class="b">${esc(x.body)}</div><div class="small muted">${timeAgo(n.created_at)}</div></div></a>`;
+}
+
+/** Bosilganda: kerak bo'lsa avval tegishli kabinetga o'tadi, keyin havolani ochadi */
+async function openNotif(n, ev) {
+  ev?.preventDefault();
+  api(`/api/notifications/${n.id}/read`, { method: "POST" }).catch(() => {});
+  if (Auth.user?.role !== "admin" && (n.mode === "owner" || n.mode === "renter") && n.mode !== Auth.user.active_mode) {
+    await Auth.setMode(n.mode); toast(t(n.mode === "owner" ? "mode.to_owner" : "mode.to_renter"), "ok");
+  }
+  location.href = n.link || "/dashboard.html#notifications";
+}
+
 async function notifMenu(dd) {
   dd.innerHTML = `<div class="dropdown-head"><b>${esc(t("nav.notifications"))}</b><button class="btn btn-sm btn-outline" id="readAll">${esc(t("notif.read_all"))}</button></div>
     <div class="dropdown-list"><div class="empty small">${esc(t("common.loading"))}</div></div>`;
   const data = await api("/api/notifications");
-  $(".dropdown-list", dd).innerHTML = data.items.length ? data.items.map((n) => {
-    const x = notifText(n);
-    return `<a class="notif ${n.is_read ? "" : "unread"}" href="${esc(n.link || "#")}" data-id="${n.id}">
-      <div class="t">${esc(x.title)}</div><div class="b">${esc(x.body)}</div><div class="small muted">${timeAgo(n.created_at)}</div></a>`;
-  }).join("") : `<div class="empty small">${esc(t("notif.empty"))}</div>`;
-  $$(".notif", dd).forEach((a) => a.addEventListener("click", () => api(`/api/notifications/${a.dataset.id}/read`, { method: "POST" }).catch(() => {})));
+  const mine = data.items.filter(inMode), other = data.items.filter((n) => !inMode(n));
+  const otherUnread = other.filter((n) => !n.is_read).length;
+  $(".dropdown-list", dd).innerHTML = (otherUnread && Auth.user.role !== "admin"
+      ? `<button class="notif-switch" id="toOther">${icon("swap", 16)} ${esc(t("notif.other_mode", { n: otherUnread, mode: modeLabel(otherMode()) }))}</button>` : "")
+    + (mine.length ? mine.map(notifRow).join("") : `<div class="empty small">${esc(t("notif.empty_mode", { mode: modeLabel(curMode()) }))}</div>`);
+  $$(".notif", dd).forEach((a) => a.addEventListener("click", (e) => openNotif(data.items.find((n) => n.id == a.dataset.id), e)));
+  $("#toOther", dd)?.addEventListener("click", () => switchMode(otherMode()));
   $("#readAll", dd).addEventListener("click", async () => { await api("/api/notifications/read-all", { method: "POST" }); dd.remove(); pollSummary(); });
+}
+
+/** Telegram uslubidagi oyna: yangi xabar/bildirishnoma kelganda pastki burchakda chiqadi */
+function notifPopup(n) {
+  let box = $(".np-stack");
+  if (!box) { box = document.createElement("div"); box.className = "np-stack"; box.setAttribute("aria-live", "polite"); document.body.append(box); }
+  const x = notifText(n);
+  const el = document.createElement("div");
+  el.className = "np" + (inMode(n) ? "" : " other");
+  el.setAttribute("role", "status");
+  el.innerHTML = `${notifIcon(n)}<div class="nb"><div class="nh"><b>${esc(n.actor_name || "CarRent")}</b>
+      ${n.mode && n.mode !== "any" ? `<span class="mode-tag m-${n.mode}">${esc(modeLabel(n.mode))}</span>` : ""}<span class="muted small">${esc(t("time.now"))}</span></div>
+    <div class="t">${esc(x.title)}</div><div class="b">${esc(n.type === "message" && n.params?.preview ? n.params.preview : x.body)}</div>
+    ${inMode(n) ? "" : `<div class="hint-sw">${icon("swap", 13)} ${esc(t("notif.tap_switch", { mode: modeLabel(n.mode) }))}</div>`}</div>
+    <button class="np-x" aria-label="${esc(t("common.close"))}">${icon("close", 16)}</button>`;
+  el.addEventListener("click", (e) => { if (e.target.closest(".np-x")) { el.remove(); return; } openNotif(n, e); });
+  box.prepend(el);
+  while (box.children.length > 3) box.lastElementChild.remove();
+  setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 350); }, 9000);
 }
 
 function applySummary(s) {
   const set = (ids, n) => ids.forEach((id) => { const el = $(id); if (!el) return; el.textContent = n > 9 ? "9+" : n; el.classList.toggle("hidden", !n); });
-  set(["#notifBadge"], s.unread_notifications); set(["#msgBadge", "#msgBadgeM"], s.unread_messages);
+  // Faqat joriy kabinet + umumiy; boshqa kabinetdagi yangiliklar rejim tugmasida nuqta bo'lib ko'rinadi
+  const nb = s.notif_by_mode || {}, mb = s.msg_by_mode || {}, m = curMode();
+  const cnt = (by, mode) => (by[mode] || 0) + (by.any || 0) - (mode === "any" ? by.any || 0 : 0);
+  set(["#notifBadge"], s.notif_by_mode ? cnt(nb, m) : s.unread_notifications);
+  set(["#msgBadge", "#msgBadgeM"], s.msg_by_mode ? cnt(mb, m) : s.unread_messages);
+  if (Auth.user?.role !== "admin") $$("[data-mode]").forEach((b) => {
+    const k = b.dataset.mode, n = k === m ? 0 : (nb[k] || 0) + (mb[k] || 0);
+    let dot = $(".mode-dot", b);
+    if (!dot && n) { dot = document.createElement("i"); dot.className = "mode-dot"; b.append(dot); }
+    if (dot) { dot.textContent = n > 9 ? "9+" : n; dot.classList.toggle("hidden", !n); dot.title = t("notif.other_mode", { n, mode: modeLabel(k) }); }
+  });
   set(["#reqBadge", "#reqBadgeM"], s.pending_requests); set(["#repBadge", "#repBadgeM"], s.open_reports);
 }
 
@@ -556,6 +619,15 @@ async function pollSummary() {
   try {
     const s = await api("/api/me/summary");
     Nav.summary = s; applySummary(s);
+    // Yangi bildirishnomalar — oyna bilan (birinchi yuklanishda eski xabarlar ko'rsatilmaydi)
+    if (Nav.lastNotif === undefined) Nav.lastNotif = s.last_notification_id || 0;
+    else if (s.last_notification_id > Nav.lastNotif) {
+      const after = Nav.lastNotif; Nav.lastNotif = s.last_notification_id;
+      const { items } = await api(`/api/notifications?after=${after}`);
+      const skipChat = location.pathname === "/messages.html";
+      items.reverse().filter((n) => !(skipChat && n.type === "message" && n.link?.includes(`user=${new URLSearchParams(location.search).get("user")}`)))
+        .forEach(notifPopup);
+    }
     document.dispatchEvent(new CustomEvent("summary", { detail: s }));
   } catch (e) { if (e.status === 401) location.reload(); }
 }
@@ -879,3 +951,117 @@ function reportModal(targetType, targetId) {
     } catch (err) { toast(err.message, "error"); }
   });
 }
+
+// ================= Parol qoidalari (server bilan bir xil: app/schemas.py PW_RULES) =================
+const PW_MIN = 8;
+const PW_RULES = [
+  ["len", (v) => v.length >= PW_MIN],
+  ["upper", (v) => /\p{Lu}/u.test(v)],
+  ["lower", (v) => /\p{Ll}/u.test(v)],
+  ["digit", (v) => /\d/.test(v)],
+  ["symbol", (v) => /[^\p{L}\p{N}\s]/u.test(v)],
+];
+/** Parol maydoni ostida qoidalar ro'yxati: bajarilgan qoida yashil ✓ bo'ladi. Qaytaradi: { valid() } */
+function pwChecklist(input, { compact = false } = {}) {
+  const box = document.createElement("ul");
+  box.className = "pw-rules" + (compact ? " compact" : "");
+  box.setAttribute("aria-live", "polite");
+  const field = input.closest(".field") || input.parentElement;
+  field.append(box);
+  const draw = () => {
+    const v = input.value;
+    box.innerHTML = PW_RULES.map(([k, test]) => {
+      const okv = test(v);
+      return `<li class="${okv ? "ok" : v ? "no" : ""}" title="${esc(t("pw.r_" + k, { n: PW_MIN }))}"><span class="mark" aria-hidden="true">${okv ? "✓" : "•"}</span>${esc(t((compact ? "pw.s_" : "pw.r_") + k, { n: PW_MIN }))}<span class="sr-only">${esc(t(okv ? "pw.met" : "pw.unmet"))}</span></li>`;
+    }).join("");
+    box.classList.toggle("all-ok", PW_RULES.every(([, test]) => test(v)));
+  };
+  input.addEventListener("input", draw);
+  document.addEventListener("langchange", draw);
+  draw();
+  return { valid: () => PW_RULES.every(([, test]) => test(input.value)), firstError: () => {
+    const miss = PW_RULES.find(([, test]) => !test(input.value)); return miss ? t("pw.r_" + miss[0], { n: PW_MIN }) : "";
+  } };
+}
+
+/** Kod amal qilish muddati: "Kod 2:47 dan keyin eskiradi" — tugasa qizil va qayta so'rashni taklif qiladi */
+function codeTimer(el, seconds) {
+  clearInterval(el._timer);
+  const end = Date.now() + seconds * 1000;
+  const tick = () => {
+    const left = Math.max(0, Math.round((end - Date.now()) / 1000));
+    const mm = Math.floor(left / 60), ss = String(left % 60).padStart(2, "0");
+    el.classList.toggle("expired", !left);
+    el.classList.toggle("soon", left > 0 && left <= 30);
+    el.textContent = left ? t("otp.expires_in", { t: `${mm}:${ss}` }) : t("otp.expired");
+    if (!left) clearInterval(el._timer);
+  };
+  tick();
+  el._timer = setInterval(tick, 1000);
+}
+
+// ================= Tezkor bron oynasi ("Band qilish") — "Batafsil" sahifasidan farqli =================
+// "Batafsil" — mashina haqida to'liq ma'lumot (rasmlar, shartlar, sharhlar). "Band qilish" — sahifadan chiqmasdan:
+// kalendardan bo'sh kunlarni tanlash, aniq narx hisobi va so'rov yuborish.
+async function quickBook(carId) {
+  if (!Auth.user) { location.href = "/auth.html?next=" + encodeURIComponent(`/car.html?id=${carId}#book`) + "#login"; return; }
+  const bg = document.createElement("div"); bg.className = "modal-bg";
+  bg.innerHTML = `<div class="modal card qb" role="dialog" aria-modal="true" aria-labelledby="qbT"><div class="skeleton" style="height:420px"></div></div>`;
+  document.body.append(bg);
+  const close = () => bg.remove();
+  bg.addEventListener("click", (e) => { if (e.target === bg || e.target.closest("[data-close]")) close(); });
+  let car;
+  try { car = await api(`/api/cars/${carId}`); } catch (err) { close(); toast(err.message, "error"); return; }
+  if (car.is_mine) { close(); toast(t("qb.own_car"), "error"); return; }
+  const box = $(".qb", bg);
+  const st = { start: null, end: null, delivery: false, quote: null };
+  box.innerHTML = `<div class="qb-head">${carImage(car, car.images?.[0]?.path)}<div><h3 id="qbT">${esc(carName(car))} <span class="muted small">${car.year}</span></h3>
+      <div class="small muted">📍 ${esc(Places.label(car.city, car.district))} · ${esc(t("terms.days_range", { a: car.min_days, b: car.max_days }))}</div>
+      <div class="price">${money(car.price_per_day)} <small>${esc(t("car.per_day"))}</small></div></div>
+      <button class="icon-btn ghost" data-close aria-label="${esc(t("common.close"))}">${icon("close")}</button></div>
+    <div class="qb-body"><div><div class="qb-step"><b>1</b> ${esc(t("qb.pick_dates"))}</div><div id="qbCal"></div></div>
+      <form id="qbForm" novalidate><div class="qb-step"><b>2</b> ${esc(t("qb.check"))}</div>
+        <div id="qbSum" class="qb-sum"><p class="muted small">${esc(t("qb.pick_hint"))}</p></div>
+        ${car.delivery_price !== null ? `<label class="check" style="margin:10px 0"><input type="checkbox" id="qbDel"><span>${esc(t("book.delivery", { price: money(car.delivery_price) }))}</span></label>` : ""}
+        <div class="field"><label for="qbNote">${esc(t("booking.note"))} <span class="muted small">(${esc(t("common.optional"))})</span></label>
+          <textarea class="input" id="qbNote" maxlength="500" rows="2" placeholder="${esc(t("qb.note_ph"))}"></textarea></div>
+        <button class="btn btn-block btn-lg" id="qbSend" disabled>${esc(t("qb.send"))}</button>
+        <p class="small muted" style="margin:8px 0 0">${esc(t("qb.how"))}</p>
+        <a class="small" href="/car.html?id=${car.id}">${esc(t("qb.full_page"))} →</a></form></div>`;
+  const cal = new BookingCalendar($("#qbCal", box), car.id, { selectable: true, onSelect: (s, e) => { st.start = s; st.end = e; requote(); } });
+  cal.load();
+  $("#qbDel", box)?.addEventListener("change", (e) => { st.delivery = e.target.checked; requote(); });
+  async function requote() {
+    if (!st.start) return;
+    const sum = $("#qbSum", box), btn = $("#qbSend", box);
+    try {
+      const q = st.quote = await api(`/api/cars/${car.id}/quote?start=${st.start}&end=${st.end}&delivery=${st.delivery ? 1 : 0}`);
+      const okDays = q.within_limits, okFree = q.available;
+      sum.innerHTML = `<div class="sum-row"><span>${fmtDate(st.start)} → ${fmtDate(st.end)}</span><b>${esc(t("car.days_n", { n: q.days }))}</b></div>
+        <div class="sum-row"><span>${money(q.price_per_day)} × ${q.days}</span><span>${money(q.rent)}</span></div>
+        ${q.delivery ? `<div class="sum-row"><span>${esc(t("book.delivery_fee"))}</span><span>${money(q.delivery)}</span></div>` : ""}
+        <div class="sum-row total"><span>${esc(t("booking.total"))}</span><span>${money(q.total)}</span></div>
+        ${q.deposit ? `<div class="sum-row sub"><span>${esc(t("book.deposit"))}</span><span>${money(q.deposit)}</span></div>` : ""}
+        ${!okFree ? `<div class="notice" style="margin-top:8px">${esc(t("cal.range_busy"))}</div>` : !okDays ? `<div class="notice" style="margin-top:8px">${esc(t("terms.days_range", { a: car.min_days, b: car.max_days }))}</div>` : ""}`;
+      btn.disabled = !(okFree && okDays);
+    } catch (err) { sum.innerHTML = `<div class="notice">${esc(err.message)}</div>`; btn.disabled = true; }
+  }
+  $("#qbForm", box).addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await withLoading($("#qbSend", box), async () => {
+      try {
+        const b = await api("/api/bookings", { method: "POST", body: { car_id: car.id, start_date: st.start, end_date: st.end, delivery: st.delivery, note: $("#qbNote", box).value.trim() || null } });
+        if (Auth.user.active_mode !== "renter") await Auth.setMode("renter");
+        box.innerHTML = `<div class="qb-done"><div class="success-burst">${icon("check", 34)}</div><h3>${esc(t("qb.sent_t"))}</h3>
+          <p class="muted">${esc(t("qb.sent_b", { car: carName(car), a: fmtDate(b.start_date), b: fmtDate(b.end_date) }))}</p>
+          <div class="row" style="justify-content:center"><button class="btn btn-outline" data-close>${esc(t("common.close"))}</button>
+          <a class="btn" href="/dashboard.html?mode=renter#bookings">${esc(t("dash.my_bookings"))}</a></div></div>`;
+      } catch (err) { toast(err.message, "error"); }
+    });
+  });
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-quickbook]");
+  if (!b) return;
+  e.preventDefault(); quickBook(+b.dataset.quickbook);
+});

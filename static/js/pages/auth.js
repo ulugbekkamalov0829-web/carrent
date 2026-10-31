@@ -51,6 +51,7 @@
     // Ko'rinmayotgan tomon CSS'da visibility:hidden — bosilmaydi va Tab bilan fokus olmaydi
     if (!back) Object.entries(FRONT).forEach(([k, sel]) => $(sel).classList.toggle("hidden", k !== name));
     if (name === "register" && !$("#rEmail").value && $("#lLogin").value.includes("@")) $("#rEmail").value = $("#lLogin").value;
+    if (name !== "forgot") resetForgot();
     if (name === "forgot" && !$("#fLogin").value && $("#lLogin").value) { setChannel($("#lLogin").value.includes("@") ? "email" : "sms"); $("#fLogin").value = $("#lLogin").value; }
     history.replaceState(null, "", location.pathname + location.search + "#" + name);
     const target = back ? "#rName" : name === "login" ? "#lLogin" : name === "forgot" ? "#fLogin" : null;
@@ -71,28 +72,20 @@
     const sub = subOf(e.target);
     if (sub && sub.dataset.orig !== undefined) { sub.textContent = sub.dataset.orig; delete sub.dataset.orig; sub.classList.remove("is-hint"); }
   });
-  metaP.then(() => { if (meta.dev_inbox) $$("#fInbox, #vInbox").forEach((a) => a.classList.remove("hidden")); $("#demoBox").classList.toggle("hidden", !meta.demo); });
+  metaP.then(() => {
+    if (meta.dev_inbox) $$("#fInbox, #vInbox").forEach((a) => a.classList.remove("hidden"));
+    $("#demoBox").classList.toggle("hidden", !meta.demo);
+    // Haqiqiy rejimda ulanmagan kanal tanlanmaydi (kod hech qayerga bormaydi)
+    for (const [ch, okv] of [["email", meta.email_real || meta.dev_inbox], ["sms", meta.sms_real || meta.dev_inbox]]) {
+      const b = $(`#fChannel [data-ch="${ch}"]`); b.disabled = !okv; b.title = okv ? "" : t("chan.unavailable");
+    }
+    if (!(meta.sms_real || meta.dev_inbox) && channel === "sms") setChannel("email");
+  });
 
-  // ---- Parol kuchi ----
-  function strength(pw) {
-    if (!pw) return 0;
-    let s = 0;
-    if (pw.length >= 12) s++;
-    if (pw.length >= 16) s++;
-    if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) s++;
-    if (/\d/.test(pw)) s++;
-    if (/[^A-Za-z0-9]/.test(pw) || /\s/.test(pw)) s++;
-    if (pw.length < 12) s = Math.min(s, 1);
-    return s;
-  }
-  function drawMeter() {
-    const v = $("#rPassword").value, s = strength(v);
-    const pct = [0, 20, 40, 65, 85, 100][s], color = s <= 1 ? "#ff4d8d" : s <= 3 ? "#ffc857" : "#4dffc3";
-    $("#pwMeter").style.width = pct + "%"; $("#pwMeter").style.background = color;
-    $("#pwHint").textContent = !v ? t("auth.pw_hint") : v.length < 12 ? t("auth.pw_short", { n: 12 - v.length }) : t(s <= 3 ? "auth.pw_ok" : "auth.pw_strong");
-  }
-  $("#rPassword").addEventListener("input", drawMeter);
-  document.addEventListener("langchange", () => { drawMeter(); paintChannel(); });
+  // ---- Parol qoidalari: har bir bajarilgan shart yashil bo'ladi ----
+  const regPw = pwChecklist($("#rPassword"), { compact: true });
+  const resetPw = pwChecklist($("#fPass"), { compact: true });
+  document.addEventListener("langchange", () => paintChannel());
 
   // ---- Xato ko'rsatish ----
   function fieldError(id, msg) {
@@ -133,7 +126,7 @@
     const okEmail = fieldError("rEmail", /^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$/.test($("#rEmail").value.trim()) ? "" : t("val.email"));
     const okPhone = fieldError("rPhone", /^998\d{9}$/.test($("#rPhone").value.replace(/\D/g, "")) ? "" : t("val.phone"));
     const okPlace = fieldError("rRegion", $("#rRegion").value ? "" : t("place.need_region")) && fieldError("rDistrict", $("#rDistrict").value ? "" : t("place.need_district"));
-    const okPw = fieldError("rPassword", $("#rPassword").value.length >= 12 ? "" : t("auth.pw_short", { n: 12 - $("#rPassword").value.length }));
+    const okPw = fieldError("rPassword", regPw.valid() ? "" : regPw.firstError());
     if (!$("#rTerms").checked) { toast(t("val.terms"), "error"); return; }
     if (!(okName && okEmail && okPhone && okPlace && okPw)) return;
     await withLoading($("#registerForm button[type=submit]"), async () => {
@@ -157,6 +150,8 @@
     $("#vSentTo").textContent = t("verify.sent_to", { to: user.email });
     show("verify");
     cooldown($("#vResend"), 60, "otp.resend");
+    codeTimer($("#vTimer"), (meta.code_ttl_min || 3) * 60);
+    $("#vChanNote").textContent = t("chan.not_real_email"); $("#vChanNote").classList.toggle("hidden", !!meta.email_real);
     if (send) api("/api/me/verify/start", { method: "POST", body: { channel: "email" } }).catch((e) => toast(e.message, "error"));
     setTimeout(() => vOtp.focus(), 650);
   }
@@ -168,7 +163,7 @@
     });
   });
   $("#vResend").addEventListener("click", async () => {
-    try { await api("/api/me/verify/start", { method: "POST", body: { channel: "email" } }); toast(t("otp.sent"), "ok"); cooldown($("#vResend"), 60, "otp.resend"); }
+    try { const r = await api("/api/me/verify/start", { method: "POST", body: { channel: "email" } }); toast(t("otp.sent"), "ok"); cooldown($("#vResend"), 60, "otp.resend"); codeTimer($("#vTimer"), r.ttl_sec || 180); }
     catch (e) { toast(e.message, "error"); }
   });
   $("#vSkip").addEventListener("click", () => (location.href = safeNext || "/dashboard.html"));
@@ -183,13 +178,20 @@
     applyHints($("#paneForgot"));
   }
   function setChannel(ch) { channel = ch; paintChannel(); }
+  /** Parolni tiklash oynasini boshlang'ich holatga qaytaradi: usul tanlash va manzil kiritish bosqichi */
+  function resetForgot() {
+    $("#fStep2").classList.add("hidden"); $("#fStep1").classList.remove("hidden");
+    $("#fChanNote").classList.add("hidden"); clearInterval($("#fTimer")._timer);
+    fOtp?.clear(); $("#fPass").value = ""; $("#fPass").dispatchEvent(new Event("input"));
+  }
+  $("#fOther").addEventListener("click", () => { resetForgot(); $("#fLogin").focus(); });
   $$("#fChannel button").forEach((b) => b.addEventListener("click", () => { setChannel(b.dataset.ch); $("#fLogin").value = ""; $("#fLogin").focus(); }));
   paintChannel();
-  const fOtp = otpField($("#fOtp"), () => $("#fPass").focus());
+  var fOtp = otpField($("#fOtp"), () => $("#fPass").focus());
 
   async function requestCode(btn) {
     const v = $("#fLogin").value.trim();
-    if (channel === "email" ? !/^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$/.test(v) : !/^\+?[0-9 ()-]{7,20}$/.test(v)) {
+    if (channel === "email" ? !/^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$/.test(v) : !/^998\d{9}$/.test(v.replace(/\D/g, ""))) {
       fieldError("fLogin", t(channel === "email" ? "val.email" : "val.phone")); return false;
     }
     fieldError("fLogin", "");
@@ -198,8 +200,11 @@
         const r = await api("/api/auth/forgot", { method: "POST", body: { login: v } });
         resetLogin = v;
         $("#fSentTo").textContent = t(channel === "email" ? "forgot.sent_email" : "forgot.sent_sms", { to: v, min: r.ttl_min });
+        $("#fChanNote").textContent = t(channel === "email" ? "chan.not_real_email" : "chan.not_real_sms");
+        $("#fChanNote").classList.toggle("hidden", !!r.real);
         $("#fStep1").classList.add("hidden"); $("#fStep2").classList.remove("hidden");
-        cooldown($("#fResend"), 60, "otp.resend"); fOtp.clear();
+        codeTimer($("#fTimer"), r.ttl_sec || r.ttl_min * 60);
+        cooldown($("#fResend"), r.resend_sec || 60, "otp.resend"); fOtp.clear(); setTimeout(() => fOtp.focus(), 60);
         return true;
       } catch (e) { toast(e.message, "error"); return false; }
     });
@@ -209,7 +214,7 @@
   $("#resetForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     if (fOtp.value.length !== 6) { fOtp.error(); toast(t("val.code"), "error"); return; }
-    if ($("#fPass").value.length < 12) { fieldError("fPass", t("auth.pw_short", { n: 12 - $("#fPass").value.length })); return; }
+    if (!resetPw.valid()) { fieldError("fPass", resetPw.firstError()); return; }
     await withLoading($("#resetForm .btn"), async () => {
       try {
         const { user } = await api("/api/auth/reset", { method: "POST", body: { login: resetLogin, code: fOtp.value, new_password: $("#fPass").value } });

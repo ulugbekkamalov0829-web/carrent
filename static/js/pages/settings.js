@@ -44,7 +44,7 @@
       card("security", t("set.security"), t("set.security_sub"), `
         <form id="pwForm" novalidate style="max-width:520px">
           <div class="field"><label for="op">${esc(t("sec.current"))}</label><div class="pw-wrap"><input class="input" type="password" id="op" name="old_password" autocomplete="current-password" required><button type="button" class="pw-eye" data-pw="op"></button></div></div>
-          <div class="field"><label for="np">${esc(t("sec.new"))}</label><div class="pw-wrap"><input class="input" type="password" id="np" name="new_password" autocomplete="new-password" required minlength="12" data-hint="auth.pw_hint"><button type="button" class="pw-eye" data-pw="np"></button></div></div>
+          <div class="field"><label for="np">${esc(t("sec.new"))}</label><div class="pw-wrap"><input class="input" type="password" id="np" name="new_password" autocomplete="new-password" required minlength="8"><button type="button" class="pw-eye" data-pw="np"></button></div></div>
           <button class="btn">${esc(t("sec.update"))}</button><p class="small muted" style="margin-top:8px">${esc(t("set.pw_note"))}</p></form>
         <h3 style="margin-top:22px">${esc(t("set.sessions"))}</h3><p class="small muted">${esc(t("set.sessions_sub"))}</p>
         <div id="sessions"><div class="skeleton" style="height:80px"></div></div>
@@ -65,9 +65,20 @@
           <input class="input" type="password" id="dp" autocomplete="current-password" required data-hint="hint.delete"></div>
           <button class="btn btn-danger">${icon("trash", 16)} ${esc(t("set.delete"))}</button></form>`, "danger-zone"));
     applyHints(body); bindPasswordToggles(body);
-    bind(); loadSessions(); spy();
-    if (location.hash) $(location.hash)?.scrollIntoView();
+    newPw = pwChecklist($("#np"));
+    bind(); loadSessions(); showSection();
   }
+  let newPw;
+  /** Har bir bo'lim alohida oyna: faqat tanlangani ko'rinadi (uzun bitta sahifa emas) */
+  function showSection() {
+    const ids = $$(".settings-body > section").map((x) => x.id);
+    const cur = ids.includes(location.hash.slice(1)) ? location.hash.slice(1) : "profile";
+    $$(".settings-body > section").forEach((x) => x.classList.toggle("hidden", x.id !== cur));
+    $$("#setNav a").forEach((a) => { a.classList.toggle("active", a.dataset.sec === cur); a.toggleAttribute("aria-current", a.dataset.sec === cur); });
+    const sec = SECTIONS.find(([k]) => k === cur);
+    document.title = `${t(sec[1])} — ${t("nav.settings")} — CarRent`;
+  }
+  window.addEventListener("hashchange", () => { showSection(); scrollTo({ top: 0, behavior: "smooth" }); });
   function sw(name, on, tKey, dKey, disabled = false) {
     return `<label class="switch"><span class="txt"><b>${esc(t(tKey))}</b><span>${esc(t(dKey))}</span></span>
       <input type="checkbox" name="${name}" ${on ? "checked" : ""} ${disabled ? "disabled" : ""}></label>`;
@@ -84,19 +95,20 @@
   // Kod kiritish bloki (tasdiqlash yoki email almashtirish uchun)
   function codeBox(box, sentTo, onSubmit, onResend) {
     box.classList.remove("hidden");
-    box.innerHTML = `<p class="small" style="margin-top:0">${esc(t("verify.sent_to", { to: sentTo }))}</p><div class="otp-host"></div>
+    box.innerHTML = `<p class="small" style="margin-top:0">${esc(t("verify.sent_to", { to: sentTo }))}</p><div class="otp-host"></div><div class="code-timer"></div>
       <div class="row" style="margin-top:12px"><button class="btn btn-sm" data-ok>${esc(t("verify.confirm"))}</button>
       <button type="button" class="linkbtn" data-resend>${esc(t("otp.resend"))}</button>
       ${meta.dev_inbox ? `<a class="linkbtn" href="/dev-inbox.html" target="_blank" rel="noopener">${esc(t("dev.open_inbox"))}</a>` : ""}</div>`;
     const otp = otpField($(".otp-host", box), () => $("[data-ok]", box).click());
     otp.focus();
+    codeTimer($(".code-timer", box), (meta.code_ttl_min || 3) * 60);
     cooldown($("[data-resend]", box), 60, "otp.resend");
     $("[data-ok]", box).addEventListener("click", async () => {
       if (otp.value.length !== 6) { otp.error(); return; }
       try { await onSubmit(otp.value); } catch (err) { otp.error(); toast(err.message, "error"); }
     });
     $("[data-resend]", box).addEventListener("click", async () => {
-      try { await onResend(); toast(t("otp.sent"), "ok"); cooldown($("[data-resend]", box), 60, "otp.resend"); } catch (err) { toast(err.message, "error"); }
+      try { await onResend(); toast(t("otp.sent"), "ok"); cooldown($("[data-resend]", box), 60, "otp.resend"); codeTimer($(".code-timer", box), (meta.code_ttl_min || 3) * 60); } catch (err) { toast(err.message, "error"); }
     });
   }
 
@@ -149,7 +161,8 @@
     });
     $("#pwForm").addEventListener("submit", async (e) => {
       e.preventDefault();
-      try { await api("/api/auth/change-password", { method: "POST", body: formData(e.target) }); e.target.reset(); toast(t("sec.updated"), "ok"); loadSessions(); }
+      if (!newPw.valid()) { showFieldErrors(e.target, { errors: [{ field: "new_password", msg: newPw.firstError() }] }); return; }
+      try { await api("/api/auth/change-password", { method: "POST", body: formData(e.target) }); e.target.reset(); $("#np").dispatchEvent(new Event("input")); toast(t("sec.updated"), "ok"); loadSessions(); }
       catch (err) { showFieldErrors(e.target, err); toast(err.message, "error"); }
     });
     $("#logoutAll").addEventListener("click", async () => {
@@ -181,14 +194,6 @@
     $$("[data-revoke]").forEach((b) => b.addEventListener("click", async () => {
       try { await api(`/api/me/sessions/${encodeURIComponent(b.dataset.revoke)}`, { method: "DELETE" }); toast(t("common.done"), "ok"); loadSessions(); } catch (err) { toast(err.message, "error"); }
     }));
-  }
-  // Chap menyu: ko'rinib turgan bo'limni belgilash
-  function spy() {
-    const links = $$("#setNav a");
-    const io = new IntersectionObserver((ents) => ents.forEach((en) => {
-      if (en.isIntersecting) links.forEach((a) => a.classList.toggle("active", a.dataset.sec === en.target.id));
-    }), { rootMargin: "-30% 0px -60% 0px" });
-    $$(".settings-body > section").forEach((s) => io.observe(s));
   }
   draw();
   document.addEventListener("langchange", draw);

@@ -14,10 +14,11 @@
 <main class="auth-shell neon">
   <!-- Chap tomon: CarRent suratlari (almashinib turadi) -->
   <section class="auth-visual" aria-hidden="true">
-    <div class="slides">
-      <div class="slide on" style="background-image:url(/img/auth-renter.jpg)"></div>
-      <div class="slide" style="background-image:url(/img/hero-street.jpg)"></div>
-      <div class="slide" style="background-image:url(/img/auth-owner.jpg)"></div>
+    <!-- Avtosalon sahnasi: haqiqiy avtomobil suratlari to'liq va tiniq (fon olib tashlangan PNG), ostida yorug' pol va soya -->
+    <div class="slides showroom">
+      <div class="slide on"><img src="/img/auth/camry.png" alt="" width="871" height="368"></div>
+      <div class="slide"><img src="/img/auth/tracker.png" alt="" width="889" height="459"></div>
+      <div class="slide"><img src="/img/auth/malibu.png" alt="" width="827" height="369"></div>
     </div>
     <div class="auth-visual-inner">
       <span class="eyebrow light" data-i18n="auth.eyebrow"></span>
@@ -68,13 +69,15 @@
                 <div id="fStep2" class="hidden">
                   <h1 class="neon-title" data-i18n="forgot.code_title"></h1>
                   <p class="neon-sub" id="fSentTo"></p>
+                  <div class="chan-note hidden" id="fChanNote"></div>
                   <form id="resetForm" novalidate>
-                    <div class="field"><div id="fOtp"></div></div>
-                    <div class="field nf"><div class="pw-wrap"><input class="input" type="password" id="fPass" autocomplete="new-password" required minlength="12" placeholder=" " data-hint="auth.pw_hint">
+                    <div class="field"><div id="fOtp"></div><div class="code-timer" id="fTimer" aria-live="polite"></div></div>
+                    <div class="field nf"><div class="pw-wrap"><input class="input" type="password" id="fPass" autocomplete="new-password" required minlength="8" placeholder=" ">
                       <label for="fPass" data-i18n="sec.new"></label><button type="button" class="pw-eye" data-pw="fPass"></button></div></div>
                     <button class="btn btn-block neon-btn" data-i18n="forgot.save"></button>
                     <div class="neon-options" style="margin:12px 0 0">
                       <button type="button" class="linkbtn" id="fResend" data-i18n="otp.resend"></button>
+                      <button type="button" class="linkbtn" id="fOther" data-i18n="forgot.other_way"></button>
                       <a class="linkbtn hidden" id="fInbox" href="/dev-inbox.html" target="_blank" rel="noopener" data-i18n="dev.inbox_short"></a>
                     </div>
                   </form>
@@ -85,7 +88,8 @@
               <div class="pane hidden" id="paneVerify">
                 <h1 class="neon-title" data-i18n="verify.title"></h1>
                 <p class="neon-sub" id="vSentTo"></p>
-                <div class="field"><div id="vOtp"></div><div class="hint show" data-i18n="hint.code"></div></div>
+                <div class="chan-note hidden" id="vChanNote"></div>
+                <div class="field"><div id="vOtp"></div><div class="code-timer" id="vTimer" aria-live="polite"></div></div>
                 <button class="btn btn-block neon-btn" id="vConfirm" data-i18n="verify.confirm"></button>
                 <div class="neon-options" style="margin:12px 0 0">
                   <button type="button" class="linkbtn" id="vResend" data-i18n="otp.resend"></button>
@@ -111,9 +115,8 @@
                     <select class="input" id="rRegion" name="region" required data-i18n-aria="place.region" data-hint="hint.place"></select>
                     <select class="input" id="rDistrict" name="district" required data-i18n-aria="place.district" data-hint="hint.place" disabled></select>
                   </div>
-                  <div class="field nf"><div class="pw-wrap"><input class="input" type="password" id="rPassword" name="password" autocomplete="new-password" required minlength="12" maxlength="128" placeholder=" ">
-                    <label for="rPassword" data-i18n="field.password"></label><button type="button" class="pw-eye" data-pw="rPassword"></button></div>
-                    <div class="meter" aria-hidden="true"><i id="pwMeter"></i></div><div class="hint show" id="pwHint" data-i18n="auth.pw_hint"></div></div>
+                  <div class="field nf"><div class="pw-wrap"><input class="input" type="password" id="rPassword" name="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder=" ">
+                    <label for="rPassword" data-i18n="field.password"></label><button type="button" class="pw-eye" data-pw="rPassword"></button></div></div>
                   <label class="check neon-check"><input type="checkbox" name="accept_terms" id="rTerms"><span data-i18n-html="auth.terms"></span></label>
                   <button class="btn btn-block neon-btn" type="submit" data-i18n="auth.create"></button>
                 </form>

@@ -1297,3 +1297,133 @@ a.stat-link:hover .stat-go { opacity: 1; transform: translateX(2px); color: var(
   .two-col .list-item, .list-item:has(.actions > :nth-child(3)) { grid-template-columns: 100px 1fr; }
   .two-col .list-item .actions, .list-item:has(.actions > :nth-child(3)) .actions { grid-column: 2; justify-content: flex-start; max-width: none; }
 }
+
+/* ================= v6: batafsil ko'rish (drill-down) ================= */
+.no-scroll { overflow: hidden; }
+.avatar.xs { width: 22px; height: 22px; font-size: .62rem; }
+.avatar.lg { width: 52px; height: 52px; font-size: 1.05rem; }
+[data-drill] { cursor: pointer; }
+.drawer-bg { position: fixed; inset: 0; background: rgba(15, 23, 42, .45); z-index: 120; display: flex; justify-content: flex-end; animation: fadeIn .18s; }
+.drawer { width: min(860px, 100%); height: 100%; border-radius: 18px 0 0 18px; display: flex; flex-direction: column; animation: drIn .22s var(--ease); overflow: hidden; }
+@keyframes drIn { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.dr-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; padding: 18px 22px; border-bottom: 1px solid var(--line); }
+.dr-head h3 { margin: 4px 0 2px; font-size: 1.2rem; }
+.dr-body { padding: 16px 22px 24px; overflow: auto; flex: 1; }
+.dr-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.dr-chip { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; display: grid; gap: 2px; min-width: 96px; }
+.dr-chip span { font-size: .74rem; color: var(--muted); }
+.dr-chip b { font-size: 1.02rem; }
+.dr-tools { display: flex; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.dr-tools .input { max-width: 340px; }
+.dr-list { display: grid; gap: 10px; }
+.dr-row { display: grid; grid-template-columns: 112px 1fr auto; gap: 14px; align-items: center; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--white); }
+.dr-row:hover { border-color: var(--line-2); box-shadow: var(--shadow); }
+.dr-thumb { width: 112px; height: 76px; border-radius: 10px; overflow: hidden; background: var(--bg); display: grid; place-items: center; }
+.dr-thumb img, .dr-thumb svg { width: 100%; height: 100%; object-fit: cover; }
+.dr-thumb.user { width: 64px; height: 64px; border-radius: 50%; background: none; }
+.dr-row:has(.dr-thumb.user) { grid-template-columns: 64px 1fr auto; }
+.dr-main { min-width: 0; display: grid; gap: 4px; }
+.dr-title { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; font-weight: 600; }
+.dr-people { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.dr-person { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; color: var(--ink); }
+a.dr-person { color: var(--primary-dark); }
+.dr-side { text-align: right; display: grid; gap: 3px; justify-items: end; }
+.dr-side > b { font-size: 1.05rem; }
+.dr-tags { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; margin-top: 4px; }
+.dr-occ { display: flex; align-items: center; gap: 8px; }
+.dr-occ .track { width: 110px; height: 7px; border-radius: 99px; background: var(--bg); overflow: hidden; }
+.dr-occ .track i { display: block; height: 100%; background: var(--primary); border-radius: inherit; }
+.dr-foot { margin-top: 16px; }
+@media (max-width: 640px) {
+  .drawer { border-radius: 0; }
+  .dr-head, .dr-body { padding-left: 16px; padding-right: 16px; }
+  .dr-row { grid-template-columns: 84px 1fr; }
+  .dr-thumb { width: 84px; height: 60px; }
+  .dr-side { grid-column: 1 / -1; text-align: left; justify-items: start; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .dr-tags { justify-content: flex-start; margin: 0; }
+}
+
+/* Bosiladigan raqamlar: karta, ustun, qator */
+.stat.stat-link { color: inherit; position: relative; transition: transform .15s, box-shadow .2s, border-color .2s; }
+.stat.stat-link:hover, .stat.stat-link:focus-visible { text-decoration: none; transform: translateY(-2px); box-shadow: var(--shadow-lg); border-color: var(--line-2); }
+.stat.stat-link:hover .stat-go, .stat.stat-link:focus-visible .stat-go { opacity: 1; transform: translateX(2px); color: var(--primary); }
+.stat .stat-hint { font-size: .74rem; color: var(--muted); margin-top: 6px; line-height: 1.35; }
+.hb[data-drill], .fn[data-drill] { border-radius: 8px; margin-left: -6px; margin-right: -6px; padding: 3px 6px; transition: background .15s; }
+.hb[data-drill]:hover, .fn[data-drill]:hover, .hb[data-drill]:focus-visible { background: var(--primary-soft); }
+.hb[data-drill] > span, .fn[data-drill] > span { text-decoration: underline dotted var(--line-2); text-underline-offset: 3px; }
+.bar-wrap[data-drill] { cursor: pointer; }
+.bar-wrap[data-drill]:hover .bar, .bar-wrap[data-drill]:focus-visible .bar { filter: brightness(1.15); box-shadow: 0 0 0 2px var(--primary-ring); }
+tr[data-drill] { cursor: pointer; }
+tr[data-drill]:hover td { background: var(--primary-soft); }
+.drill-note { display: inline-flex; gap: 6px; align-items: center; font-size: .8rem; color: var(--muted); margin: -4px 0 12px; }
+
+/* ================= v6: admin — foydalanuvchi sahifasi ================= */
+.avatar.xl { width: 76px; height: 76px; font-size: 1.5rem; flex: none; }
+.uadm-head { display: grid; gap: 14px; margin-bottom: 14px; }
+.uadm-id { display: flex; gap: 16px; align-items: center; }
+.uadm-id h2 { margin: 0 0 6px; font-size: 1.35rem; }
+.uadm-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+.uadm-flags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.uflag { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 99px; font-size: .84rem; font-weight: 600;
+  background: var(--warning-soft, #fff4d6); color: var(--warning-ink, #8a5a00); border: 1px solid rgba(217, 119, 6, .25); }
+.uflag.f-complaints, .uflag.f-disputes, .uflag.f-low_renter_rating, .uflag.f-low_owner_rating { background: #fdecec; color: #a11d1d; border-color: rgba(220, 38, 38, .25); }
+.uflag.f-unverified { background: var(--bg); color: var(--muted); border-color: var(--line); }
+.uadm-tabs { margin: 6px 0 14px; }
+.uadm-tabs .cnt { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 99px; background: var(--primary-soft); color: var(--primary-dark); font-size: .74rem; margin-left: 4px; }
+.uadm-tabs .on .cnt { background: rgba(255, 255, 255, .25); color: inherit; }
+.mini-thumb { width: 64px; height: 44px; border-radius: 8px; overflow: hidden; flex: none; background: var(--bg); display: inline-grid; place-items: center; }
+.mini-thumb.lg { width: 96px; height: 66px; }
+.mini-thumb img, .mini-thumb svg { width: 100%; height: 100%; object-fit: cover; }
+.timeline { display: grid; gap: 10px; }
+.timeline .tl { display: grid; gap: 3px; padding: 10px 12px; border-left: 3px solid var(--line-2); background: var(--bg); border-radius: 0 10px 10px 0; }
+.timeline .tl.n-warning { border-left-color: var(--warning); }
+.timeline .tl.n-block { border-left-color: var(--danger); }
+.timeline .tl.n-unblock { border-left-color: var(--success); }
+.timeline .tl .tag { justify-self: start; }
+.uadm-guide { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: .9rem; }
+.uadm-cars { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+.uadm-car { overflow: hidden; }
+.uadm-car .car-thumb { display: block; aspect-ratio: 16 / 10; background: var(--bg); }
+.uadm-car .car-thumb img, .uadm-car .car-thumb svg { width: 100%; height: 100%; object-fit: cover; }
+
+/* Shikoyatlar: kim ustidan ekani alohida blokda, bosilsa o'sha odam sahifasi */
+.rep-list { display: grid; gap: 12px; }
+.rep-item { display: grid; grid-template-columns: 1fr 230px; gap: 14px; padding: 16px; }
+.rep-main { min-width: 0; }
+.rep-who { display: grid; gap: 6px; align-content: start; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); transition: border-color .15s, box-shadow .2s; }
+.rep-who:hover { text-decoration: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-ring); }
+.rep-acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+@media (max-width: 720px) {
+  .rep-item { grid-template-columns: 1fr; }
+  .uadm-id { align-items: flex-start; }
+  .avatar.xl { width: 56px; height: 56px; }
+}
+.period-cell[data-drill] { border-radius: 10px; padding: 6px 8px; margin: -6px -8px; transition: background .15s; }
+.period-cell[data-drill]:hover { background: var(--primary-soft); }
+.sum-row[data-drill]:hover b { color: var(--primary); text-decoration: underline; }
+
+/* ================= v6: kirish oynasi — maydonlar halqaga mutanosib kattaroq ================= */
+.ring-wrap { width: min(500px, 100%); }
+#faceFront .input { min-height: 56px; font-size: 1.05rem; padding: 0 24px; border-radius: 32px; }
+#faceFront .nf label { left: 24px; top: 17px; font-size: 1rem; }
+#faceFront .nf .input:focus + label, #faceFront .nf .input:not(:placeholder-shown) + label { top: -9px; font-size: .76rem; }
+#faceFront .neon-btn { min-height: 56px; font-size: 1.05rem; letter-spacing: .08em; }
+#faceFront .field { margin-bottom: 18px; }
+@media (min-width: 1360px) and (min-height: 860px) {
+  .ring-wrap { width: clamp(660px, calc(100dvh - 120px), 820px); }
+  .card3d { width: 62%; }
+  #faceBack { width: 86%; justify-self: center; }
+  #faceFront .neon-title { font-size: 2.45rem; }
+  #faceFront .neon-sub { font-size: 1.02rem; margin-bottom: 26px; }
+  #faceFront .field { margin-bottom: 24px; }
+  #faceFront .input { min-height: 64px; font-size: 1.12rem; padding: 0 28px; border-radius: 36px; }
+  #faceFront .nf label { left: 28px; top: 20px; font-size: 1.05rem; }
+  #faceFront .nf .input:focus + label, #faceFront .nf .input:not(:placeholder-shown) + label { top: -10px; font-size: .8rem; }
+  #faceFront .nf .pw-wrap .input { padding-right: 60px; }
+  #faceFront .neon-options { font-size: .95rem; margin-bottom: 24px; }
+  #faceFront .neon-btn { min-height: 64px; font-size: 1.15rem; border-radius: 34px; }
+  #faceFront .neon-switch { font-size: .98rem; margin-top: 22px; }
+  #faceFront .seg button { min-height: 50px; font-size: 1rem; }
+  #faceFront .otp input { height: 60px; font-size: 1.3rem; }
+}
+.link-like { color: var(--primary); font-weight: 600; }

@@ -337,6 +337,17 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS ix_audit_created ON audit_logs(created_at);
+
+-- Admin eslatmalari va ogohlantirishlari: foydalanuvchi bo'yicha ichki tarix (foydalanuvchi eslatmalarni ko'rmaydi, ogohlantirishni bildirishnoma orqali oladi)
+CREATE TABLE IF NOT EXISTS admin_notes (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    author_id  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    kind       TEXT    NOT NULL DEFAULT 'note' CHECK (kind IN ('note', 'warning', 'block', 'unblock')),
+    body       TEXT    NOT NULL,
+    created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS ix_admin_notes_user ON admin_notes(user_id, created_at);
 """
 
 

@@ -37,6 +37,19 @@ CarRent — O‘zbekiston uchun avtomobil ijarasi veb-platformasi. Bitta akkaunt
 | Chat, bildirishnomalar, sharhlar, sevimlilar, tavsiyalar | ✅ |
 | Kabinetlar va admin | ✅ Daromad, to‘lovlar, balans, shikoyatlar, audit jurnali |
 
+## 🆕 6-versiyada qo‘shilganlar — har bir raqam bosiladi, admin to‘liq boshqaradi
+
+| Modul | Nima qiladi |
+|---|---|
+| 🔍 **Batafsil ko‘rish (drill-down)** | Admin, owner va ijarachi dashboardlari hamda Hisobotlardagi **har bir karta, grafik ustuni, holat chizig‘i, shahar/kuzov/oy qatori va jadval qatori** bosiladi. O‘ng tomonda oyna ochiladi: aynan shu raqam qaysi bronlar, **qaysi mashinalar (rasmi bilan), kimniki, kim ijaraga olgan**, qachon va qanchaga ekanligidan iborat. Ustida xulosa (soni, jami summa, komissiya, owner ulushi, kunlar, mashinalar soni), qidiruv va Excel (CSV) yuklab olish bor. Ko‘rish chegarasi serverda: owner faqat o‘z mashinalarini, ijarachi faqat o‘z bronlarini ko‘radi (`/api/drill`) |
+| ℹ️ **Raqamlar izohi** | Har bir kartaning pastida “bu raqam nimani anglatadi” degan qisqa izoh bor (masalan, “Faol (30 kun) — oxirgi 30 kunda bron qilgan, e’lon yangilagan yoki xabar yozganlar”) |
+| 👤 **Admin: foydalanuvchi sahifasi** | `admin.html#user/ID`. Profil, tasdiqlanganlik, oxirgi faollik; ijarachi va owner sifatidagi raqamlari (bosiladi), balans va komissiya qarzi; **xavf belgilari** (ko‘rilmagan shikoyat, ochiq nizo, ko‘p bekor qilish, past baho, qarz, ogohlantirishlar). Bo‘limlar: Bronlar, Mashinalari, To‘lovlar, Shikoyatlar (unga va u yozgan), Nizolar, Sharhlar, Xavfsizlik (faol sessiyalar), Tarix (audit) |
+| 🛠 **Admin amallari** | Bloklash (sabab bilan; hamma qurilmadan chiqariladi) va blokdan chiqarish, **ogohlantirish** (foydalanuvchiga bildirishnoma boradi), ichki eslatma, email/telefonni tasdiqlash yoki bekor qilish, barcha qurilmalardan chiqarish, barcha e’lonlarni yashirish/qaytarish, mashinani alohida yashirish, sharhni o‘chirish, **bronni admin sifatida bekor qilish** (sabab bilan; onlayn to‘langan bo‘lsa — siyosat bo‘yicha yoki to‘liq qaytarish). Har bir amal audit jurnaliga yoziladi |
+| 🚩 **Shikoyatdan odamga** | Har bir shikoyatda **kim ustidan** ekani (e’lon egasi, xabar yuboruvchi, sharh muallifi) alohida blokda ko‘rinadi — bosilsa o‘sha odamning sahifasi ochiladi. Shikoyat oynasidan to‘g‘ridan-to‘g‘ri “Ogohlantirish” yoki “Bloklash” |
+| 🔐 **Kirish oynasi** | Maydonlar, sarlavha va tugma halqaga mutanosib kattalashtirildi |
+
+Testlar: **95 ta**.
+
 ## 🆕 5-versiyada qo‘shilganlar — haqiqiy tizimga o‘tish
 
 | Modul | Nima qiladi |

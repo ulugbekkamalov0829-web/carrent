@@ -271,7 +271,8 @@ class ReportIn(Base):
 
 class ReportPatch(Base):
     status: Literal["resolved", "dismissed"]
-    action: Optional[Literal["hide_car", "delete_review", "block_user"]] = None
+    action: Optional[Literal["hide_car", "delete_review", "block_user", "warn_user"]] = None
+    note: Optional[str] = Field(None, max_length=1000)
 
 
 class ImageOrderIn(Base):
@@ -386,6 +387,23 @@ class ChannelTestIn(Base):
 
 class AdminUserPatch(Base):
     is_active: bool
+
+
+class AdminUserAction(Base):
+    action: Literal["block", "unblock", "warn", "note", "verify_email", "unverify_email", "verify_phone", "unverify_phone",
+                    "logout_all", "hide_cars", "restore_cars"]
+    reason: Optional[str] = Field(None, max_length=1000)
+
+    @model_validator(mode="after")
+    def _need_reason(self):
+        if self.action in ("block", "warn", "note") and len((self.reason or "").strip()) < 3:
+            raise ValueError("Sababini yozing (kamida 3 belgi)")
+        return self
+
+
+class AdminBookingCancel(Base):
+    reason: str = Field(min_length=3, max_length=1000)
+    full_refund: bool = False
 
 
 class AdminCarPatch(Base):

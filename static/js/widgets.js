@@ -1,21 +1,24 @@
 /* Kabinet va admin panel uchun umumiy vizual elementlar (real ma'lumotdan chiziladi) */
 "use strict";
 
-function stat(k, v, s = "", href = "") {
-  const inner = `<div class="k">${esc(k)}</div><div class="v">${typeof v === "number" ? numFmt().format(v) : esc(v)}</div><div class="s">${s}</div>`;
-  return href ? `<a class="card stat stat-link" href="${esc(href)}">${inner}<span class="stat-go" aria-hidden="true">${icon("arrowr", 16)}</span></a>`
-    : `<div class="card stat">${inner}</div>`;
+/** Raqamli karta. href — havola (bo'lim) yoki drill spec (obyekt): bosilganda shu raqam tarkibi batafsil ochiladi.
+    hint — "bu raqam nimani anglatadi" izohi (kartaning pastida kichik matn). */
+function stat(k, v, s = "", href = "", hint = "") {
+  const inner = `<div class="k">${esc(k)}</div><div class="v">${typeof v === "number" ? numFmt().format(v) : esc(v)}</div><div class="s">${s}</div>${hint ? `<div class="stat-hint">${esc(hint)}</div>` : ""}`;
+  const go = `<span class="stat-go" aria-hidden="true">${icon("arrowr", 16)}</span>`;
+  if (href && typeof href === "object") return `<div class="card stat stat-link" ${drillAttr(href)}>${inner}${go}</div>`;
+  return href ? `<a class="card stat stat-link" href="${esc(href)}">${inner}${go}</a>` : `<div class="card stat">${inner}</div>`;
 }
 
 /** Oylik ustunli grafik: ustun = umumiy tushum, ichida owner ulushi va platforma komissiyasi alohida rangda */
-function revenueChart(monthly, { split = true } = {}) {
+function revenueChart(monthly, { split = true, drill = null } = {}) {
   const max = Math.max(1, ...monthly.map((m) => m.revenue));
   const months = t("cal.months_short").split(",");
   return `<div class="chart" role="img" aria-label="${esc(t("chart.revenue"))}">${monthly.map((m) => {
     const [, mm] = m.month.split("-");
     const h = Math.max(2, (m.revenue / max) * 100);
     const fee = m.revenue ? (m.commission / m.revenue) * 100 : 0;
-    return `<div class="bar-wrap" title="${esc(m.month)}: ${money(m.revenue)} · ${esc(t("chart.bookings_n", { n: m.count }))}">
+    return `<div class="bar-wrap" ${drill && m.count ? drillAttr(drill(m)) : ""} title="${esc(m.month)}: ${money(m.revenue)} · ${esc(t("chart.bookings_n", { n: m.count }))}">
       <span class="val">${m.revenue ? shortMoney(m.revenue) : ""}</span>
       <div class="bar" style="height:${h}%">${split ? `<div class="fee" style="height:${fee}%"></div><div class="net" style="flex:1"></div>` : `<div class="net" style="flex:1"></div>`}</div>
       <span class="lbl">${esc(months[+mm - 1])}</span></div>`;
@@ -23,16 +26,16 @@ function revenueChart(monthly, { split = true } = {}) {
   ${split ? `<div class="legend"><span><i style="background:var(--primary)"></i>${esc(t("chart.net"))}</span><span><i style="background:#93a9ec"></i>${esc(t("chart.fee"))}</span></div>` : ""}`;
 }
 
-function hbars(items, { label, value, fmt = (v) => numFmt().format(v), color = "var(--primary)" }) {
+function hbars(items, { label, value, fmt = (v) => numFmt().format(v), color = "var(--primary)", drill = null }) {
   const max = Math.max(1, ...items.map(value));
-  return `<div class="hbars">${items.map((it) => `<div class="hb"><span>${esc(label(it))}</span>
+  return `<div class="hbars">${items.map((it) => `<div class="hb" ${drill && value(it) ? drillAttr(drill(it)) : ""}><span>${esc(label(it))}</span>
     <div class="track"><div class="fill" style="width:${(value(it) / max) * 100}%;background:${color}"></div></div><b>${esc(fmt(value(it)))}</b></div>`).join("")}</div>`;
 }
 
-function statusBars(b) {
+function statusBars(b, drill = null) {
   const colors = { pending: "var(--warning)", approved: "var(--success)", completed: "var(--primary)", rejected: "var(--danger)", cancelled: "#9ca3af" };
   const total = Object.values(b).reduce((a, x) => a + x, 0) || 1;
-  return `<div class="hbars">${Object.keys(colors).map((k) => `<div class="hb"><span>${esc(t("status." + k))}</span>
+  return `<div class="hbars">${Object.keys(colors).map((k) => `<div class="hb" ${drill && b[k] ? drillAttr(drill(k)) : ""}><span>${esc(t("status." + k))}</span>
     <div class="track"><div class="fill" style="width:${(b[k] / total) * 100}%;background:${colors[k]}"></div></div><b>${b[k]}</b></div>`).join("")}</div>`;
 }
 
@@ -67,8 +70,8 @@ function disputeCard(d, me, admin = false) {
       ${d.amount ? `<div class="disp-amt"><span class="small muted">${esc(t("disp.amount"))}</span><b>${money(d.amount)}</b></div>` : ""}
     </div>
     <div class="disp-grid">
-      <div class="disp-side"><span class="small muted">${esc(t("disp.opened_by"))}: <b>${esc(d.opener_name)}</b></span><p>${esc(d.description)}</p></div>
-      <div class="disp-side other"><span class="small muted">${esc(t("disp.answer"))} (${esc(d.against_name)})</span>
+      <div class="disp-side"><span class="small muted">${esc(t("disp.opened_by"))}: <b>${admin ? `<a href="/admin.html#user/${d.opened_by}">${esc(d.opener_name)}</a>` : esc(d.opener_name)}</b></span><p>${esc(d.description)}</p></div>
+      <div class="disp-side other"><span class="small muted">${esc(t("disp.answer"))} (${admin ? `<a href="/admin.html#user/${d.against_id}">${esc(d.against_name)}</a>` : esc(d.against_name)})</span>
         ${d.response ? `<p>${esc(d.response)}</p>` : iAmOther && active ? `<form class="disp-reply" data-id="${d.id}"><textarea class="input" name="text" minlength="5" maxlength="2000" required placeholder="${esc(t("disp.answer_ph"))}"></textarea>
           <button class="btn btn-sm" style="margin-top:6px">${esc(t("disp.answer_send"))}</button></form>` : `<p class="muted small">—</p>`}</div>
     </div>

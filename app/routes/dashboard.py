@@ -253,7 +253,7 @@ async def admin_bookings(request: Request):
 async def admin_reviews(request: Request):
     with get_db() as db:
         items = rows(db.execute(
-            "SELECT r.id, r.kind, r.rating, r.comment, r.created_at, c.brand, c.model, c.id AS car_id, "
+            "SELECT r.id, r.kind, r.rating, r.comment, r.created_at, r.author_id, r.target_user_id, c.brand, c.model, c.id AS car_id, "
             "a.full_name AS author, t.full_name AS target FROM reviews r JOIN cars c ON c.id = r.car_id "
             "JOIN users a ON a.id = r.author_id JOIN users t ON t.id = r.target_user_id ORDER BY r.id DESC LIMIT 300"))
     return ok({"items": items})
@@ -289,6 +289,41 @@ async def admin_update_settings(request: Request):
     return ok({"commission_percent": bps / 100})
 
 
+def report_label(db, r: dict) -> dict:
+    """Shikoyat obyekti haqida qisqa ma'lumot va aynan kim ustidan ekani (admin o'sha odam sahifasiga o'tadi)."""
+    from .admin_users import report_target_user
+    if r["target_type"] == "car":
+        c = one(db.execute(f"SELECT brand, model, year, is_approved, {COVER_SQL} AS cover FROM cars c WHERE id = ?", (r["target_id"],)))
+        r["target_label"] = f"{c['brand']} {c['model']} {c['year']}" if c else "—"
+        r["cover"] = c["cover"] if c else None
+        r["link"] = f"/car.html?id={r['target_id']}"
+    elif r["target_type"] == "review":
+        c = one(db.execute("SELECT comment, rating, car_id FROM reviews WHERE id = ?", (r["target_id"],)))
+        r["target_label"] = (f"★{c['rating']} “{(c['comment'] or '')[:80]}”") if c else "—"
+        r["link"] = f"/car.html?id={c['car_id']}#reviews" if c else None
+    elif r["target_type"] == "user":
+        c = one(db.execute("SELECT full_name, email FROM users WHERE id = ?", (r["target_id"],)))
+        r["target_label"] = f"{c['full_name']} ({c['email']})" if c else "—"
+        r["link"] = None
+    else:
+        c = one(db.execute("SELECT m.body, u.full_name FROM messages m JOIN users u ON u.id = m.sender_id WHERE m.id = ?",
+                           (r["target_id"],)))
+        r["target_label"] = f"{c['full_name']}: “{c['body'][:80]}”" if c else "—"
+        r["link"] = None
+    tu = report_target_user(db, r["target_type"], r["target_id"])
+    r["target_user_id"] = tu
+    if tu:
+        x = one(db.execute("SELECT full_name, avatar, is_active, (SELECT COUNT(*) FROM admin_notes n WHERE n.user_id = users.id AND n.kind = 'warning') AS warnings "
+                           "FROM users WHERE id = ?", (tu,)))
+        if x:
+            r.update(target_user_name=x["full_name"], target_user_avatar=x["avatar"], target_user_active=x["is_active"],
+                     target_user_warnings=x["warnings"])
+    return r
+
+
+COVER_SQL = "(SELECT path FROM car_images i WHERE i.car_id = c.id ORDER BY position, id LIMIT 1)"
+
+
 @require("admin")
 async def admin_reports(request: Request):
     status = q_str(request, "status") or "new"
@@ -296,24 +331,8 @@ async def admin_reports(request: Request):
         items = rows(db.execute(
             "SELECT r.*, u.full_name AS reporter_name FROM reports r JOIN users u ON u.id = r.reporter_id "
             "WHERE r.status = ? ORDER BY r.id DESC LIMIT 200", (status,)))
-        for r in items:   # obyekt haqida qisqa ma'lumot
-            if r["target_type"] == "car":
-                c = one(db.execute("SELECT brand, model, year, is_approved FROM cars WHERE id = ?", (r["target_id"],)))
-                r["target_label"] = f"{c['brand']} {c['model']} {c['year']}" if c else "—"
-                r["link"] = f"/car.html?id={r['target_id']}"
-            elif r["target_type"] == "review":
-                c = one(db.execute("SELECT comment, rating, car_id FROM reviews WHERE id = ?", (r["target_id"],)))
-                r["target_label"] = (f"★{c['rating']} “{(c['comment'] or '')[:80]}”") if c else "—"
-                r["link"] = f"/car.html?id={c['car_id']}#reviews" if c else None
-            elif r["target_type"] == "user":
-                c = one(db.execute("SELECT full_name, email FROM users WHERE id = ?", (r["target_id"],)))
-                r["target_label"] = f"{c['full_name']} ({c['email']})" if c else "—"
-                r["link"] = None
-            else:
-                c = one(db.execute("SELECT m.body, u.full_name FROM messages m JOIN users u ON u.id = m.sender_id WHERE m.id = ?",
-                                   (r["target_id"],)))
-                r["target_label"] = f"{c['full_name']}: “{c['body'][:80]}”" if c else "—"
-                r["link"] = None
+        for r in items:
+            report_label(db, r)
     return ok({"items": items})
 
 
@@ -331,15 +350,20 @@ async def admin_patch_report(request: Request):
             db.execute("UPDATE cars SET is_approved = 0 WHERE id = ?", (r["target_id"],))
         elif data.action == "delete_review" and r["target_type"] == "review":
             db.execute("DELETE FROM reviews WHERE id = ?", (r["target_id"],))
-        elif data.action == "block_user":
-            uid = r["target_id"] if r["target_type"] == "user" else None
-            if r["target_type"] == "car":
-                uid = db.execute("SELECT owner_id FROM cars WHERE id = ?", (r["target_id"],)).fetchone()[0]
-            elif r["target_type"] == "message":
-                uid = db.execute("SELECT sender_id FROM messages WHERE id = ?", (r["target_id"],)).fetchone()[0]
+        elif data.action in ("block_user", "warn_user"):
+            from .admin_users import report_target_user
+            uid = report_target_user(db, r["target_type"], r["target_id"])
             if uid and db.execute("SELECT role FROM users WHERE id = ?", (uid,)).fetchone()[0] != "admin":
-                db.execute("UPDATE users SET is_active = 0 WHERE id = ?", (uid,))
-                revoke_user_sessions(db, uid)
+                reason = r["reason"]
+                if data.action == "block_user":
+                    db.execute("UPDATE users SET is_active = 0 WHERE id = ?", (uid,))
+                    revoke_user_sessions(db, uid)
+                    kind = "block"
+                else:
+                    notify(db, uid, "admin_warning", "/settings.html", mode="any", text=data.note or "", reason=r["reason"])
+                    kind = "warning"
+                db.execute("INSERT INTO admin_notes (user_id, author_id, kind, body) VALUES (?, ?, ?, ?)",
+                           (uid, request.state.user["id"], kind, f"#{rid} [{reason}] {data.note or r['comment'] or ''}".strip()))
         db.execute("UPDATE reports SET status = ?, resolved_by = ?, resolved_at = datetime('now') WHERE id = ?",
                    (data.status, request.state.user["id"], rid))
         audit(db, request, f"report_{data.status}", "report", rid, act=data.action)

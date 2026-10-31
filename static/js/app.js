@@ -487,7 +487,9 @@ function markActive() {
     if (!box) continue;
     const links = $$("[data-href]", box);
     links.forEach((a) => a.classList.remove("active"));
+    const h1 = location.hash.split("/")[0];
     let pick = links.filter((a) => a.dataset.href === here + location.hash);
+    if (!pick.length && h1) pick = links.filter((a) => a.dataset.href === here + h1 || a.dataset.href === here + h1 + "s");
     if (!pick.length) pick = links.filter((a) => a.dataset.href.split("#")[0] === here).slice(0, 1);
     if (!pick.length && Nav.active) pick = links.filter((a) => a.dataset.href === "/" + Nav.active + ".html");
     pick.forEach((a) => a.classList.add("active"));

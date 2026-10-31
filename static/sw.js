@@ -1,6 +1,6 @@
 /* CarRent service worker: ilova qobig'ini keshlaydi, oflayn holatda sahifa ochiladi.
    API so'rovlari (/api/) va yuklangan suratlar hech qachon keshlanmaydi — shaxsiy ma'lumot qurilmada qolmaydi. */
-const VERSION = "carrent-v3";
+const VERSION = "carrent-v6";
 const SHELL = ["/", "/index.html", "/cars.html", "/info.html", "/auth.html", "/css/styles.css", "/js/app.js", "/js/widgets.js",
   "/locales/uz.json", "/locales/ru.json", "/locales/en.json", "/img/favicon.svg", "/img/icon-192.png", "/offline.html"];
 

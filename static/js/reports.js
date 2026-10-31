@@ -20,17 +20,42 @@ const Reports = {
     return [this.state.from, this.state.to];
   },
 
+  /** Hisobot ichidagi raqam bosilganda ochiladigan batafsil ro'yxat (drill.js) */
+  spec(kind, entity, title, extra = {}) {
+    const [from, to] = [this.cur.period.from, this.cur.period.to];
+    const period = entity === "cars" ? { p_from: from, p_to: to } : { from, to };
+    return { scope: kind, entity, title, sub: `${fmtDate(from)} — ${fmtDate(to)}`, ...period, ...extra };
+  },
+
+  kpiDrill(kind, code) {
+    const title = t("rep.k_" + code);
+    const done = { status: "done" }, lost = { status: "cancelled,rejected" };
+    const m = {
+      owner: { income: done, gross: done, commission: done, trips: done, rental_days: done, avg_check: done, lost, occupancy: ["cars", {}] },
+      renter: { spent: done, trips: done, rental_days: done, avg_day: done, cancelled: { status: "cancelled" },
+        refunds: ["payments", { status: "refunded,refund_pending", date_field: "cancelled" }] },
+      admin: { gmv: done, platform_income: done, trips: done, avg_check: done, lost_rate: { ...lost, date_field: "created" },
+        online_paid: ["payments", {}], refunds: ["payments", { status: "refunded,refund_pending", date_field: "cancelled" }],
+        payouts: ["payouts", {}], new_users: ["users", {}], new_cars: ["cars", { date_field: "created", from: this.cur.period.from, to: this.cur.period.to }] },
+    }[kind][code];
+    if (!m) return null;
+    const [entity, extra] = Array.isArray(m) ? m : ["bookings", m];
+    return this.spec(kind, entity, title, extra);
+  },
+
   async render(view, kind) {
     try { const saved = JSON.parse(localStorage.getItem("rep.state") || "null"); if (saved?.preset) this.state = saved; } catch {}
     const [from, to] = this.range();
     const qs = `from=${from}&to=${to}`;
     const r = await api(`/api/analytics/${kind}?${qs}`);
+    this.cur = r; this.kind = kind;
     view.innerHTML = `<div class="rep">
       ${this.toolbar(kind, qs)}
       <div class="rep-period">${icon("calendar", 16)} <b>${fmtDate(r.period.from)} — ${fmtDate(r.period.to)}</b>
         <span class="muted">· ${esc(t("rep.days_n", { n: r.period.days }))} · ${esc(t("rep.compared", { a: fmtDate(r.prev.from), b: fmtDate(r.prev.to) }))}</span></div>
       <div class="print-only rep-print-head"><b>CarRent — ${esc(t("rep.title"))}: ${esc(t("rep.kind_" + kind))}</b><span>${esc(Auth.user.full_name)} · ${fmtDate(r.generated)}</span></div>
       ${this.insights(r.insights)}
+      <p class="drill-note no-print">${icon("info", 14)} ${esc(t("drill.note"))}</p>
       <div class="stats rep-kpis">${r.kpis.map((k) => this.kpi(k)).join("")}</div>
       <div class="card card-pad rep-chart-card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">${esc(t("rep.chart_" + r.series_label))}</h3>
         <span class="small muted">${esc(t(r.series.unit === "day" ? "rep.by_day" : "rep.by_month"))}</span></div>
@@ -70,7 +95,8 @@ const Reports = {
       const up = k.change > 0, good = k.change === 0 ? null : up === k.up_good;
       delta = `<span class="delta ${good === null ? "" : good ? "good" : "bad"}">${up ? "▲" : k.change < 0 ? "▼" : "•"} ${Math.abs(k.change)}%</span>`;
     } else if (!k.prev && k.value) delta = `<span class="delta new">${esc(t("rep.new"))}</span>`;
-    return `<div class="card stat rep-kpi"><div class="k">${esc(t("rep.k_" + k.code))}</div>
+    const d = k.value ? this.kpiDrill(this.kind, k.code) : null;
+    return `<div class="card stat rep-kpi ${d ? "stat-link" : ""}" ${d ? drillAttr(d) : ""}>${d ? `<span class="stat-go" aria-hidden="true">${icon("arrowr", 16)}</span>` : ""}<div class="k">${esc(t("rep.k_" + k.code))}</div>
       <div class="v">${k.fmt === "money" ? `${esc(numFmt().format(Math.round(k.value || 0)))}<small class="unit">${esc(t("currency"))}</small>` : esc(this.fmt(k.value, k.fmt))}</div>
       <div class="s">${delta} <span class="muted">${esc(t("rep.was", { v: this.fmt(k.prev, k.fmt) }))}</span></div>
       <div class="rep-hint">${esc(t("rep.h_" + k.code))}</div></div>`;
@@ -105,7 +131,9 @@ const Reports = {
       const h = p.v ? Math.max(3, (p.v / max) * 100) : 0;
       const feeH = fees && p.v ? (fees[p.k] / p.v) * 100 : 0;
       const tip = `${series.unit === "day" ? fmtDate(p.k) : p.k}: ${money(p.v)} · ${t("chart.bookings_n", { n: p.n })}`;
-      return `<div class="bar-wrap" title="${esc(tip)}"><span class="val">${p.v && pts.length <= 16 ? shortMoney(p.v) : ""}</span>
+      const dr = p.n ? drillAttr(this.spec(this.kind, "bookings", `${t("rep.chart_" + this.cur.series_label)}: ${series.unit === "day" ? fmtDate(p.k) : p.k}`,
+        { status: "done", from: null, to: null, ...(series.unit === "day" ? { day: p.k } : { month: p.k }) })) : "";
+      return `<div class="bar-wrap" ${dr} title="${esc(tip)}"><span class="val">${p.v && pts.length <= 16 ? shortMoney(p.v) : ""}</span>
         <div class="bar" style="height:${h}%">${fees ? `<div class="fee" style="height:${feeH}%"></div>` : ""}<div class="net" style="flex:1"></div></div>
         <span class="lbl">${i % every === 0 ? esc(label(p.k)) : ""}</span></div>`;
     }).join("")}</div>
@@ -116,7 +144,8 @@ const Reports = {
   table(title, head, body, empty = "rep.no_rows") {
     return `<div class="card rep-table"><div class="card-pad" style="padding-bottom:0"><h3>${esc(t(title))}</h3></div>
       ${body.length ? `<div class="table-wrap"><table class="table responsive"><thead><tr>${head.map((h) => `<th>${esc(t(h))}</th>`).join("")}</tr></thead>
-      <tbody>${body.map((row) => `<tr>${row.map((c, i) => `<td data-label="${esc(t(head[i]))}">${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`
+      <tbody>${body.map((row) => { const cells = Array.isArray(row) ? row : row.cells;
+        return `<tr ${row.drill ? drillAttr(row.drill) : ""}>${cells.map((c, i) => `<td data-label="${esc(t(head[i]))}">${c}</td>`).join("")}</tr>`; }).join("")}</tbody></table></div>`
       : `<div class="empty">${esc(t(empty))}</div>`}</div>`;
   },
 
@@ -127,16 +156,19 @@ const Reports = {
     if (kind === "owner") {
       const tot = T.per_car.reduce((a, c) => a + c.payout, 0);
       return this.table("rep.t_per_car", ["col.car", "rep.c_trips", "rep.c_busy", "col.occupancy", "col.revenue", "rep.c_income"],
-        T.per_car.map((c) => [`<a href="/car.html?id=${c.id}">${esc(c.title)}</a><div class="small muted">${esc(c.city)}${c.rating ? ` · ★ ${c.rating}` : ""}</div>`,
+        T.per_car.map((c) => ({ drill: c.trips ? this.spec(kind, "bookings", c.title, { car_id: c.id, status: "done" }) : null, cells: [
+          `<a href="/car.html?id=${c.id}">${esc(c.title)}</a><div class="small muted">${esc(c.city)}${c.rating ? ` · ★ ${c.rating}` : ""}</div>`,
           c.trips, `${c.busy_days} / ${c.busy_days + c.idle_days}`,
           `<span class="occ ${c.occupancy < 25 ? "low" : c.occupancy >= 60 ? "high" : ""}">${c.occupancy}%</span>`, money(c.gross),
-          `<b>${money(c.payout)}</b>${this.share(c.payout, tot)}`]), "rep.no_cars");
+          `<b>${money(c.payout)}</b>${this.share(c.payout, tot)}`] })), "rep.no_cars");
     }
     if (kind === "renter") {
       const tot = T.by_body.reduce((a, x) => a + x.spent, 0);
       return `<div class="two-col">${this.table("rep.t_by_body", ["rep.c_body", "rep.c_trips", "rep.c_spent"],
-          T.by_body.map((x) => [esc(t("body." + x.key)), x.trips, `${money(x.spent)}${this.share(x.spent, tot)}`]))}
-        ${this.table("rep.t_by_city", ["col.city", "rep.c_trips", "rep.c_spent"], T.by_city.map((x) => [esc(x.key), x.trips, money(x.spent)]))}</div>
+          T.by_body.map((x) => ({ drill: this.spec(kind, "bookings", `${t("rep.t_by_body")}: ${t("body." + x.key)}`, { body: x.key, status: "done" }),
+            cells: [esc(t("body." + x.key)), x.trips, `${money(x.spent)}${this.share(x.spent, tot)}`] })))}
+        ${this.table("rep.t_by_city", ["col.city", "rep.c_trips", "rep.c_spent"], T.by_city.map((x) => ({ drill: this.spec(kind, "bookings", `${t("rep.t_by_city")}: ${x.key}`, { city: x.key, status: "done" }),
+          cells: [esc(x.key), x.trips, money(x.spent)] })))}</div>
         ${this.table("rep.t_trips", ["col.car", "col.dates", "rep.c_days", "booking.total", "col.status"],
           T.trips.map((x) => [`<a href="/car.html?id=${x.car_id}">${esc(x.title)}</a>`, `<span class="small">${fmtDate(x.start_date)} → ${fmtDate(x.end_date)}</span>`,
             x.days, money(x.total_price), statusTag(x.status)]))}`;
@@ -146,19 +178,23 @@ const Reports = {
     const provName = (k) => (k === "test" ? t("pay.test_name") : k === "click" ? "Click" : "Payme");
     return `<div class="two-col">
         ${this.table("rep.t_by_city", ["col.city", "rep.c_trips", "rep.c_gmv", "rep.c_fee"],
-          T.by_city.map((x) => [esc(x.key), x.trips, `${money(x.gmv)}${this.share(x.gmv, gmv)}`, money(x.commission)]))}
+          T.by_city.map((x) => ({ drill: this.spec(kind, "bookings", `${t("rep.t_by_city")}: ${x.key}`, { city: x.key, status: "done" }),
+            cells: [esc(x.key), x.trips, `${money(x.gmv)}${this.share(x.gmv, gmv)}`, money(x.commission)] })))}
         <div class="card card-pad"><h3>${esc(t("rep.t_funnel"))}</h3>
           ${created ? `<div class="funnel">${["pending", "approved", "completed", "rejected", "cancelled"].map((s) =>
-            `<div class="fn"><span>${esc(t("status." + s))}</span><div class="track"><i class="st-${s}" style="width:${(f[s] / created) * 100}%"></i></div><b>${f[s]}</b></div>`).join("")}</div>
+            `<div class="fn" ${f[s] ? drillAttr(this.spec(kind, "bookings", `${t("rep.t_funnel")}: ${t("status." + s)}`, { status: s, date_field: "created" })) : ""}><span>${esc(t("status." + s))}</span><div class="track"><i class="st-${s}" style="width:${(f[s] / created) * 100}%"></i></div><b>${f[s]}</b></div>`).join("")}</div>
             <p class="small muted" style="margin:10px 0 0">${esc(t("rep.funnel_note", { n: created }))}</p>` : `<div class="empty">${esc(t("rep.no_rows"))}</div>`}</div>
       </div>
       <div class="two-col">
         ${this.table("rep.t_top_owners", ["col.owner", "rep.c_trips", "rep.c_income", "rep.c_fee"],
-          T.top_owners.map((o) => [`<b>${esc(o.name)}</b>`, o.trips, money(o.payout), money(o.commission)]))}
+          T.top_owners.map((o) => ({ drill: this.spec(kind, "bookings", o.name, { owner_id: o.id, status: "done" }),
+            cells: [`<a href="/admin.html#user/${o.id}"><b>${esc(o.name)}</b></a>`, o.trips, money(o.payout), money(o.commission)] })))}
         ${this.table("rep.t_top_cars", ["col.car", "rep.c_trips", "rep.c_gmv"],
-          T.top_cars.map((c) => [`<a href="/car.html?id=${c.id}">${esc(c.title)}</a><div class="small muted">${esc(c.city)}</div>`, c.trips, money(c.gmv)]))}
+          T.top_cars.map((c) => ({ drill: this.spec(kind, "bookings", c.title, { car_id: c.id, status: "done" }),
+            cells: [`<a href="/car.html?id=${c.id}">${esc(c.title)}</a><div class="small muted">${esc(c.city)}</div>`, c.trips, money(c.gmv)] })))}
       </div>
-      ${this.table("rep.t_providers", ["pay.method", "rep.c_count", "pay.amount"], T.providers.map((p) => [esc(provName(p.key)), p.n, money(p.amount)]), "rep.no_online")}`;
+      ${this.table("rep.t_providers", ["pay.method", "rep.c_count", "pay.amount"], T.providers.map((p) => ({ drill: this.spec(kind, "payments", `${t("rep.t_providers")}: ${provName(p.key)}`, { provider: p.key }),
+        cells: [esc(provName(p.key)), p.n, money(p.amount)] })), "rep.no_online")}`;
   },
 
   bind(view, kind) {

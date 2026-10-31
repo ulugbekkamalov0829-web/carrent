@@ -161,6 +161,9 @@ CATALOG.update({
     "Rad etish sababini yozing": ("Укажите причину отказа", "Please give a reason for rejecting"),
     "Davr 366 kundan oshmasligi kerak": ("Период не должен превышать 366 дней", "The period can't exceed 366 days"),
     "Hisobot turi noto'g'ri": ("Неверный тип отчёта", "Invalid report type"),
+    "Filtr qiymati noto'g'ri": ("Неверное значение фильтра", "Invalid filter value"),
+    "Administrator akkauntiga bu amalni qo'llab bo'lmaydi": ("Это действие нельзя применить к администратору", "This action can't be applied to an administrator"),
+    "Sababini yozing (kamida 3 belgi)": ("Укажите причину (минимум 3 символа)", "Write a reason (at least 3 characters)"),
 })
 
 CATALOG.update({  # CSV ustunlari va holatlar

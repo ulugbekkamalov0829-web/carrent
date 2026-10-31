@@ -37,6 +37,30 @@ CarRent — O‘zbekiston uchun avtomobil ijarasi veb-platformasi. Bitta akkaunt
 | Chat, bildirishnomalar, sharhlar, sevimlilar, tavsiyalar | ✅ |
 | Kabinetlar va admin | ✅ Daromad, to‘lovlar, balans, shikoyatlar, audit jurnali |
 
+## 🆕 5-versiyada qo‘shilganlar — haqiqiy tizimga o‘tish
+
+| Modul | Nima qiladi |
+|---|---|
+| 🚀 **Jonli rejimga o‘tish ustasi** | `python -m scripts.setup_live` — savollar bilan `.env` tuzadi: sayt manzili, Gmail SMTP (ulanib ko‘radi va sinov xati yuboradi), Eskiz (kirib ko‘radi va sinov SMS yuboradi), Click/Payme kalitlari (callback manzillarini chiqaradi). Demo rejim, test qutisi va test to‘lovlari o‘chiriladi. Xohlasangiz demo mashina/foydalanuvchilar o‘chiriladi (oldin baza nusxasi olinadi) va haqiqiy admin yaratiladi. Eski `.env` → `.env.bak` |
+| 🔑 **Parol qoidalari** | Kamida 8 belgi, katta harf, kichik harf, raqam, belgi. Ro‘yxatda, parolni tiklashda va sozlamalarda har bir shart yozib turiladi, bajarilgani yashil bo‘ladi. Server ham aynan shu qoidalarni tekshiradi |
+| ⏱ **Kod muddati** | 3 daqiqa (`CODE_TTL_MIN`), ekranda teskari sanoq; tugasa “yangisini so‘rang” |
+| 📨 **Kod kanallari ochiq aytiladi** | Email/SMS ulanmagan bo‘lsa — o‘sha tugma o‘chiq va “ulanmagan, kod test qutisiga yozildi” degan ogohlantirish chiqadi (avval bu yashirin edi — shuning uchun SMS kelmagan) |
+| ↩️ **Parolni tiklash** | “Orqaga” endi email/SMS tanlash qadamiga qaytaradi; “Boshqa usul / manzil” tugmasi |
+| 🔔 **Kabinetlar bo‘yicha bildirishnomalar** | Har bir bildirishnoma va xabar Owner yoki Ijarachi kabinetiga tegishli. Qo‘ng‘iroqcha va hisoblagichlar faqat joriy kabinetnikini ko‘rsatadi; boshqa kabinetdagi yangilar “Owner kabinetida 2 ta yangi — o‘tish” deb chiqadi. Yangi xabar kelsa Telegram kabi oyna: kimdan, qaysi kabinet uchun, qisqa matn — bossangiz kerakli kabinetga o‘tib ochadi |
+| 💬 **Xabarlar** | “Joriy kabinet / Hammasi” yorliqlari, har suhbatda “Mening mashinam” yoki “Ijara” belgisi |
+| ⚙️ **Sozlamalar** | Har bo‘lim (Profil, Tasdiqlash, Xavfsizlik, Bildirishnomalar, Maxfiylik, Til, Akkaunt) alohida oyna |
+| 📊 **Admin kartalari bosiladi** | “Jami foydalanuvchilar”, “Faol”, “Bloklangan”, “Bronlar”, “Aylanma” va h.k. — bosilsa tegishli ro‘yxat/hisobot filtri bilan ochiladi; foydalanuvchilarda filtr chiplari (ijarachi, owner, faol, yangi, bloklangan, admin) |
+| 📅 **Batafsil ≠ Band qilish** | “Batafsil” — to‘liq sahifa (rasmlar, shartlar, sharhlar). “Band qilish” — tezkor oyna: kalendardan sana tanlash, narx hisobi, izoh va so‘rov yuborish shu yerning o‘zida |
+| 🗺 **Barcha hududlar** | Bosh sahifada 14 hudud; e’loni yo‘qlari “Tez orada” bo‘lib turadi va birinchi e’lon chiqishi bilan avtomatik faollashadi |
+| 🖼 **Kirish oynasi surati** | Haqiqiy mashina suratlari (fon olib tashlangan) “showroom” sahnasida |
+
+### To‘lov tizimlarini ulash
+**Click** (docs.click.uz): merchant kabinetida servis yarating → `CLICK_SERVICE_ID`, `CLICK_MERCHANT_ID`, `CLICK_SECRET_KEY`. Prepare va Complete uchun bitta manzil: `https://SAYT/api/payments/click`.
+**Payme** (developer.help.paycom.uz): business.paycom.uz da kassa → `PAYME_MERCHANT_ID`, `PAYME_KEY` (sinovda test kalit). Endpoint: `https://SAYT/api/payments/payme`. Sinov: `PAYME_TEST=true` (test.paycom.uz), sandbox’dagi barcha testlar o‘tgach `false`.
+Ikkalasi ham yuridik shaxs/YaTT shartnomasi va **https** manzilni talab qiladi.
+
+Testlar: **89 ta**.
+
 ## 🆕 4-versiyada qo‘shilganlar
 
 | Modul | Nima qiladi |

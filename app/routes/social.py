@@ -113,7 +113,7 @@ async def thread(request: Request):
         if not partner:
             raise HTTPException(404, tr("Foydalanuvchi topilmadi"))
         items = rows(db.execute(
-            """SELECT m.id, m.sender_id, m.receiver_id, m.body, m.is_read, m.created_at, m.car_id,
+            """SELECT m.id, m.sender_id, m.receiver_id, m.body, m.is_read, m.created_at, m.car_id, m.kind, m.lat, m.lng,
                       c.brand || ' ' || c.model AS car_title
                FROM messages m LEFT JOIN cars c ON c.id = m.car_id
                WHERE ((m.sender_id = ? AND m.receiver_id = ?) OR (m.sender_id = ? AND m.receiver_id = ?)) AND m.id > ?
@@ -138,14 +138,14 @@ async def send_message(request: Request):
         car_id = data.car_id
         if car_id and not db.execute("SELECT 1 FROM cars WHERE id = ?", (car_id,)).fetchone():
             car_id = None
-        cur = db.execute("INSERT INTO messages (sender_id, receiver_id, car_id, body) VALUES (?, ?, ?, ?)",
-                         (me["id"], to["id"], car_id, data.body))
+        cur = db.execute("INSERT INTO messages (sender_id, receiver_id, car_id, body, kind, lat, lng) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                         (me["id"], to["id"], car_id, data.body, data.kind, data.lat, data.lng))
         car = one(db.execute("SELECT owner_id, brand, model FROM cars WHERE id = ?", (car_id,))) if car_id else None
         # Qabul qiluvchi uchun kontekst: mashina uniki bo'lsa — owner kabineti, boshqaniki bo'lsa — ijarachi kabineti
         mode = ("owner" if car["owner_id"] == to["id"] else "renter") if car else "any"
         link = f"/messages.html?user={me['id']}" + (f"&mode={mode}" if mode != "any" else "")
         db.execute("DELETE FROM notifications WHERE user_id = ? AND type = 'message' AND link = ? AND is_read = 0", (to["id"], link))
-        notify(db, to["id"], "message", link, mode=mode, actor_id=me["id"], name=me["full_name"], preview=data.body[:80],
+        notify(db, to["id"], "message", link, mode=mode, actor_id=me["id"], name=me["full_name"], preview=("📍 " if data.kind == "location" else "") + data.body[:80],
                car=f"{car['brand']} {car['model']}" if car else "")
         msg = one(db.execute("SELECT * FROM messages WHERE id = ?", (cur.lastrowid,)))
     return ok(msg, 201)

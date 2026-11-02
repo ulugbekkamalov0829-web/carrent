@@ -49,6 +49,11 @@ TEMPLATES = {
         "ru": ("CarRent: уведомление безопасности", "В вашем аккаунте важное изменение: {what}.\nЕсли это были не вы, срочно смените пароль и напишите администратору."),
         "en": ("CarRent: security notice", "An important change was made to your account: {what}.\nIf this wasn't you, change your password now and contact an administrator."),
     },
+    "sign_contract": {
+        "uz": ("CarRent: shartnomani imzolash kodi", "Ijara shartnomasi {number} ni imzolash kodi: {code}\nKod {ttl} daqiqa amal qiladi. Kodni kiritish orqali shartnoma shartlariga roziligingizni bildirasiz. Kodni hech kimga bermang."),
+        "ru": ("CarRent: код подписания договора", "Код подписания договора аренды {number}: {code}\nКод действует {ttl} минут. Вводя код, вы соглашаетесь с условиями договора. Никому не сообщайте код."),
+        "en": ("CarRent: contract signing code", "Code to sign rental contract {number}: {code}\nValid for {ttl} minutes. By entering it you accept the contract terms. Never share this code."),
+    },
     "booking": {
         "uz": ("CarRent: {title}", "{title}\n{body}\n\n{url}"),
         "ru": ("CarRent: {title}", "{title}\n{body}\n\n{url}"),

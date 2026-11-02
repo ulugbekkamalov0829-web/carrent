@@ -12,7 +12,22 @@
   const form = { start: params.get("start") || "", end: params.get("end") || "", delivery: false, note: "" };
   let imgIndex = 0;
 
-  function spec(k, v) { return v === null || v === undefined || v === "" ? "" : `<div class="spec"><div class="k">${esc(t(k))}</div><div class="v">${esc(v)}</div></div>`; }
+  function spec(k, v, ico) {
+    return v === null || v === undefined || v === "" ? "" : `<div class="spec-tile"><span class="sp-ico">${icon(ico, 22)}</span><div><div class="k">${esc(t(k))}</div><div class="v">${esc(v)}</div></div></div>`;
+  }
+  const hasLoc = () => car.lat != null && car.lng != null;      // aniq nuqta faqat egasi/bron qilganlarga (loc_exact)
+
+  function reviewsBlock() {
+    if (!reviews.items.length) return `<p class="muted">${esc(t("car.reviews_empty"))}</p>`;
+    const dist = [5, 4, 3, 2, 1].map((n) => ({ n, c: reviews.items.filter((r) => r.rating === n).length }));
+    return `<div class="rev-sum"><div class="rev-big"><b>${car.rating ?? "—"}</b><div><span class="stars">${stars(car.rating)}</span><div class="small muted">${esc(t("car.reviews_n", { n: car.reviews_count }))}</div></div></div>
+        <div class="rev-dist">${dist.map((d) => `<div><span>${d.n}★</span><i><b style="width:${reviews.items.length ? (d.c / reviews.items.length) * 100 : 0}%"></b></i><span>${d.c}</span></div>`).join("")}</div></div>
+      <div class="rev-grid">${reviews.items.map((r) => `<div class="review card">
+        <div class="row"><span class="avatar">${esc(initials(r.author))}</span><div><b>${esc(r.author)}</b><div class="small muted">${fmtDate(r.created_at)}</div></div>
+        <span class="spacer"></span><span class="stars">${stars(r.rating)}</span></div>
+        ${r.comment ? `<p style="margin:8px 0 0">${esc(r.comment)}</p>` : ""}
+        ${r.reply ? `<div class="reply"><b>${esc(t("review.owner_reply"))}:</b> ${esc(r.reply)}</div>` : ""}</div>`).join("")}</div>`;
+  }
 
   function render() {
     // Formadagi qiymatlarni saqlab qolamiz (til almashganda yo'qolmasin)
@@ -20,54 +35,60 @@
     document.title = `${carName(car)} ${car.year} — CarRent`;
     const hidden = !car.is_active || !car.is_approved;
     const images = car.images.length ? car.images : [null];
+    const place = car.address ? `${car.address}, ${Places.label(car.city, car.district)}` : Places.label(car.city, car.district);
     root.innerHTML = `
       ${hidden ? `<div class="notice" style="margin-bottom:16px">${esc(t(!car.is_approved ? "car.hidden_admin" : "car.hidden_owner"))}</div>` : ""}
       <nav class="small muted" style="margin-bottom:10px" aria-label="breadcrumb"><a href="/cars.html">${esc(t("nav.cars"))}</a> › <a href="/cars.html?city=${encodeURIComponent(car.city)}">${esc(Places.regionName(car.city))}</a> › ${esc(car.brand)}</nav>
-      <div class="detail">
+      <section class="car-hero" id="mainImg">${carImage(car, images[imgIndex]?.path)}
+        <div class="hero-shade"></div>
+        <div class="hero-title"><h1>${esc(carName(car))} ${esc(car.year)}</h1><div>${esc(t("body." + car.body_type))} · ${esc(t("trans." + car.transmission))}${car.is_demo ? ` · <span class="tag tag-demo">${esc(t("car.demo"))}</span>` : ""}</div></div>
+        ${car.images.length > 1 ? `<div class="hero-dots" id="thumbs">${car.images.map((im, i) => `<button class="${i === imgIndex ? "active" : ""}" data-i="${i}" aria-label="${esc(t("car.photo_n", { n: i + 1 }))}">${i + 1}</button>`).join("")}</div>` : ""}
+        ${car.images.length ? `<button class="gal-zoom" id="openLb" aria-label="${esc(t("gallery.open"))}">${icon("search", 18)} ${imgIndex + 1} / ${car.images.length}</button>` : ""}
+        <span class="gal-label ${images[imgIndex]?.label ? "" : "hidden"}">${images[imgIndex]?.label ? esc(t("img.label_" + images[imgIndex].label)) : ""}</span>
+        ${car.images.length > 1 ? `<button class="gal-nav prev" data-step="-1" aria-label="${esc(t("cal.prev"))}">${icon("arrowl")}</button><button class="gal-nav next" data-step="1" aria-label="${esc(t("cal.next"))}">${icon("arrowr")}</button>` : ""}
+        ${car.is_mine ? "" : `<button class="fav-btn ${car.is_favorite ? "on" : ""}" data-fav="${car.id}" aria-pressed="${!!car.is_favorite}" aria-label="${esc(t(car.is_favorite ? "fav.remove" : "fav.add"))}">${car.is_favorite ? HEART : HEART_O}</button>`}
+      </section>
+      <div class="detail detail-v7">
         <div>
-          <div class="gallery-main" id="mainImg">${carImage(car, images[imgIndex]?.path)}
-            ${car.images.length ? `<button class="gal-zoom" id="openLb" aria-label="${esc(t("gallery.open"))}">${icon("search", 18)} ${imgIndex + 1} / ${car.images.length}</button>` : ""}
-            <span class="gal-label ${images[imgIndex]?.label ? "" : "hidden"}">${images[imgIndex]?.label ? esc(t("img.label_" + images[imgIndex].label)) : ""}</span>
-            ${car.images.length > 1 ? `<button class="gal-nav prev" data-step="-1" aria-label="${esc(t("cal.prev"))}">${icon("arrowl")}</button><button class="gal-nav next" data-step="1" aria-label="${esc(t("cal.next"))}">${icon("arrowr")}</button>` : ""}
-            ${car.is_mine ? "" : `<button class="fav-btn ${car.is_favorite ? "on" : ""}" data-fav="${car.id}" aria-pressed="${!!car.is_favorite}" aria-label="${esc(t(car.is_favorite ? "fav.remove" : "fav.add"))}">${car.is_favorite ? HEART : HEART_O}</button>`}</div>
-          ${car.images.length > 1 ? `<div class="thumbs" id="thumbs">${car.images.map((im, i) => `<button class="${i === imgIndex ? "active" : ""}" data-i="${i}" aria-label="${esc(t("car.photo_n", { n: i + 1 }))}"><img src="${esc(im.path)}" alt="" loading="lazy"></button>`).join("")}</div>` : ""}
-          <div class="row" style="margin-top:18px;gap:8px">${car.is_demo ? `<span class="tag tag-demo">${esc(t("car.demo"))}</span>` : ""}<span class="tag tag-info">${esc(t("body." + car.body_type))}</span></div>
-          <h1 style="margin-top:8px">${esc(carName(car))} <span class="muted" style="font-weight:600">${esc(car.year)}</span></h1>
-          <div class="row small">
-            ${car.rating ? `<span class="stars">${stars(car.rating)}</span><b>${car.rating}</b><a href="#reviews">${esc(t("car.reviews_n", { n: car.reviews_count }))}</a>` : `<span class="muted">${esc(t("car.no_reviews"))}</span>`}
-            <span class="muted">· 📍 ${esc(Places.label(car.city, car.district))}</span>
+          <div class="car-headline">
+            <div><h2 style="margin:0">${esc(carName(car))} ${esc(car.year)}</h2>
+              <div class="small muted">${icon("pin", 14)} ${esc(place)}</div></div>
+            <div class="owner-chip">${avatarHtml(car.owner)}<div><b>${esc(car.owner.full_name)}</b>${car.owner.phone_verified ? ` <span class="verified" title="${esc(t("verify.phone_ok"))}">${icon("check", 13)}</span>` : ""}
+              <div class="small"><span class="star-y">★</span> ${car.rating ?? "—"} <span class="muted">(${esc(t("car.reviews_n", { n: car.reviews_count }))})</span></div></div></div>
           </div>
-          <div class="specs">
-            ${spec("spec.trans", t("trans." + car.transmission))}${spec("spec.fuel", t("fuel." + car.fuel))}${spec("spec.seats", car.seats)}
-            ${spec("spec.engine", car.engine_l ? `${car.engine_l} ${t("unit.l")}` : null)}${spec("spec.mileage", car.mileage_km !== null ? `${numFmt().format(car.mileage_km)} ${t("unit.km")}` : null)}
-            ${spec("spec.drive", car.drive ? t("drive." + car.drive) : null)}${spec("spec.color", car.color)}${spec("spec.body", t("body." + car.body_type))}
-          </div>
-          ${car.features.length ? `<div class="card card-pad"><h3>${esc(t("car.features"))}</h3><div class="features-list">${car.features.map((f) => `<span>${esc(t("feature." + f))}</span>`).join("")}</div></div>` : ""}
+          <div class="card card-pad"><h3>${esc(t("car.specs"))}</h3>
+            <div class="spec-grid">
+              ${spec("field.year", car.year, "calendar")}${spec("spec.trans", t("trans." + car.transmission), "gear")}${spec("spec.fuel", t("fuel." + car.fuel), "fuel")}${spec("spec.seats", t("car.seats_n", { n: car.seats }), "seat")}
+              ${spec("spec.engine", car.engine_l ? `${car.engine_l} ${t("unit.l")}` : null, "engine")}${spec("spec.mileage", car.mileage_km !== null ? `${numFmt().format(car.mileage_km)} ${t("unit.km")}` : null, "gauge")}
+              ${spec("spec.drive", car.drive ? t("drive." + car.drive) : null, "road")}${spec("spec.color", car.color, "palette")}
+            </div></div>
+          ${car.features.length ? `<div class="card card-pad" style="margin-top:18px"><h3>${esc(t("car.features"))}</h3><div class="amenities">${car.features.map((f) => `<span><i>${icon("check", 13)}</i>${esc(t("feature." + f))}</span>`).join("")}</div></div>` : ""}
           ${car.description ? `<div class="card card-pad" style="margin-top:18px"><h3>${esc(t("car.description"))}</h3><p style="margin:0;white-space:pre-line">${esc(car.description)}</p></div>` : ""}
-          <div class="card card-pad" style="margin-top:18px"><h3>${esc(t("car.terms"))}</h3><div class="terms-list">
-            <div><span class="muted">${esc(t("terms.deposit"))}</span><b>${car.deposit ? money(car.deposit) : esc(t("terms.none"))}</b></div>
-            <div><span class="muted">${esc(t("terms.period"))}</span><b>${esc(t("terms.days_range", { a: car.min_days, b: car.max_days }))}</b></div>
-            <div><span class="muted">${esc(t("terms.km"))}</span><b>${car.km_limit ? `${car.km_limit} ${esc(t("unit.km_day"))}` : esc(t("terms.unlimited"))}</b></div>
-            <div><span class="muted">${esc(t("terms.delivery"))}</span><b>${car.delivery_price !== null ? money(car.delivery_price) : esc(t("terms.no_delivery"))}</b></div>
-            <div><span class="muted">${esc(t("terms.cancel"))}</span><b>${esc(t("terms.cancel_rule"))}</b></div>
-            <div><span class="muted">${esc(t("terms.payment"))}</span><b>${esc(t(prov.click || prov.payme || prov.test ? "terms.on_site_or_online" : "terms.on_site"))}</b></div>
-          </div></div>
-          <div class="card card-pad" style="margin-top:18px">
-            <h3>${esc(t("car.calendar"))}</h3><p class="small muted" style="margin-top:-4px">${esc(t(canBook ? "car.calendar_hint" : "car.calendar_legend"))}</p>
-            <div id="calendar"></div>
+          <div class="two-col loc-rev" style="margin-top:18px">
+            <div class="card card-pad"><h3>${icon("pin", 18)} ${esc(t("map.location"))}</h3>
+              <div class="map-box" id="carMap"></div>
+              <div class="small" style="margin:8px 0">${esc(place)}${car.loc_exact ? "" : ` <span class="muted">· ${esc(t("map.approx"))}</span>`}</div>
+              ${hasLoc() ? MapKit.links(car.lat, car.lng, `${carName(car)} — CarRent`) : ""}
+              ${car.loc_exact ? "" : `<p class="small muted" style="margin:8px 0 0">${esc(t("map.exact_after"))}</p>`}</div>
+            <div class="card card-pad"><h3>${esc(t("car.terms"))}</h3><div class="terms-list">
+              <div><span class="muted">${esc(t("terms.deposit"))}</span><b>${car.deposit ? money(car.deposit) : esc(t("terms.none"))}</b></div>
+              <div><span class="muted">${esc(t("terms.period"))}</span><b>${esc(t("terms.days_range", { a: car.min_days, b: car.max_days }))}</b></div>
+              <div><span class="muted">${esc(t("terms.km"))}</span><b>${car.km_limit ? `${car.km_limit} ${esc(t("unit.km_day"))}` : esc(t("terms.unlimited"))}</b></div>
+              <div><span class="muted">${esc(t("field.fuel_policy"))}</span><b>${esc(t("fuel_policy." + (car.fuel_policy || "same")))}</b></div>
+              <div><span class="muted">${esc(t("terms.delivery"))}</span><b>${car.delivery_price !== null ? money(car.delivery_price) : esc(t("terms.no_delivery"))}</b></div>
+              <div><span class="muted">${esc(t("terms.cancel"))}</span><b>${esc(t("terms.cancel_rule"))}</b></div>
+              <div><span class="muted">${esc(t("terms.payment"))}</span><b>${esc(t(prov.click || prov.payme || prov.test ? "terms.on_site_or_online" : "terms.on_site"))}</b></div>
+              ${car.require_docs ? `<div><span class="muted">${esc(t("terms.docs"))}</span><b>${esc(t("terms.docs_required"))}</b></div>` : ""}
+              <div><span class="muted">${esc(t("terms.contract"))}</span><b>${esc(t("terms.contract_e"))}</b></div>
+            </div></div>
           </div>
-          <div class="card card-pad" style="margin-top:18px" id="reviews"><h3>${esc(t("car.reviews"))}</h3>
-            ${reviews.items.length ? reviews.items.map((r) => `<div class="review">
-              <div class="row"><span class="avatar">${esc(initials(r.author))}</span><div><b>${esc(r.author)}</b><div class="small muted">${fmtDate(r.created_at)}</div></div>
-              <span class="spacer"></span><span class="stars">${stars(r.rating)}</span></div>
-              ${r.comment ? `<p style="margin:8px 0 0">${esc(r.comment)}</p>` : ""}
-              ${r.reply ? `<div class="reply"><b>${esc(t("review.owner_reply"))}:</b> ${esc(r.reply)}</div>` : ""}</div>`).join("")
-              : `<p class="muted">${esc(t("car.reviews_empty"))}</p>`}
-          </div>
+          ${canBook ? "" : `<div class="card card-pad" style="margin-top:18px"><h3>${esc(t("car.calendar"))}</h3><p class="small muted" style="margin-top:-4px">${esc(t("car.calendar_legend"))}</p><div id="calendar"></div></div>`}
+          <div class="card card-pad" style="margin-top:18px" id="reviews"><h3>${esc(t("car.reviews"))}</h3>${reviewsBlock()}</div>
         </div>
         <aside class="stack book-box" id="book">
-          <div class="card card-pad">
+          <div class="card card-pad book-card">
             <div class="price-big">${money(car.price_per_day)} <span class="muted small">${esc(t("car.per_day"))}</span></div>
+            ${canBook ? `<h4 style="margin:14px 0 6px">${esc(t("book.pick_dates"))}</h4><div id="calendar"></div>` : ""}
             <div id="bookArea" style="margin-top:14px"></div>
           </div>
           <div class="card card-pad">
@@ -81,6 +102,8 @@
       </div>
       ${car.similar.length ? `<section style="margin-top:40px"><h2>${esc(t("car.similar"))}</h2><div class="cars-grid">${car.similar.map((c) => carCard(c)).join("")}</div></section>` : ""}
       ${canBook ? `<div class="mobile-book"><div><b>${money(car.price_per_day)}</b> <span class="muted small">${esc(t("car.per_day"))}</span></div><a class="btn" href="#book">${esc(t("car.book"))}</a></div>` : ""}`;
+    MapKit.show($("#carMap"), car.loc_exact ? { lat: car.lat, lng: car.lng, label: `${carName(car)} ${car.year}` }
+      : { region: car.city, approx: hasLoc() ? [car.lat, car.lng] : null }).catch((e) => { $("#carMap").innerHTML = `<div class="empty small">${esc(e.message)}</div>`; });
     document.body.classList.toggle("has-mobile-book", !!canBook);
 
     const go = (i) => {
@@ -95,7 +118,7 @@
     $("#thumbs")?.addEventListener("click", (e) => { const b = e.target.closest("[data-i]"); if (b) go(+b.dataset.i); });
     $("#mainImg").addEventListener("click", (e) => {
       const st = e.target.closest("[data-step]"); if (st) { go(imgIndex + +st.dataset.step); return; }
-      if (e.target.closest(".fav-btn")) return;
+      if (e.target.closest(".fav-btn") || e.target.closest("#thumbs")) return;
       if (car.images.length) lightbox(car.images, imgIndex, (i) => go(i));
     });
     swipe($("#mainImg"), (d) => go(imgIndex + d));

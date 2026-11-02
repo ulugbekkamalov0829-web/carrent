@@ -126,6 +126,21 @@ Testlar: **78 ta** (yangi: to‘lov siyosati va so‘rovlar — 11, maslahatchi 
 
 ---
 
+## 🆕 v7 yangilanishlari
+
+| Modul | Nima qo‘shildi |
+|---|---|
+| Akkauntni to‘liq o‘chirish | Moliyaviy tarix bo‘lmasa — butunlay o‘chiriladi; bo‘lsa — anonimlashtiriladi. Ikkala holatda email/telefon bo‘shaydi va qayta ro‘yxatdan o‘tish mumkin |
+| Bank kartalari | Sozlamalar → Bank kartalari: Luhn tekshiruvi, Uzcard/Humo/Visa/Mastercard aniqlanadi; faqat birinchi 6 va oxirgi 4 raqam saqlanadi, CVV saqlanmaydi |
+| Xarita va joylashuv | Leaflet + OpenStreetMap (oflayn vendor); e’londa xaritadan nuqta tanlash, “Mening joylashuvim”; ijarachiga aniq manzil faqat bron tasdiqlangach; Yandex/Google/telefon xaritasida ochish; chatda joylashuv yuborish |
+| Hujjatlar | Haydovchilik guvohnomasi va pasport/ID-karta rasmlari yopiq papkada saqlanadi; admin tasdiqlaydi; owner “faqat hujjati tasdiqlanganlar” talabini qo‘ya oladi |
+| Elektron shartnoma | Bron tasdiqlanganda avtomatik tuziladi (raqam `CR-YYYY-000123`), ikki tomon email kodi bilan imzolaydi, admin tasdiqlagach elektron muhr + QR-kod; `/verify.html` ochiq tekshirish, SHA-256 bilan o‘zgartirilmaganligi nazorati; shablon admin panelda tahrirlanadi; PDF sifatida chop etish |
+| Topshirish–qabul (handover) | Olishda va qaytarishda probeg, yoqilg‘i %, tozalik, shikast, 4–8 rasm; ikkinchi tomon tasdiqlaydi yoki e’tiroz bildiradi; ortiqcha km, yoqilg‘i kamomadi avtomatik hisoblanadi va depozitdan ushlab qolinadigan summa ko‘rsatiladi |
+| Adminlar | Admin → Foydalanuvchilar → foydalanuvchi → “Administrator qilish”; oxirgi adminni olib tashlab bo‘lmaydi |
+| Parol | Ro‘yxatdan o‘tish va parol almashtirishda “Ishonchli parol yaratish”; tiklash ikki bosqichli: kod tekshiriladi → yangi parol |
+| Dizayn | Admin va owner boshqaruv paneli (KPI kartalar, daromad grafigi, bandlik kalendari, tasdiq navbati), yangi avtomobil sahifasi, hisobotlar grafigi; admin menyusi 6 guruhga ajratildi |
+| Maslahatchi | `static/img/adv/photo/<kalit>.jpg` qo‘yilsa real rasm chiqadi (README.txt ichida nomlar) |
+
 ## 🛠 Texnologiyalar
 
 | Qatlam | Tanlov |

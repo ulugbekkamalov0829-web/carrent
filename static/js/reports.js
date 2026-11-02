@@ -96,7 +96,11 @@ const Reports = {
       delta = `<span class="delta ${good === null ? "" : good ? "good" : "bad"}">${up ? "▲" : k.change < 0 ? "▼" : "•"} ${Math.abs(k.change)}%</span>`;
     } else if (!k.prev && k.value) delta = `<span class="delta new">${esc(t("rep.new"))}</span>`;
     const d = k.value ? this.kpiDrill(this.kind, k.code) : null;
-    return `<div class="card stat rep-kpi ${d ? "stat-link" : ""}" ${d ? drillAttr(d) : ""}>${d ? `<span class="stat-go" aria-hidden="true">${icon("arrowr", 16)}</span>` : ""}<div class="k">${esc(t("rep.k_" + k.code))}</div>
+    const ICO = { income: ["wallet", "green"], gross: ["dollar", "purple"], commission: ["chart", "blue"], trips: ["car", "blue"], rental_days: ["calendar", "orange"],
+      occupancy: ["gauge", "green"], avg_check: ["receipt", "purple"], lost: ["flag", "red"], spent: ["wallet", "purple"], avg_day: ["dollar", "blue"],
+      refunds: ["swap", "green"], cancelled: ["close", "red"], gmv: ["dollar", "purple"], platform_income: ["trend", "green"], online_paid: ["card", "blue"],
+      payouts: ["wallet", "orange"], new_users: ["users", "blue"], new_cars: ["car", "green"], lost_rate: ["flag", "red"] }[k.code] || ["chart", "blue"];
+    return `<div class="card stat rep-kpi ${d ? "stat-link" : ""}" ${d ? drillAttr(d) : ""}>${d ? `<span class="stat-go" aria-hidden="true">${icon("arrowr", 16)}</span>` : ""}<div class="k"><span class="kpi-ico sm t-${ICO[1]}">${icon(ICO[0], 16)}</span>${esc(t("rep.k_" + k.code))}</div>
       <div class="v">${k.fmt === "money" ? `${esc(numFmt().format(Math.round(k.value || 0)))}<small class="unit">${esc(t("currency"))}</small>` : esc(this.fmt(k.value, k.fmt))}</div>
       <div class="s">${delta} <span class="muted">${esc(t("rep.was", { v: this.fmt(k.prev, k.fmt) }))}</span></div>
       <div class="rep-hint">${esc(t("rep.h_" + k.code))}</div></div>`;
@@ -120,25 +124,14 @@ const Reports = {
   },
 
   chart(series, series2) {
-    const pts = series.points, max = Math.max(1, ...pts.map((p) => p.v));
     const months = t("cal.months_short").split(",");
-    const label = (k) => series.unit === "day" ? k.slice(8) : months[+k.slice(5, 7) - 1];
-    const every = pts.length > 40 ? 5 : pts.length > 16 ? 2 : 1;
+    const pts = series.points.map((p) => ({ k: p.k, v: p.v, n: p.n, label: series.unit === "day" ? fmtDate(p.k).slice(0, 5) : `${months[+p.k.slice(5, 7) - 1]} ${p.k.slice(2, 4)}` }));
     const total = pts.reduce((a, p) => a + p.v, 0);
-    if (!total) return `<div class="empty" style="padding:30px 10px">${esc(t("rep.no_chart"))}</div>`;
-    const fees = series2 ? Object.fromEntries(series2.points.map((p) => [p.k, p.v])) : null;
-    return `<div class="chart rep-bars ${pts.length > 16 ? "dense" : ""}" role="img" aria-label="${esc(t("rep.chart_aria", { sum: money(total) }))}">${pts.map((p, i) => {
-      const h = p.v ? Math.max(3, (p.v / max) * 100) : 0;
-      const feeH = fees && p.v ? (fees[p.k] / p.v) * 100 : 0;
-      const tip = `${series.unit === "day" ? fmtDate(p.k) : p.k}: ${money(p.v)} · ${t("chart.bookings_n", { n: p.n })}`;
-      const dr = p.n ? drillAttr(this.spec(this.kind, "bookings", `${t("rep.chart_" + this.cur.series_label)}: ${series.unit === "day" ? fmtDate(p.k) : p.k}`,
-        { status: "done", from: null, to: null, ...(series.unit === "day" ? { day: p.k } : { month: p.k }) })) : "";
-      return `<div class="bar-wrap" ${dr} title="${esc(tip)}"><span class="val">${p.v && pts.length <= 16 ? shortMoney(p.v) : ""}</span>
-        <div class="bar" style="height:${h}%">${fees ? `<div class="fee" style="height:${feeH}%"></div>` : ""}<div class="net" style="flex:1"></div></div>
-        <span class="lbl">${i % every === 0 ? esc(label(p.k)) : ""}</span></div>`;
-    }).join("")}</div>
-    ${fees ? `<div class="legend"><span><i style="background:var(--primary)"></i>${esc(t("rep.legend_owner"))}</span><span><i style="background:#93a9ec"></i>${esc(t("rep.legend_fee"))}</span></div>` : ""}
-    <div class="small muted" style="margin-top:6px">${esc(t("rep.chart_total", { sum: money(total) }))}</div>`;
+    const drill = (p) => this.spec(this.kind, "bookings", `${t("rep.chart_" + this.cur.series_label)}: ${p.label}`,
+      { status: "done", from: null, to: null, ...(series.unit === "day" ? { day: p.k } : { month: p.k }) });
+    const fees = series2 ? series2.points.reduce((a, p) => a + p.v, 0) : 0;
+    return `${areaChart(pts, { drill, height: 240 })}
+      <div class="small muted" style="margin-top:6px">${esc(t("rep.chart_total", { sum: money(total) }))}${series2 ? ` · ${esc(t("rep.legend_fee"))}: ${money(fees)}` : ""}</div>`;
   },
 
   table(title, head, body, empty = "rep.no_rows") {

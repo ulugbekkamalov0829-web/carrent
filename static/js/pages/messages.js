@@ -41,7 +41,7 @@
     $("#thread").innerHTML = `<div class="thread-head"><a class="btn btn-sm btn-outline back-btn" href="/messages.html" aria-label="${esc(t("common.back"))}">‹</a>
         <span class="avatar">${esc(initials(partner.full_name))}</span><b>${esc(partner.full_name)}</b></div>
       <div class="thread-body" id="tbody" aria-live="polite"></div>
-      <form class="thread-form" id="sendForm"><textarea class="input" name="body" maxlength="2000" placeholder="${esc(t("chat.placeholder"))}" aria-label="${esc(t("chat.placeholder"))}" required></textarea>
+      <form class="thread-form" id="sendForm"><button type="button" class="btn btn-outline loc-btn" id="sendLoc" title="${esc(t("chat.send_location"))}" aria-label="${esc(t("chat.send_location"))}">${icon("pin", 18)}</button><textarea class="input" name="body" maxlength="2000" placeholder="${esc(t("chat.placeholder"))}" aria-label="${esc(t("chat.placeholder"))}" required></textarea>
         <button class="btn" aria-label="${esc(t("common.send"))}">➤</button></form>`;
     append(data.items);
     if (!data.items.length) $("#tbody").innerHTML = `<div class="empty small" id="noMsg">${esc(t("chat.start"))}</div>`;
@@ -55,17 +55,33 @@
       try { await api("/api/messages", { method: "POST", body: { to_user_id: userId, body, car_id: aboutCar } }); await poll(); loadConvs(); }
       catch (err) { ta.value = body; toast(err.message, "error"); }
     });
+    $("#sendLoc").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      await withLoading(btn, async () => {
+        try {
+          const p = await MapKit.locate();
+          if (!(await confirmBox(t("chat.loc_confirm", { m: p.acc }), t("common.send")))) return;
+          await api("/api/messages", { method: "POST", body: { to_user_id: userId, body: t("chat.loc_body"), car_id: aboutCar, kind: "location", lat: p.lat, lng: p.lng } });
+          await poll(); loadConvs();
+        } catch (err) { toast(err.message, "error"); }
+      });
+    });
     loadConvs();
   }
 
+  const locBubble = (m) => `<div class="loc-card"><div class="loc-map" data-lat="${m.lat}" data-lng="${m.lng}"></div>
+      <div class="loc-cap">${icon("pin", 14)} <b>${esc(t("chat.location"))}</b> <span class="muted small">${(+m.lat).toFixed(5)}, ${(+m.lng).toFixed(5)}</span></div>
+      ${MapKit.links(m.lat, m.lng, t("chat.location"))}</div>`;
+  const drawMaps = (box) => $$(".loc-map:not(.ready)", box).forEach((el) => { el.classList.add("ready"); MapKit.show(el, { lat: +el.dataset.lat, lng: +el.dataset.lng, zoom: 16 }).catch(() => el.remove()); });
   const bubble = (m) => `<div class="bubble ${m.sender_id === me.id ? "mine" : ""}">`
     + (m.car_title ? `<div class="about">🚗 ${esc(m.car_title)}</div>` : "")
-    + `<div class="text">${esc(m.body)}</div><div class="time">${timeAgo(m.created_at)}${m.sender_id === me.id ? (m.is_read ? " · ✓✓" : " · ✓") : ""}</div></div>`;
+    + (m.kind === "location" && m.lat != null ? locBubble(m) : `<div class="text">${esc(m.body)}</div>`) + `<div class="time">${timeAgo(m.created_at)}${m.sender_id === me.id ? (m.is_read ? " · ✓✓" : " · ✓") : ""}</div></div>`;
   function append(items) {
     const box = $("#tbody"); if (!box || !items.length) return;
     $("#noMsg")?.remove();
     msgs = msgs.concat(items);
     box.insertAdjacentHTML("beforeend", items.map(bubble).join(""));
+    drawMaps(box);
     lastId = items[items.length - 1].id;
     box.scrollTop = box.scrollHeight;
   }

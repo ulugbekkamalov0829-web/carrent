@@ -116,6 +116,11 @@ class ForgotIn(Base):
     login: str = Field(min_length=3, max_length=120)
 
 
+class ResetCheckIn(Base):
+    login: str = Field(min_length=3, max_length=120)
+    code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
 class ResetIn(Base):
     login: str = Field(min_length=3, max_length=120)
     code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
@@ -210,6 +215,26 @@ class CarIn(Base):
     km_limit: Optional[int] = Field(default=None, ge=50, le=2000)
     delivery_price: Optional[int] = Field(default=None, ge=0, le=5_000_000)
     is_active: bool = True
+    # v7: joylashuv (olib ketish nuqtasi), davlat raqami, yoqilg'i va probeg qoidalari, hujjat talabi
+    lat: Optional[float] = Field(default=None, ge=37.0, le=46.0)       # O'zbekiston chegarasi atrofida
+    lng: Optional[float] = Field(default=None, ge=55.0, le=74.0)
+    address: Optional[str] = Field(default=None, max_length=160)
+    plate: Optional[str] = Field(default=None, max_length=12)
+    fuel_policy: Literal["same", "full"] = "same"
+    tank_l: Optional[int] = Field(default=None, ge=10, le=200)
+    fuel_price: Optional[int] = Field(default=None, ge=1000, le=100_000)
+    extra_km_price: Optional[int] = Field(default=None, ge=0, le=100_000)
+    require_docs: bool = False
+
+    @field_validator("plate")
+    @classmethod
+    def _plate(cls, v: Optional[str]) -> Optional[str]:
+        if not v:
+            return None
+        v = re.sub(r"[^0-9A-Za-z]", "", v).upper()
+        if not re.fullmatch(r"\d{2}[A-Z]\d{3}[A-Z]{2}|\d{2}\d{3}[A-Z]{3}", v):
+            raise ValueError("Davlat raqamini 01A123BC yoki 01123ABC ko'rinishida yozing")
+        return v
 
     @field_validator("features")
     @classmethod
@@ -249,6 +274,18 @@ class MessageIn(Base):
     to_user_id: int
     body: str = Field(min_length=1, max_length=2000)
     car_id: Optional[int] = None
+    # v7: joylashuv yuborish (lat/lng) — xabar xaritada ko'rinadi
+    kind: Literal["text", "location"] = "text"
+    lat: Optional[float] = Field(default=None, ge=-90, le=90)
+    lng: Optional[float] = Field(default=None, ge=-180, le=180)
+
+    @model_validator(mode="after")
+    def _loc(self):
+        if self.kind == "location" and (self.lat is None or self.lng is None):
+            raise ValueError("Joylashuv aniqlanmadi")
+        if self.kind == "text":
+            self.lat = self.lng = None
+        return self
 
 
 class PaymentIn(Base):

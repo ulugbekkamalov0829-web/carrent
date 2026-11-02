@@ -27,7 +27,12 @@ BOOKING_SELECT = """
            (SELECT id FROM reviews rv WHERE rv.booking_id = b.id AND rv.kind = 'renter') AS renter_review_id,
            (SELECT id FROM payments p WHERE p.booking_id = b.id AND p.status IN ('paid', 'refunded', 'refund_pending')
              ORDER BY p.id DESC LIMIT 1) AS payment_id,
-           ru.phone_verified AS renter_phone_verified, ru.email_verified AS renter_email_verified
+           ru.phone_verified AS renter_phone_verified, ru.email_verified AS renter_email_verified,
+           (SELECT COUNT(DISTINCT d.kind) FROM user_documents d WHERE d.user_id = b.renter_id AND d.status = 'approved'
+              AND d.kind IN ('license', 'id_card') AND (d.kind != 'license' OR d.expires_on IS NULL OR d.expires_on >= date('now'))) >= 2
+              AS renter_docs_verified,
+           (SELECT status FROM contracts k WHERE k.booking_id = b.id) AS contract_status,
+           (SELECT id FROM contracts k WHERE k.booking_id = b.id) AS contract_id
     FROM bookings b
     JOIN cars c   ON c.id = b.car_id
     JOIN users ru ON ru.id = b.renter_id
@@ -100,6 +105,10 @@ async def create_booking(request: Request):
                 raise HTTPException(404, tr("Avtomobil topilmadi yoki hozir ijaraga berilmaydi"))
             if car["owner_id"] == user["id"]:
                 raise HTTPException(400, tr("O'z avtomobilingizni bron qila olmaysiz"))
+            if car["require_docs"]:
+                from .trust import docs_verified
+                if not docs_verified(db, user["id"]):
+                    raise HTTPException(403, tr("Bu mashinani faqat hujjatlari (haydovchilik guvohnomasi va pasport/ID) tasdiqlangan foydalanuvchi ijaraga ola oladi. Sozlamalar → Hujjatlar bo'limida yuklang"))
             if not car["min_days"] <= days <= car["max_days"]:
                 raise HTTPException(400, tr("Bu avtomobil uchun ijara muddati {min}–{max} kun", min=car["min_days"], max=car["max_days"]))
             if data.delivery and car["delivery_price"] is None:
@@ -192,6 +201,8 @@ async def approve(request: Request):
             db.execute("UPDATE bookings SET status='approved', updated_at=datetime('now') WHERE id = ?", (bid,))
             notify(db, b["renter_id"], "booking_approved", "/dashboard.html?mode=renter#bookings", actor_id=uid,
                    car=car_title(b), start=b["start_date"], end=b["end_date"])
+            from .rental import ensure_contract
+            ensure_contract(db, bid)          # elektron shartnoma darhol tuziladi, ikkala tomonga imzolash uchun xabar boradi
         return ok(_load(db, bid))
 
 

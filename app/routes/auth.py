@@ -12,7 +12,7 @@ from .. import channels
 from ..config import settings
 from ..db import get_db, one, rows, transaction
 from ..i18n import tr
-from ..schemas import (CodeIn, EmailChangeIn, ForgotIn, LangIn, LoginIn, ModeIn, PasswordChangeIn, PasswordConfirmIn,
+from ..schemas import (ResetCheckIn, CodeIn, EmailChangeIn, ForgotIn, LangIn, LoginIn, ModeIn, PasswordChangeIn, PasswordConfirmIn,
                        PrefsIn, ProfileIn, RegisterIn, ResetIn, VerifyConfirmIn, VerifyStartIn)
 from ..security import (PUBLIC_USER_FIELDS, account_limiter, burn_time, clear_auth_cookie, client_ip, code_limiter,
                         create_session, current_user_or_none, forgot_limiter, hash_code, hash_password, login_limiter,
@@ -29,6 +29,8 @@ def user_payload(db, uid: int) -> dict:
     user["notify_prefs"] = {**DEFAULT_PREFS, **json.loads(user.get("notify_prefs") or "{}")}
     for k in ("email_verified", "phone_verified", "show_phone", "marketing_ok"):
         user[k] = bool(user[k])
+    from .trust import docs_state
+    user["docs_status"] = docs_state(db, uid)["status"]
     return user
 
 
@@ -156,7 +158,7 @@ def _issue_code(db, user: dict, purpose: str, channel: str, target: str) -> str:
     return channels.send(channel, target, template, user.get("lang") or "uz", db=db, code=code, ttl=settings.CODE_TTL_MIN)
 
 
-def _check_code(db, user_id: int, purpose: str, code: str) -> dict:
+def _check_code(db, user_id: int, purpose: str, code: str, consume: bool = True) -> dict:
     """Kodni tekshiradi: muddat, urinishlar soni, bir martalik. Muvaffaqiyatda kod yozuvini qaytaradi.
     MUHIM: tranzaksiyadan TASHQARIDA chaqiriladi — aks holda xato urinishlar hisobi ROLLBACK bilan o'chib ketadi."""
     rec = one(db.execute("SELECT * FROM verification_codes WHERE user_id = ? AND purpose = ? AND used_at IS NULL "
@@ -169,6 +171,8 @@ def _check_code(db, user_id: int, purpose: str, code: str) -> dict:
         db.execute("UPDATE verification_codes SET attempts = attempts + 1 WHERE id = ?", (rec["id"],))
         left = settings.CODE_MAX_ATTEMPTS - rec["attempts"] - 1
         raise HTTPException(400, tr("Kod noto'g'ri. Qolgan urinishlar: {n}", n=max(0, left)))
+    if not consume:
+        return rec
     # Bir martalik: parallel ikki so'rovdan faqat bittasi kodni "ishlatadi"
     if not db.execute("UPDATE verification_codes SET used_at = datetime('now') WHERE id = ? AND used_at IS NULL",
                       (rec["id"],)).rowcount:
@@ -226,6 +230,20 @@ async def reset_password(request: Request):
             revoke_user_sessions(db, user["id"])   # o'g'irlangan sessiyalar ham yopiladi
         security_event(db, request, user, "password_reset")
         return _login_response(db, user["id"], user["role"], request)
+
+
+async def reset_check(request: Request):
+    """1-qadam: kod to'g'rimi — faqat tekshiradi (kod hali ishlatilmaydi). To'g'ri bo'lsa, yangi parol oynasi ochiladi.
+    Noto'g'ri urinishlar hisoblanadi, shuning uchun kodni taxmin qilib bo'lmaydi."""
+    data = await parse_body(request, ResetCheckIn)
+    if not code_limiter.hit(client_ip(request)):
+        raise HTTPException(429, tr("Juda ko'p urinish. 5 daqiqadan so'ng qayta urinib ko'ring"))
+    with get_db() as db:
+        user = _find_by_login(db, data.login)
+        if not user:
+            raise HTTPException(400, tr("Kod noto'g'ri yoki muddati tugagan. Yangi kod so'rang"))
+        _check_code(db, user["id"], "reset", data.code, consume=False)
+    return ok({"valid": True})
 
 
 # ---------------- Email / telefonni tasdiqlash ----------------
@@ -418,7 +436,8 @@ async def logout_all(request: Request):
 @require("user")
 async def delete_account(request: Request):
     """Akkauntni o'chirish: parol bilan tasdiqlanadi; faol bronlar bo'lsa ruxsat berilmaydi.
-    Shaxsiy ma'lumotlar anonimlashtiriladi, moliyaviy yozuvlar hisob uchun saqlanadi."""
+    Moliyaviy izi bo'lmasa — butunlay o'chiriladi; bo'lsa — shaxsiy ma'lumotlar o'chirilib, hisob uchun anonim yozuv qoladi.
+    Ikkala holatda email va telefon bo'shaydi — ular bilan qaytadan ro'yxatdan o'tish mumkin."""
     data = await parse_body(request, PasswordConfirmIn)
     u = request.state.user
     with get_db() as db:
@@ -431,14 +450,11 @@ async def delete_account(request: Request):
         if active:
             raise HTTPException(409, tr("Faol bronlaringiz bor. Avval ularni yakunlang yoki bekor qiling"))
         with transaction(db):
-            db.execute("""UPDATE users SET full_name = ?, email = ?, phone = NULL, phone_norm = NULL, region = NULL, avatar = NULL,
-                          password_hash = ?, is_active = 0, deleted_at = datetime('now'), marketing_ok = 0 WHERE id = ?""",
-                       ("—", f"deleted-{u['id']}-{secrets.token_hex(4)}@deleted.local", hash_password(secrets.token_hex(16)), u["id"]))
-            db.execute("UPDATE cars SET is_active = 0 WHERE owner_id = ?", (u["id"],))
-            db.execute("DELETE FROM favorites WHERE user_id = ?", (u["id"],))
-            revoke_user_sessions(db, u["id"])
-            audit(db, request, "account_deleted", "user", u["id"])
-    resp = ok()
+            from .trust import erase_user, has_money_history
+            # Jurnal oldin yoziladi: butunlay o'chirilsa, yozuvdagi muallif havolasi o'zi bo'shaydi
+            audit(db, request, "account_deleted", "user", u["id"], mode="anonymized" if has_money_history(db, u["id"]) else "deleted")
+            mode = erase_user(db, u["id"])
+    resp = ok({"mode": mode})
     clear_auth_cookie(resp)
     return resp
 
@@ -458,9 +474,12 @@ async def summary(request: Request):
         last_id = db.execute("SELECT COALESCE(MAX(id), 0) FROM notifications WHERE user_id = ?", (uid,)).fetchone()[0]
         p = db.execute("SELECT COUNT(*) FROM bookings b JOIN cars c ON c.id = b.car_id WHERE c.owner_id = ? AND b.status = 'pending'",
                        (uid,)).fetchone()[0]
-        r = (db.execute("SELECT COUNT(*) FROM reports WHERE status = 'new'").fetchone()[0]
-             if request.state.user["role"] == "admin" else 0)
+        admin = request.state.user["role"] == "admin"
+        r = db.execute("SELECT COUNT(*) FROM reports WHERE status = 'new'").fetchone()[0] if admin else 0
+        docs = db.execute("SELECT COUNT(*) FROM user_documents WHERE status = 'pending'").fetchone()[0] if admin else 0
+        ctr = db.execute("SELECT COUNT(*) FROM contracts WHERE status = 'signed'").fetchone()[0] if admin else 0
     return ok({"unread_notifications": n, "unread_messages": m, "pending_requests": p, "open_reports": r,
+               "pending_docs": docs, "contracts_to_approve": ctr,
                "notif_by_mode": n_by, "msg_by_mode": m_by, "last_notification_id": last_id})
 
 
@@ -492,6 +511,7 @@ routes = [
     Route("/api/auth/forgot", forgot, methods=["POST"]),
     Route("/api/auth/reset", reset_password, methods=["POST"]),
     Route("/api/auth/change-password", change_password, methods=["POST"]),
+    Route("/api/auth/reset/check", reset_check, methods=["POST"]),
     Route("/api/me/verify/start", verify_start, methods=["POST"]),
     Route("/api/me/verify/confirm", verify_confirm, methods=["POST"]),
     Route("/api/me/email/start", email_change_start, methods=["POST"]),

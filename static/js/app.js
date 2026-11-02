@@ -365,6 +365,21 @@ const ICON_PATHS = {
   eye: "M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
   eyeoff: "M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.6 0 3-.4 4.3-1M9.9 9.9a3 3 0 0 0 4.2 4.2",
   arrowl: "M15 5l-7 7 7 7", arrowr: "M9 5l7 7-7 7",
+  fuel: "M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M3 21h12M7 8h4M14 10h2a2 2 0 0 1 2 2v4a1.5 1.5 0 0 0 3 0V9l-3-3",
+  seat: "M7 3.5a1.5 1.5 0 0 1 3 0V12h5.5a2 2 0 0 1 2 2v6M7 3.5V14a2 2 0 0 0 2 2h7M5 21h13",
+  gauge: "M12 14l4-4M3.5 18a9 9 0 1 1 17 0",
+  pin: "M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12zM12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z",
+  road: "M5 21 9 3M19 21 15 3M12 5v2M12 11v2M12 17v2",
+  palette: "M12 3a9 9 0 1 0 0 18c1 0 1.5-.8 1.5-1.5 0-1-.8-1.3-.8-2.2 0-.9.7-1.3 1.6-1.3H16a5 5 0 0 0 5-5c0-4.4-4-8-9-8zM7.5 11.5h.01M10 7.5h.01M15 7.5h.01",
+  engine: "M4 10h2V8h3V6h6v2h2l2 3h2v5h-2l-2 3H9l-2-2H6v-3H4z",
+  doc: "M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6",
+  pen: "M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4",
+  qr: "M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z",
+  idcard: "M3 5h18v14H3zM8.5 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM5.5 16a3 3 0 0 1 6 0M14 9h4M14 13h4",
+  key: "M15 7a4 4 0 1 0-3.4 6L4 20.5V21h3v-2h2v-2h2l1.6-1.6A4 4 0 0 0 15 7zM16 7h.01",
+  dots: "M12 5h.01M12 12h.01M12 19h.01",
+  trend: "M3 17l6-6 4 4 8-8M15 7h6v6",
+  dollar: "M12 3v18M16.5 7.5c0-1.9-2-3-4.5-3S7.5 5.6 7.5 7.5s2 2.6 4.5 3.1 4.5 1.4 4.5 3.4-2 3.5-4.5 3.5-4.5-1.3-4.5-3.3",
   spark: "M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18",
   download: "M12 4v11M7 10l5 5 5-5M5 20h14",
   print: "M7 9V3h10v6M7 17H4v-7h16v7h-3M7 14h10v7H7z",
@@ -380,10 +395,16 @@ const CABINET = {
           ["calendar", "dash.calendar", "calendar"], ["earnings", "dash.earnings", "wallet"], ["analytics", "rep.title", "chart"],
           ["reviews", "dash.reviews", "star"], ["disputes", "nav.disputes", "flag"]],
 };
-const ADMIN_TABS = [["stats", "admin.dashboard", "grid"], ["analytics", "rep.title", "chart"], ["users", "admin.users", "users"], ["cars", "admin.cars", "car"],
-  ["bookings", "admin.bookings", "list"], ["payments", "admin.payments", "card"], ["finance", "admin.finance", "wallet"],
-  ["disputes", "admin.disputes", "shield"], ["reports", "admin.reports", "flag"], ["reviews", "admin.reviews", "star"],
-  ["channels", "admin.channels", "mail"], ["audit", "admin.audit", "log"]];
+// Admin menyusi guruhlarga bo'lingan: kamroq ko'z yugurtirib kerakli bo'limni topish oson
+const ADMIN_GROUPS = [
+  ["admin.g_main", [["stats", "admin.dashboard", "grid"], ["analytics", "rep.title", "chart"]]],
+  ["admin.g_people", [["users", "admin.users", "users"], ["documents", "docs.admin_tab", "idcard"]]],
+  ["admin.g_rentals", [["cars", "admin.cars", "car"], ["bookings", "admin.bookings", "list"], ["contracts", "ctr.admin_tab", "doc"]]],
+  ["admin.g_money", [["payments", "admin.payments", "card"], ["finance", "admin.finance", "wallet"]]],
+  ["admin.g_issues", [["disputes", "admin.disputes", "shield"], ["reports", "admin.reports", "flag"], ["reviews", "admin.reviews", "star"]]],
+  ["admin.g_system", [["channels", "admin.channels", "mail"], ["audit", "admin.audit", "log"]]],
+];
+const ADMIN_TABS = ADMIN_GROUPS.flatMap(([, tabs]) => tabs);
 
 const Nav = { active: "", poller: null, bare: false, summary: {} };
 
@@ -439,7 +460,8 @@ function renderNavInner() {
     + sideLink("/", "nav.home", "home") + sideLink("/cars.html", "nav.cars", "search")
     + (admin ? "" : sideLink("/advisor.html", "nav.advisor", "spark")) + sideLink("/info.html", "nav.info", "info");
   if (u && admin) {
-    nav += `<div class="side-label">${esc(t("nav.admin"))}</div>` + ADMIN_TABS.map(([k, key, ico]) => sideLink(`/admin.html#${k}`, key, ico, { badge: k === "reports" ? "repBadge" : "" })).join("");
+    nav += ADMIN_GROUPS.map(([g, tabs]) => `<div class="side-label">${esc(t(g))}</div>`
+      + tabs.map(([k, key, ico]) => sideLink(`/admin.html#${k}`, key, ico, { badge: k === "reports" ? "repBadge" : k === "documents" ? "docBadge" : k === "contracts" ? "ctrBadge" : "" })).join("")).join("");
   } else if (u) {
     nav += `<div class="side-label">${esc(t(mode === "owner" ? "nav.section_owner" : "nav.section_renter"))}</div>`
       + CABINET[mode].map(([k, key, ico]) => sideLink(`/dashboard.html#${k}`, key, ico, { badge: k === "bookings" && mode === "owner" ? "reqBadge" : "" })).join("");
@@ -614,6 +636,7 @@ function applySummary(s) {
     if (dot) { dot.textContent = n > 9 ? "9+" : n; dot.classList.toggle("hidden", !n); dot.title = t("notif.other_mode", { n, mode: modeLabel(k) }); }
   });
   set(["#reqBadge", "#reqBadgeM"], s.pending_requests); set(["#repBadge", "#repBadgeM"], s.open_reports);
+  set(["#docBadge"], s.pending_docs); set(["#ctrBadge"], s.contracts_to_approve);
 }
 
 async function pollSummary() {
@@ -984,6 +1007,32 @@ function pwChecklist(input, { compact = false } = {}) {
   return { valid: () => PW_RULES.every(([, test]) => test(input.value)), firstError: () => {
     const miss = PW_RULES.find(([, test]) => !test(input.value)); return miss ? t("pw.r_" + miss[0], { n: PW_MIN }) : "";
   } };
+}
+
+/** Ishonchli parol: 14 belgi, katta/kichik harf, raqam va belgi albatta bor; o'xshash belgilar (0/O, l/1) ishlatilmaydi */
+function strongPassword(len = 14) {
+  const sets = ["ABCDEFGHJKLMNPQRSTUVWXYZ", "abcdefghijkmnpqrstuvwxyz", "23456789", "!@#-_.?"];
+  const rnd = (n) => { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] % n; };
+  const all = sets.join("");
+  const chars = sets.map((x) => x[rnd(x.length)]);
+  while (chars.length < len) chars.push(all[rnd(all.length)]);
+  for (let i = chars.length - 1; i > 0; i--) { const j = rnd(i + 1); [chars[i], chars[j]] = [chars[j], chars[i]]; }
+  return chars.join("");
+}
+
+/** Parol maydoni ostida "Ishonchli parol yaratish" tugmasi: parolni yaratadi, ko'rsatadi va nusxalaydi */
+function pwGenerator(input) {
+  const btn = document.createElement("button");
+  btn.type = "button"; btn.className = "linkbtn pw-gen";
+  const paint = () => { btn.innerHTML = `${icon("key", 15)} ${esc(t("pw.generate"))}`; };
+  paint(); document.addEventListener("langchange", paint);
+  (input.closest(".field") || input.parentElement).append(btn);
+  btn.addEventListener("click", async () => {
+    const pw = strongPassword();
+    input.value = pw; input.type = "text";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    try { await navigator.clipboard.writeText(pw); toast(t("pw.generated_copied"), "ok"); } catch { toast(t("pw.generated"), "ok"); }
+  });
 }
 
 /** Kod amal qilish muddati: "Kod 2:47 dan keyin eskiradi" — tugasa qizil va qayta so'rashni taklif qiladi */

@@ -129,7 +129,11 @@ async def admin_user_detail(request: Request):
             flags.append({"code": "warnings", "n": counts["warnings"]})
         if not u["email_verified"] and not u["phone_verified"]:
             flags.append({"code": "unverified", "n": 0})
-    return ok({"user": u, "renter": renter, "owner": owner, "cars": cars, "bookings": bookings, "payments": payments,
+        from .trust import docs_state
+        docs = docs_state(db, uid)
+        cards = rows(db.execute("SELECT brand, last4, exp_month, exp_year, is_default FROM user_cards WHERE user_id = ?", (uid,)))
+        admins = db.execute("SELECT COUNT(*) FROM users WHERE role = 'admin' AND is_active = 1").fetchone()[0]
+    return ok({"docs": docs, "cards": cards, "admins_count": admins, "user": u, "renter": renter, "owner": owner, "cars": cars, "bookings": bookings, "payments": payments,
                "complaints_against": against, "complaints_by": by_user, "disputes": disputes, "reviews": reviews,
                "sessions": sessions, "notes": notes, "history": history, "counts": counts, "flags": flags})
 

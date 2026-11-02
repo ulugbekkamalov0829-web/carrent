@@ -16,7 +16,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from .config import settings
 from .db import init_db
 from .i18n import current_lang, detect_lang, tr
-from .routes import admin_users, advisor, analytics, auth, bookings, cars, dashboard, drill, ops, payments, smart, social
+from .routes import admin_users, advisor, analytics, auth, bookings, cars, dashboard, drill, rental, trust, ops, payments, smart, social
 from .utils import ApiValidationError
 
 log = logging.getLogger("carrent")
@@ -26,9 +26,9 @@ SECURITY_HEADERS = {
     b"x-content-type-options": b"nosniff",
     b"x-frame-options": b"DENY",
     b"referrer-policy": b"strict-origin-when-cross-origin",
-    b"permissions-policy": b"camera=(), microphone=(), geolocation=()",
+    b"permissions-policy": b"camera=(self), microphone=(), geolocation=(self)",
     b"content-security-policy": (
-        b"default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; "
+        b"default-src 'self'; img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org; style-src 'self' 'unsafe-inline'; "
         b"script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; "
         b"object-src 'none'; manifest-src 'self'; worker-src 'self'"
     ),
@@ -38,7 +38,7 @@ SECURITY_HEADERS = {
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 # To'lov provayderlari serverdan-serverga chaqiradi: ularda CSRF sarlavhasi yo'q, o'rniga imzo/parol tekshiriladi
 CSRF_EXEMPT = ("/api/payments/click", "/api/payments/payme", "/api/channels/eskiz/callback")
-UPLOAD_PATHS = ("/images", "/avatar")
+UPLOAD_PATHS = ("/images", "/avatar", "/documents", "/handover")
 
 
 class BodyTooLarge(Exception):
@@ -149,7 +149,7 @@ def create_app() -> Starlette:
     routes = [
         Route("/api/health", health),
         Route("/about.html", moved),
-        *auth.routes, *cars.routes, *bookings.routes, *social.routes, *dashboard.routes, *smart.routes, *payments.routes, *analytics.routes, *advisor.routes, *ops.routes, *drill.routes, *admin_users.routes,
+        *auth.routes, *cars.routes, *bookings.routes, *social.routes, *dashboard.routes, *smart.routes, *payments.routes, *analytics.routes, *advisor.routes, *ops.routes, *drill.routes, *admin_users.routes, *trust.routes, *rental.routes,
         Route("/api/{rest:path}", api_not_found, methods=["GET", "POST", "PUT", "PATCH", "DELETE"]),
         Mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads"),
         Mount("/", StaticFiles(directory=settings.STATIC_DIR, html=True), name="static"),

@@ -415,7 +415,7 @@ def test_dashboards():
     owner.post(f"/api/bookings/{b['id']}/approve", headers=H)
     od = owner.get("/api/dashboard/owner").json()
     assert (od["revenue_total"], od["commission_total"], od["payout_total"]) == (1_000_000, 100_000, 900_000)
-    assert od["bookings"]["approved"] == 1 and len(od["monthly"]) == 6 and od["per_car"][0]["id"] == car["id"]
+    assert od["bookings"]["approved"] == 1 and len(od["monthly"]) == 12 and len(od["daily"]) == 30 and od["per_car"][0]["id"] == car["id"]
     rd = renter.get("/api/dashboard/renter").json()
     assert rd["spent_total"] == 1_000_000 and rd["upcoming"]["id"] == b["id"]
 

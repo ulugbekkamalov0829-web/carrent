@@ -36,6 +36,7 @@
           <div class="field"><label for="seats" data-i18n="field.seats"></label><input class="input" type="number" id="seats" name="seats" min="1" max="20" value="5" required inputmode="numeric" data-hint="hint.seats"></div>
           <div class="field"><label for="color" data-i18n="field.color"></label><input class="input" id="color" name="color" maxlength="30" placeholder="Oq" data-hint="hint.color"></div>
         </div>
+        <div class="field" style="max-width:320px"><label for="plate" data-i18n="field.plate"></label><input class="input plate-input" id="plate" name="plate" maxlength="12" placeholder="01 A 123 BC" autocomplete="off" data-hint="hint.plate"></div>
       </section>
 
       <section data-pane="2" class="hidden">
@@ -63,6 +64,12 @@
           <div class="field"><label for="city" data-i18n="place.region"></label><select class="input" id="city" name="city" required data-hint="hint.city"></select></div>
           <div class="field"><label for="district" data-i18n="place.district"></label><select class="input" id="district" name="district" required data-hint="hint.district"></select></div>
         </div>
+        <div class="field"><label for="address" data-i18n="field.address"></label><input class="input" id="address" name="address" maxlength="160" data-i18n-placeholder="field.address_ph" data-hint="hint.address"></div>
+        <div class="field"><label data-i18n="map.pick_title"></label>
+          <div class="row" style="gap:8px;margin-bottom:8px"><button type="button" class="btn btn-soft btn-sm" id="myLoc"></button><button type="button" class="btn btn-outline btn-sm" id="clearLoc" data-i18n="map.clear"></button><span class="small muted" id="locInfo"></span></div>
+          <div class="map-box picker" id="pickMap"></div>
+          <div class="hint show" data-i18n="map.pick_hint"></div>
+          <input type="hidden" name="lat" id="lat"><input type="hidden" name="lng" id="lng"></div>
         <div class="field"><label for="description" data-i18n="field.description"></label><textarea class="input" id="description" name="description" maxlength="2000" data-i18n-placeholder="form.desc_ph" data-hint="hint.description"></textarea><div class="small muted counter" id="descCount"></div></div>
       </section>
 
@@ -81,6 +88,17 @@
           <div class="field"><label class="check" style="margin-bottom:8px"><input type="checkbox" id="hasDelivery"><span data-i18n="field.delivery"></span></label>
             <input class="input" data-money inputmode="numeric" type="text" id="delivery_price" name="delivery_price" data-i18n-placeholder="field.delivery_price" disabled data-hint="hint.delivery"></div>
         </div>
+        <h3 style="margin-top:8px" data-i18n="form.fuel_rules"></h3>
+        <div class="grid-2">
+          <div class="field"><label for="fuel_policy" data-i18n="field.fuel_policy"></label>
+            <select class="input" id="fuel_policy" name="fuel_policy" data-hint="hint.fuel_policy"><option value="same" data-i18n="fuel_policy.same"></option><option value="full" data-i18n="fuel_policy.full"></option></select></div>
+          <div class="field"><label for="extra_km_price" data-i18n="field.extra_km_price"></label><input class="input" data-money inputmode="numeric" type="text" id="extra_km_price" name="extra_km_price" placeholder="2 000" data-hint="hint.extra_km_price"></div>
+        </div>
+        <div class="grid-2">
+          <div class="field"><label for="tank_l" data-i18n="field.tank_l"></label><input class="input" type="number" id="tank_l" name="tank_l" min="10" max="200" placeholder="60" inputmode="numeric" data-hint="hint.tank_l"></div>
+          <div class="field"><label for="fuel_price" data-i18n="field.fuel_price"></label><input class="input" data-money inputmode="numeric" type="text" id="fuel_price" name="fuel_price" placeholder="12 000" data-hint="hint.fuel_price"></div>
+        </div>
+        <label class="check field"><input type="checkbox" id="require_docs" name="require_docs"><span data-i18n="field.require_docs"></span></label>
         <div class="notice info" id="commissionNote"></div>
       </section>
 
@@ -118,6 +136,7 @@
   </div>
 </main>
 <script src="/js/app.js"></script>
+<script src="/js/map.js"></script>
 <script src="/js/pages/car-form.js"></script>
 </body>
 </html>

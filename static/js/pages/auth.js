@@ -85,6 +85,7 @@
   // ---- Parol qoidalari: har bir bajarilgan shart yashil bo'ladi ----
   const regPw = pwChecklist($("#rPassword"), { compact: true });
   const resetPw = pwChecklist($("#fPass"), { compact: true });
+  pwGenerator($("#rPassword")); pwGenerator($("#fPass"));
   document.addEventListener("langchange", () => paintChannel());
 
   // ---- Xato ko'rsatish ----
@@ -183,11 +184,27 @@
     $("#fStep2").classList.add("hidden"); $("#fStep1").classList.remove("hidden");
     $("#fChanNote").classList.add("hidden"); clearInterval($("#fTimer")._timer);
     fOtp?.clear(); $("#fPass").value = ""; $("#fPass").dispatchEvent(new Event("input"));
+    showCodePart();
   }
+  /** Tiklash ikki qadamda: avval kod tekshiriladi, to'g'ri bo'lsa — yangi parol oynasi */
+  function showCodePart() { $("#fCodePart").classList.remove("hidden"); $("#fPwPart").classList.add("hidden"); $("#fResend").classList.remove("hidden"); }
+  $("#fOkIco").innerHTML = icon("check", 16);
+  async function checkCode() {
+    if (fOtp.value.length !== 6) { fOtp.error(); toast(t("val.code"), "error"); return; }
+    await withLoading($("#fCheck"), async () => {
+      try {
+        await api("/api/auth/reset/check", { method: "POST", body: { login: resetLogin, code: fOtp.value } });
+        $("#fCodePart").classList.add("hidden"); $("#fPwPart").classList.remove("hidden"); $("#fResend").classList.add("hidden");
+        $("#fSentTo").textContent = t("forgot.new_pw_sub");
+        setTimeout(() => $("#fPass").focus(), 60);
+      } catch (err) { fOtp.error(); toast(err.message, "error"); }
+    });
+  }
+  $("#fCheck").addEventListener("click", checkCode);
   $("#fOther").addEventListener("click", () => { resetForgot(); $("#fLogin").focus(); });
   $$("#fChannel button").forEach((b) => b.addEventListener("click", () => { setChannel(b.dataset.ch); $("#fLogin").value = ""; $("#fLogin").focus(); }));
   paintChannel();
-  var fOtp = otpField($("#fOtp"), () => $("#fPass").focus());
+  var fOtp = otpField($("#fOtp"), () => checkCode());
 
   async function requestCode(btn) {
     const v = $("#fLogin").value.trim();
@@ -202,7 +219,7 @@
         $("#fSentTo").textContent = t(channel === "email" ? "forgot.sent_email" : "forgot.sent_sms", { to: v, min: r.ttl_min });
         $("#fChanNote").textContent = t(channel === "email" ? "chan.not_real_email" : "chan.not_real_sms");
         $("#fChanNote").classList.toggle("hidden", !!r.real);
-        $("#fStep1").classList.add("hidden"); $("#fStep2").classList.remove("hidden");
+        $("#fStep1").classList.add("hidden"); $("#fStep2").classList.remove("hidden"); showCodePart();
         codeTimer($("#fTimer"), r.ttl_sec || r.ttl_min * 60);
         cooldown($("#fResend"), r.resend_sec || 60, "otp.resend"); fOtp.clear(); setTimeout(() => fOtp.focus(), 60);
         return true;
@@ -220,7 +237,10 @@
         const { user } = await api("/api/auth/reset", { method: "POST", body: { login: resetLogin, code: fOtp.value, new_password: $("#fPass").value } });
         toast(t("forgot.done"), "ok");
         location.href = home(user);
-      } catch (err) { if (err.status === 400) fOtp.error(); showFieldErrors($("#resetForm"), err); toast(err.message, "error"); }
+      } catch (err) {
+        showFieldErrors($("#resetForm"), err); toast(err.message, "error");
+        if (err.status === 400 && !err.errors?.length) { showCodePart(); fOtp.clear(); fOtp.error(); }   // kod eskirgan bo'lsa — qaytadan
+      }
     });
   });
 

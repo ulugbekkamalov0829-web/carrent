@@ -16,8 +16,8 @@
     $("#viewSub").textContent = "";
     view.onclick = null; view.onsubmit = null;
     view.innerHTML = `<div class="skeleton" style="height:240px"></div>`;
-    const arg = { users: () => new URLSearchParams(route.sub ? { kind: route.sub } : {}), bookings: () => route.sub, cars: () => new URLSearchParams(route.sub ? { state: route.sub } : {}) }[tab]?.();
-    ({ stats, users, cars, bookings, payments, reports, reviews, finance, audit, disputes, channels, analytics: () => Reports.render(view, "admin") })[tab](arg).catch((e) => (view.innerHTML = `<div class="empty card">${esc(e.message)}</div>`));
+    const arg = { users: () => new URLSearchParams(route.sub ? { kind: route.sub } : {}), bookings: () => route.sub, documents: () => route.sub || "pending", contracts: () => route.sub || "signed", cars: () => new URLSearchParams(route.sub ? { state: route.sub } : {}) }[tab]?.();
+    ({ stats, users, cars, bookings, payments, reports, reviews, finance, audit, disputes, channels, documents, contracts, analytics: () => Reports.render(view, "admin") })[tab](arg).catch((e) => (view.innerHTML = `<div class="empty card">${esc(e.message)}</div>`));
   }
   window.addEventListener("hashchange", route);
   document.addEventListener("langchange", route);
@@ -33,27 +33,71 @@
     const s = await api("/api/admin/stats");
     $("#viewSub").textContent = t("admin.real_data");
     const total = Object.values(s.bookings).reduce((a, x) => a + x, 0);
-    view.innerHTML = `<p class="drill-note">${icon("info", 14)} ${esc(t("drill.note"))}</p><div class="stats">
-        ${stat(t("admin.users_total"), s.users.total, esc(t("admin.users_sub", { a: s.users.owners, b: s.users.renters, c: s.users.new_week })), A("users", t("admin.users_total"), { kind: "all" }), t("hint.users_total"))}
-        ${stat(t("admin.active_30"), s.users.active_30d, esc(t("admin.active_sub")), A("users", t("admin.active_30"), { kind: "active" }), t("hint.active_30"))}
-        ${stat(t("admin.cars_active"), s.cars.active, esc(t("admin.cars_sub", { n: s.cars.total, h: s.cars.hidden })), A("cars", t("admin.cars_active"), { state: "active" }), t("hint.cars_active"))}
-        ${stat(t("admin.bookings_total"), total, esc(t("admin.pending_n", { n: s.bookings.pending })), A("bookings", t("admin.bookings_total")), t("hint.bookings_total"))}
-        ${stat(t("admin.gmv"), money(s.revenue_total), esc(t("admin.gmv_sub")), A("bookings", t("admin.gmv"), { status: "done" }), t("hint.gmv"))}
-        ${stat(t("admin.commission_income"), money(s.commission_total), esc(t("admin.commission_rate", { pct: s.commission_bps / 100 })), A("bookings", t("admin.commission_income"), { status: "done" }), t("hint.commission"))}
-        ${stat(t("admin.reviews_total"), s.reviews.cnt, s.reviews.avg ? `★ ${s.reviews.avg}` : "", A("reviews", t("admin.reviews_total")), t("hint.reviews"))}
-        ${stat(t("admin.blocked"), s.users.blocked, esc(t("admin.blocked_sub")), A("users", t("admin.blocked"), { kind: "blocked" }), t("hint.blocked"))}
-        ${stat(t("admin.reports_new"), s.reports_new, esc(s.reports_new ? t("dash.open") : t("owner.all_done")), "#reports", t("hint.reports_new"))}
-        ${stat(t("admin.paid_online"), money(s.paid_online), s.refunds_pending ? esc(t("admin.refunds_n", { n: s.refunds_pending })) : "", A("payments", t("admin.paid_online")), t("hint.paid_online"))}
+    const months = t("cal.months_short").split(",");
+    const mrev = s.monthly.map((m) => m.revenue), mcnt = s.monthly.map((m) => m.count), growth = s.user_growth.map((g) => g.count);
+    const series = {
+      week: s.daily.slice(-7).map((d) => ({ k: d.day, v: d.revenue, n: d.count, label: fmtDate(d.day).slice(0, 5) })),
+      month: s.daily.map((d) => ({ k: d.day, v: d.revenue, n: d.count, label: fmtDate(d.day).slice(0, 5) })),
+      year: s.monthly.map((m) => ({ k: m.month, v: m.revenue, n: m.count, label: months[+m.month.slice(5) - 1] })),
+    };
+    let period = (() => { try { return localStorage.getItem("adm.period") || "year"; } catch { return "year"; } })();
+    const chartDrill = (p) => A("bookings", `${t("admin.revenue_chart")}: ${p.label}`, { status: "done", ...(p.k.length === 7 ? { month: p.k } : { day: p.k }) });
+    view.innerHTML = `<p class="drill-note">${icon("info", 14)} ${esc(t("drill.note"))}</p>
+      <div class="kpi-row">
+        ${kpiCard({ label: t("admin.users_total"), value: s.users.total, icon: "users", tone: "blue", trend: s.users.total > growth[growth.length - 1] ? (100 * growth[growth.length - 1]) / (s.users.total - growth[growth.length - 1]) : null,
+          sub: esc(t("admin.users_sub", { a: s.users.owners, b: s.users.renters, c: s.users.new_week })), href: A("users", t("admin.users_total"), { kind: "all" }) })}
+        ${kpiCard({ label: t("admin.cars_active"), value: s.cars.active, icon: "car", tone: "green", sub: `<span class="warn-ink">${esc(t("admin.cars_sub", { n: s.cars.total, h: s.cars.hidden }))}</span>`, href: A("cars", t("admin.cars_active"), { state: "active" }) })}
+        ${kpiCard({ label: t("admin.bookings_total"), value: total, icon: "calendar", tone: "orange", trend: trendPct(mcnt), sub: `<span class="info-ink">${esc(t("admin.pending_n", { n: s.bookings.pending }))}</span>`, href: A("bookings", t("admin.bookings_total")) })}
+        ${kpiCard({ label: t("admin.gmv"), value: money(s.revenue_total), icon: "dollar", tone: "purple", trend: trendPct(mrev), sub: esc(t("admin.vs_last_month")), href: A("bookings", t("admin.gmv"), { status: "done" }) })}
       </div>
-      <div class="two-col">
-        <div class="card card-pad"><h3>${esc(t("admin.monthly"))}</h3>${revenueChart(s.monthly, { drill: (m) => A("bookings", `${t("admin.monthly")}: ${m.month}`, { status: "done", month: m.month }) })}</div>
-        <div class="card card-pad"><h3>${esc(t("owner.statuses"))}</h3>${statusBars(s.bookings, (k) => A("bookings", `${t("owner.statuses")}: ${t("status." + k)}`, { status: k }))}</div>
+      <div class="stats small-stats">
+        ${stat(t("admin.active_30"), s.users.active_30d, esc(t("admin.active_sub")), A("users", t("admin.active_30"), { kind: "active" }), t("hint.active_30"))}
+        ${stat(t("admin.commission_income"), money(s.commission_total), esc(t("admin.commission_rate", { pct: s.commission_bps / 100 })), A("bookings", t("admin.commission_income"), { status: "done" }), t("hint.commission"))}
+        ${stat(t("admin.paid_online"), money(s.paid_online), s.refunds_pending ? esc(t("admin.refunds_n", { n: s.refunds_pending })) : "", A("payments", t("admin.paid_online")), t("hint.paid_online"))}
+        ${stat(t("admin.reviews_total"), s.reviews.cnt, s.reviews.avg ? `★ ${s.reviews.avg}` : "", A("reviews", t("admin.reviews_total")), t("hint.reviews"))}
+        ${stat(t("admin.reports_new"), s.reports_new, esc(s.reports_new ? t("dash.open") : t("owner.all_done")), "#reports", t("hint.reports_new"))}
+        ${stat(t("admin.blocked"), s.users.blocked, esc(t("admin.blocked_sub")), A("users", t("admin.blocked"), { kind: "blocked" }), t("hint.blocked"))}
+      </div>
+      <div class="dash-grid">
+        <div class="card card-pad"><div class="card-head"><h3>${esc(t("admin.revenue_chart"))}</h3>
+          <div class="seg small-seg" id="perSeg">${["week", "month", "year"].map((k) => `<button type="button" data-per="${k}" class="${k === period ? "on" : ""}">${esc(t("per." + k))}</button>`).join("")}</div></div>
+          <div id="areaBox"></div></div>
+        <div class="card card-pad"><div class="card-head"><h3>${esc(t("admin.queue"))} ${s.queue.length ? `<span class="cnt-badge">${s.queue.length}</span>` : ""}</h3></div>
+          ${s.queue.length ? `<div class="queue">${s.queue.map((q) => q.kind === "contract" ? `<div class="q-item">
+              <span class="q-thumb">${carImage({ id: q.car_id, brand: q.brand, model: q.model, cover: q.cover })}</span>
+              <div class="q-info"><b>${esc(q.brand)} ${esc(q.model)} ${q.year}</b><div class="small muted">${esc(t("ctr.short"))} ${esc(q.title)} · ${esc(q.who)}</div></div>
+              <span class="small muted q-date">${fmtDate(q.at).slice(0, 5)}</span>
+              <div class="q-acts"><button class="btn btn-sm btn-ok" data-qctr="${q.id}">${esc(t("admin.approve"))}</button><a class="btn btn-sm btn-outline" href="/contract.html?booking=${q.booking_id}">${esc(t("ctr.open"))}</a></div></div>`
+            : `<div class="q-item"><span class="q-thumb user">${avatarHtml({ full_name: q.who, avatar: q.avatar })}</span>
+              <div class="q-info"><b><a href="#user/${q.user_id}">${esc(q.who)}</a></b><div class="small muted">${esc(t("docs.k_" + q.title))}</div></div>
+              <span class="small muted q-date">${fmtDate(q.at).slice(0, 5)}</span>
+              <div class="q-acts"><a class="btn btn-sm btn-ok" href="#documents/pending">${esc(t("docs.check"))}</a></div></div>`).join("")}</div>`
+            : `<div class="empty small">${icon("check", 18)} ${esc(t("admin.queue_empty"))}</div>`}</div>
       </div>
       <div class="two-col" style="margin-top:18px">
-        <div class="card card-pad"><h3>${esc(t("admin.by_city"))}</h3>${hbars(s.by_city, { label: (r) => r.city, value: (r) => r.bookings, drill: (r) => A("bookings", `${t("admin.by_city")}: ${r.city}`, { city: r.city }) })}</div>
+        <div class="card card-pad"><h3>${esc(t("owner.statuses"))}</h3>${statusBars(s.bookings, (k) => A("bookings", `${t("owner.statuses")}: ${t("status." + k)}`, { status: k }))}
+          <h3 style="margin-top:18px">${esc(t("admin.by_city"))}</h3>${hbars(s.by_city, { label: (r) => r.city, value: (r) => r.bookings, drill: (r) => A("bookings", `${t("admin.by_city")}: ${r.city}`, { city: r.city }) })}</div>
         <div class="card card-pad"><h3>${esc(t("admin.by_body"))}</h3>${hbars(s.by_body, { label: (r) => t("body." + r.body_type), value: (r) => r.bookings, drill: (r) => A("bookings", `${t("admin.by_body")}: ${t("body." + r.body_type)}`, { body: r.body_type }) })}
           <h3 style="margin-top:18px">${esc(t("admin.growth"))}</h3>${hbars(s.user_growth.slice(-6), { label: (r) => r.month, value: (r) => r.count, color: "var(--success)", drill: (r) => A("users", `${t("admin.growth")}: ${r.month}`, { month: r.month }) })}</div>
-      </div>`;
+      </div>
+      <div class="card" style="margin-top:18px"><div class="card-pad card-head" style="padding-bottom:0"><h3>${esc(t("admin.users_manage"))}</h3><a href="#users" class="small">${esc(t("admin.see_all"))} →</a></div>
+        <div class="table-wrap"><table class="table responsive users-table"><thead><tr><th>${esc(t("col.user"))}</th><th>${esc(t("field.phone"))}</th><th>${esc(t("col.bookings"))}</th><th>${esc(t("col.status"))}</th><th></th></tr></thead><tbody>
+        ${s.latest_users.map((u) => `<tr><td data-label="${esc(t("col.user"))}"><a class="u-cell" href="#user/${u.id}">${avatarHtml(u)}<span><b>${esc(u.full_name)}</b><span class="small muted">${esc(u.email)}</span></span></a></td>
+          <td data-label="${esc(t("field.phone"))}">${esc(u.phone ? fmtPhone(u.phone) : "—")}</td><td data-label="${esc(t("col.bookings"))}">${u.bookings}</td>
+          <td data-label="${esc(t("col.status"))}">${u.is_active ? `<span class="tag tag-ok">${esc(t("admin.active"))}</span>` : `<span class="tag tag-hidden">${esc(t("admin.blocked_one"))}</span>`}</td>
+          <td><a class="icon-btn ghost" href="#user/${u.id}" aria-label="${esc(t("uadm.manage"))}" title="${esc(t("uadm.manage"))}">${icon("dots", 18)}</a></td></tr>`).join("")}</tbody></table></div></div>`;
+    const drawArea = () => { $("#areaBox").innerHTML = areaChart(series[period], { drill: chartDrill }); };
+    drawArea();
+    $("#perSeg").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-per]"); if (!b) return;
+      period = b.dataset.per; try { localStorage.setItem("adm.period", period); } catch {}
+      $$("#perSeg button").forEach((x) => x.classList.toggle("on", x === b)); drawArea();
+    });
+    view.onclick = async (e) => {
+      const qc = e.target.closest("[data-qctr]"); if (!qc) return;
+      if (!(await confirmBox(t("ctr.approve_confirm"), t("admin.approve")))) return;
+      try { await api(`/api/admin/contracts/${qc.dataset.qctr}/approve`, { method: "POST" }); toast(t("ctr.approved"), "ok"); pollSummary(); stats(); } catch (err) { toast(err.message, "error"); }
+    };
   }
 
   async function users(p = new URLSearchParams()) {
@@ -76,6 +120,76 @@
     for (const [k, v] of p) { const el = $(`#search [name=${k}]`); if (el) el.value = v; }
     onSearch(users);
     if (!items.length) view.insertAdjacentHTML("beforeend", `<div class="empty card">${esc(t("admin.no_users"))}</div>`);
+  }
+
+  // ---------------- Hujjatlar (haydovchilik guvohnomasi, pasport/ID, selfi) ----------------
+  async function documents(status = "pending") {
+    $("#viewSub").textContent = t("docs.admin_sub");
+    const d = await api("/api/admin/documents?status=" + status);
+    const tabs = ["pending", "approved", "rejected"];
+    view.innerHTML = `<div class="row" style="gap:6px;margin-bottom:12px">${tabs.map((k) => `<a class="btn btn-sm ${k === status ? "" : "btn-outline"}" href="#documents/${k}">${esc(t("docs.st_" + k))}${d.counts[k] ? ` (${d.counts[k]})` : ""}</a>`).join("")}</div>
+      <div class="card card-pad small" style="margin-bottom:14px">${icon("info", 15)} ${esc(t("docs.admin_how"))}</div>
+      ${d.items.length ? `<div class="adm-docs">${d.items.map((x) => `<article class="card adm-doc">
+        <div class="adm-doc-head">${avatarHtml(x)}<div><a href="#user/${x.user_id}"><b>${esc(x.full_name)}</b></a><div class="small muted">${esc(x.email)}${x.phone ? ` · ${esc(fmtPhone(x.phone))}` : ""} · ${esc(t("docs.bookings_n", { n: x.bookings }))}</div></div>
+          <span class="tag tag-info">${esc(t("docs.k_" + x.kind))}</span></div>
+        <div class="doc-meta small">${x.number_mask ? `<span>№ ${esc(x.number_mask)}</span>` : ""}${x.categories ? `<span>${esc(t("docs.cat"))}: ${esc(x.categories)}</span>` : ""}${x.expires_on ? `<span>${esc(t("docs.until"))}: ${fmtDate(x.expires_on)}</span>` : ""}<span>${esc(fmtDate(x.created_at))}</span></div>
+        <div class="doc-thumbs big">${x.files.map((f, i) => `<button type="button" data-lb="${x.id}" data-i="${i}"><img src="/api/files/${esc(f)}" alt="" loading="lazy"></button>`).join("")}</div>
+        ${x.reject_reason ? `<div class="notice small">${esc(x.reject_reason)}</div>` : ""}
+        ${status === "pending" ? `<div class="row" style="gap:8px;margin-top:10px"><button class="btn btn-sm btn-ok" data-dok="${x.id}">${icon("check", 15)} ${esc(t("docs.approve"))}</button>
+          <button class="btn btn-sm btn-danger" data-dno="${x.id}">${esc(t("docs.reject"))}</button></div>` : ""}</article>`).join("")}</div>`
+        : `<div class="empty card">${esc(t("docs.none"))}</div>`}`;
+    view.onclick = async (e) => {
+      const lb = e.target.closest("[data-lb]"), okb = e.target.closest("[data-dok]"), no = e.target.closest("[data-dno]");
+      if (lb) { const x = d.items.find((i) => i.id === +lb.dataset.lb); lightbox(x.files.map((f) => ({ path: "/api/files/" + f })), +lb.dataset.i); return; }
+      try {
+        if (okb && await confirmBox(t("docs.approve_q"), t("docs.approve"))) { await api(`/api/admin/documents/${okb.dataset.dok}/review`, { method: "POST", body: { approve: true } }); toast(t("common.done"), "ok"); pollSummary(); documents(status); }
+        if (no) {
+          const r = await reasonModal({ title: t("docs.reject"), label: t("docs.reject_reason"), danger: true, okText: t("docs.reject") });
+          if (!r) return;
+          await api(`/api/admin/documents/${no.dataset.dno}/review`, { method: "POST", body: { approve: false, reason: r.reason } }); toast(t("common.done"), "ok"); pollSummary(); documents(status);
+        }
+      } catch (err) { toast(err.message, "error"); }
+    };
+  }
+
+  // ---------------- Elektron shartnomalar va shablon ----------------
+  async function contracts(status = "signed") {
+    $("#viewSub").textContent = t("ctr.admin_sub");
+    if (status === "template") return contractTemplate();
+    const d = await api("/api/admin/contracts?status=" + status);
+    const tabs = [["signed", "ctr.st_signed"], ["pending", "ctr.st_pending"], ["approved", "ctr.st_approved"], ["all", "common.all"], ["template", "ctr.template"]];
+    view.innerHTML = `<div class="row" style="gap:6px;margin-bottom:12px">${tabs.map(([k, key]) => `<a class="btn btn-sm ${k === status ? "" : "btn-outline"}" href="#contracts/${k}">${k === "template" ? icon("pen", 14) + " " : ""}${esc(t(key))}${d.counts[k] ? ` (${d.counts[k]})` : ""}</a>`).join("")}</div>
+      ${d.items.length ? `<div class="card">${d.items.map((c) => `<div class="list-item">
+        <a class="thumb" href="/car.html?id=${c.car_id}">${carImage({ id: c.car_id, brand: c.brand, model: c.model, cover: c.cover })}</a>
+        <div><div class="row" style="gap:8px"><b>${esc(c.number)}</b><span class="tag ${c.status === "approved" ? "tag-ok" : c.status === "signed" ? "tag-info" : "tag-pending"}">${esc(t("ctr.st_" + c.status))}</span></div>
+          <div class="small">${esc(c.brand)} ${esc(c.model)} ${c.year} · ${fmtDate(c.start_date)} → ${fmtDate(c.end_date)} · ${money(c.total_price)}</div>
+          <div class="small muted">${esc(t("ctr.owner"))}: <a href="#user/${c.owner_id}">${esc(c.owner_name)}</a> ${c.owner_signed_at ? "✓" : "…"} · ${esc(t("ctr.renter"))}: <a href="#user/${c.renter_id}">${esc(c.renter_name)}</a> ${c.renter_signed_at ? "✓" : "…"}</div></div>
+        <div class="actions"><a class="btn btn-sm ${c.status === "signed" ? "" : "btn-outline"}" href="/contract.html?booking=${c.booking_id}">${icon("doc", 15)} ${esc(t(c.status === "signed" ? "ctr.review_approve" : "ctr.open"))}</a></div></div>`).join("")}</div>`
+        : `<div class="empty card">${esc(t("ctr.none"))}</div>`}`;
+  }
+
+  async function contractTemplate() {
+    const d = await api("/api/admin/contract-template");
+    view.innerHTML = `<div class="row" style="gap:6px;margin-bottom:12px"><a class="btn btn-sm btn-outline" href="#contracts/signed">← ${esc(t("ctr.admin_tab"))}</a></div>
+      <div class="tpl-editor">
+        <div class="card card-pad"><h3>${icon("pen", 18)} ${esc(t("ctr.template"))} ${d.is_default ? `<span class="tag tag-hidden">${esc(t("ctr.tpl_default"))}</span>` : ""}</h3>
+          <p class="small muted">${esc(t("ctr.tpl_help"))}</p>
+          <div class="ph-chips">${d.placeholders.map((p) => `<button type="button" class="chip-btn" data-ph="${p}">{${p}}</button>`).join("")}</div>
+          <textarea class="input tpl-text" id="tplText" spellcheck="false">${esc(d.template)}</textarea>
+          <div class="row" style="gap:8px;margin-top:10px"><button class="btn" id="tplSave">${esc(t("common.save"))}</button>
+            <button class="btn btn-outline" id="tplReset">${esc(t("ctr.tpl_reset"))}</button><span class="small muted">${esc(t("ctr.tpl_note"))}</span></div></div>
+        <div class="card card-pad"><h3>${esc(t("ctr.tpl_preview"))}</h3><div class="contract-paper mini" id="tplPrev"></div></div></div>`;
+    const ta = $("#tplText");
+    const prev = () => { $("#tplPrev").innerHTML = ContractDoc.body(ta.value); };
+    prev(); ta.addEventListener("input", prev);
+    view.onclick = async (e) => {
+      const ph = e.target.closest("[data-ph]");
+      if (ph) { const s0 = ta.selectionStart, v = `{${ph.dataset.ph}}`; ta.setRangeText(v, s0, ta.selectionEnd, "end"); ta.focus(); prev(); return; }
+      try {
+        if (e.target.closest("#tplSave")) { await api("/api/admin/contract-template", { method: "PUT", body: { template: ta.value } }); toast(t("common.saved"), "ok"); }
+        if (e.target.closest("#tplReset") && await confirmBox(t("ctr.tpl_reset_q"), t("common.yes"))) { ta.value = d.default; prev(); }
+      } catch (err) { toast(err.message, "error"); }
+    };
   }
 
   // ---------------- Bitta foydalanuvchi: to'liq ma'lumot va boshqaruv ----------------
@@ -123,14 +237,16 @@
             <div class="small muted" style="margin-top:6px">${icon("mail", 14)} ${esc(u.email)} ${u.phone ? `· ${icon("phone", 14)} ${esc(fmtPhone(u.phone))}` : ""}
               ${u.region ? `· ${esc(Places.label(u.region, u.district))}` : ""}</div>
             <div class="small muted">${esc(t("uadm.registered", { d: fmtDate(u.created_at) }))} · ${esc(u.last_seen ? t("uadm.last_seen", { d: timeAgo(u.last_seen) }) : t("uadm.never_seen"))}${u.deleted_at ? ` · <b>${esc(t("uadm.deleted"))}</b>` : ""}</div></div></div>
-        ${isAdmin ? "" : `<div class="uadm-actions">
+        ${isAdmin ? (u.id !== Auth.user.id ? `<div class="uadm-actions">${btn("remove_admin", "uadm.remove_admin", "btn-outline", "shield")}</div>` : "") : `<div class="uadm-actions">
           ${blocked ? btn("unblock", "admin.unblock", "btn-ok", "check") : btn("block", "admin.block", "btn-danger", "lock")}
           ${btn("warn", "uadm.warn", "btn-outline", "flag")} ${btn("note", "uadm.note", "btn-outline", "log")}
           <a class="btn btn-sm btn-outline" href="/messages.html?user=${u.id}">${icon("chat", 16)} ${esc(t("uadm.message"))}</a>
           ${btn("logout_all", "uadm.logout_all", "btn-outline", "logout")}
           ${btn(u.email_verified ? "unverify_email" : "verify_email", u.email_verified ? "uadm.unverify_email" : "uadm.verify_email")}
           ${btn(u.phone_verified ? "unverify_phone" : "verify_phone", u.phone_verified ? "uadm.unverify_phone" : "uadm.verify_phone")}
-          ${O ? btn(O.cars_active ? "hide_cars" : "restore_cars", O.cars_active ? "uadm.hide_cars" : "uadm.restore_cars", "btn-outline", "car") : ""}</div>`}
+          ${O ? btn(O.cars_active ? "hide_cars" : "restore_cars", O.cars_active ? "uadm.hide_cars" : "uadm.restore_cars", "btn-outline", "car") : ""}
+          ${u.is_active ? btn("make_admin", "uadm.make_admin", "btn-outline", "shield") : ""}
+          ${btn("erase", "uadm.erase", "btn-danger", "trash")}</div>`}
       </div>
       ${d.flags.length ? `<div class="uadm-flags">${d.flags.map((f) => `<span class="uflag f-${f.code}">${icon("flag", 14)} ${esc(t("uadm.f_" + f.code, { n: f.code === "fee_owed" ? money(f.n) : f.n }))}</span>`).join("")}</div>` : ""}
       <div class="stats">
@@ -176,9 +292,16 @@
             <form id="noteForm" class="row" style="gap:8px;margin-bottom:12px;flex-wrap:nowrap"><input class="input" name="reason" maxlength="1000" placeholder="${esc(t("uadm.note_ph"))}"><button class="btn btn-sm">${esc(t("common.save"))}</button></form>
             ${d.notes.length ? `<div class="timeline">${d.notes.map((n) => `<div class="tl n-${n.kind}"><span class="tag ${n.kind === "warning" ? "tag-pending" : n.kind === "block" ? "tag-bad" : n.kind === "unblock" ? "tag-ok" : "tag-hidden"}">${esc(t("uadm.k_" + n.kind))}</span>
               <div>${esc(n.body)}</div><div class="small muted">${esc(n.author_name || "—")} · ${esc(n.created_at)}</div></div>`).join("")}</div>` : `<p class="muted small">${esc(t("uadm.no_notes"))}</p>`}</div>
+          <div class="stack">
+          <div class="card card-pad"><h3>${icon("idcard", 18)} ${esc(t("docs.title"))} <span class="tag ${d.docs.status === "verified" ? "tag-ok" : d.docs.status === "pending" ? "tag-pending" : d.docs.status === "rejected" ? "tag-bad" : "tag-hidden"}">${esc(t("docs.overall_" + d.docs.status))}</span></h3>
+            ${["license", "id_card", "selfie"].map((k) => { const x = d.docs.docs[k]; return `<div class="sum-row"><span>${esc(t("docs.k_" + k))}${x?.number_mask ? ` <span class="muted small">№ ${esc(x.number_mask)}</span>` : ""}</span>
+              <span>${x ? `<span class="tag ${x.status === "approved" ? "tag-ok" : x.status === "pending" ? "tag-pending" : "tag-bad"}">${esc(t("docs.st_" + x.status))}</span>` : `<span class="muted small">—</span>`}</span></div>`; }).join("")}
+            ${d.docs.status === "pending" ? `<a class="btn btn-sm" href="#documents/pending" style="margin-top:8px">${esc(t("docs.review_now"))}</a>` : ""}
+            ${d.cards.length ? `<div class="small muted" style="margin-top:8px">${icon("card", 14)} ${d.cards.map((c) => `${esc(c.brand.toUpperCase())} •••• ${esc(c.last4)}`).join(", ")}</div>` : ""}</div>
           <div class="card card-pad"><h3>${icon("bulb", 18)} ${esc(t("uadm.guide"))}</h3><ul class="uadm-guide">${["g1", "g2", "g3", "g4", "g5"].map((k) => `<li>${esc(t("uadm." + k))}</li>`).join("")}</ul>
             ${O ? `<h3 style="margin-top:16px">${esc(t("owner.statuses"))}</h3>${statusBars(O.statuses, (k) => A("bookings", `${u.full_name} (${t("notif.for_owner")}): ${t("status." + k)}`, { owner_id: u.id, status: k }))}` : ""}
             <h3 style="margin-top:16px">${esc(t("uadm.as_renter"))}</h3>${statusBars(R.statuses, (k) => A("bookings", `${u.full_name} (${t("notif.for_renter")}): ${t("status." + k)}`, { renter_id: u.id, status: k }))}</div>
+          </div>
         </div>`,
       bookings: () => bookingTable(d.bookings),
       cars: () => d.cars.length ? `<div class="uadm-cars">${d.cars.map((c) => `<div class="card uadm-car"><a class="car-thumb" href="/car.html?id=${c.id}" target="_blank" rel="noopener">${carImage(c)}</a>
@@ -230,6 +353,16 @@
       const ut = e.target.closest("[data-ut]"); if (ut) return showTab(ut.dataset.ut);
       const act = e.target.closest("[data-act]"), bc = e.target.closest("[data-bcancel]"), car = e.target.closest("[data-approve]"), rev = e.target.closest("[data-rev]");
       try {
+        if (act && ["make_admin", "remove_admin"].includes(act.dataset.act)) {
+          const role = act.dataset.act === "make_admin" ? "admin" : "user";
+          if (!(await confirmBox(t(role === "admin" ? "uadm.make_admin_q" : "uadm.remove_admin_q", { name: u.full_name }), t("common.yes"), role === "admin"))) return;
+          await api(`/api/admin/users/${id}/role`, { method: "POST", body: { role } }); toast(t("common.done"), "ok"); return reload();
+        }
+        if (act && act.dataset.act === "erase") {
+          if (!(await confirmBox(t("uadm.erase_q", { name: u.full_name }), t("uadm.erase"), true))) return;
+          const r = await api(`/api/admin/users/${id}/erase`, { method: "POST" });
+          toast(t(r.mode === "deleted" ? "uadm.erased_full" : "uadm.erased_anon"), "ok"); location.hash = "#users"; return;
+        }
         if (act) {
           const a = act.dataset.act;
           let body = { action: a };

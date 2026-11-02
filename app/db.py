@@ -348,6 +348,85 @@ CREATE TABLE IF NOT EXISTS admin_notes (
     created_at TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS ix_admin_notes_user ON admin_notes(user_id, created_at);
+
+-- v7: bank kartalari. To'liq karta raqami va CVV HECH QACHON saqlanmaydi — faqat turi, birinchi 6 va oxirgi 4 raqam.
+-- Haqiqiy kartani "bog'lash" (pul yechish) Payme/Click karta tokeni orqali qilinadi; bu yerda faqat qaysi karta ekani.
+CREATE TABLE IF NOT EXISTS user_cards (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    brand      TEXT    NOT NULL,                 -- uzcard | humo | visa | mastercard | other
+    first6     TEXT    NOT NULL CHECK (length(first6) = 6),
+    last4      TEXT    NOT NULL CHECK (length(last4) = 4),
+    exp_month  INTEGER NOT NULL CHECK (exp_month BETWEEN 1 AND 12),
+    exp_year   INTEGER NOT NULL,
+    holder     TEXT,
+    is_default INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (user_id, first6, last4, exp_month, exp_year)
+);
+
+-- v7: shaxsni va haydovchilikni tasdiqlash hujjatlari. Fayllar ochiq papkada emas (faqat egasi va admin ko'radi).
+CREATE TABLE IF NOT EXISTS user_documents (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind         TEXT    NOT NULL CHECK (kind IN ('license', 'id_card', 'selfie')),
+    files        TEXT    NOT NULL DEFAULT '[]',   -- maxfiy fayl nomlari (JSON)
+    number_mask  TEXT,                            -- masalan: AF ***4567 (to'liq raqam saqlanmaydi)
+    categories   TEXT,                            -- guvohnoma toifalari: B, C ...
+    expires_on   TEXT,
+    status       TEXT    NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    reject_reason TEXT,
+    reviewed_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    reviewed_at  TEXT,
+    created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS ix_docs_user ON user_documents(user_id, kind, status);
+
+-- v7: qabul-topshirish dalolatnomasi: olishda (pickup) va qaytarishda (return) mashina holati
+CREATE TABLE IF NOT EXISTS handovers (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    booking_id   INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+    kind         TEXT    NOT NULL CHECK (kind IN ('pickup', 'return')),
+    odometer_km  INTEGER NOT NULL CHECK (odometer_km >= 0),
+    fuel_pct     INTEGER NOT NULL CHECK (fuel_pct BETWEEN 0 AND 100),
+    clean        INTEGER NOT NULL DEFAULT 1,
+    damage       INTEGER NOT NULL DEFAULT 0,
+    notes        TEXT,
+    photos       TEXT    NOT NULL DEFAULT '[]',
+    created_by   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+    confirmed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    confirmed_at TEXT,
+    objection    TEXT,
+    UNIQUE (booking_id, kind)
+);
+
+-- v7: elektron ijara shartnomasi (har bir tasdiqlangan bron uchun bittadan)
+CREATE TABLE IF NOT EXISTS contracts (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    booking_id       INTEGER NOT NULL UNIQUE REFERENCES bookings(id) ON DELETE CASCADE,
+    number           TEXT    NOT NULL UNIQUE,
+    body             TEXT    NOT NULL,           -- bron paytidagi to'liq matn (keyin shablon o'zgarsa ham bu o'zgarmaydi)
+    body_hash        TEXT    NOT NULL,           -- SHA-256: matn o'zgartirilmaganini isbotlaydi
+    verify_token     TEXT    NOT NULL UNIQUE,
+    status           TEXT    NOT NULL DEFAULT 'pending'
+                     CHECK (status IN ('pending', 'signed', 'approved', 'cancelled')),
+    renter_signed_at TEXT, renter_sign_ip TEXT,
+    owner_signed_at  TEXT, owner_sign_ip TEXT,
+    approved_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    approved_at      TEXT,
+    created_at       TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS contract_codes (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    contract_id INTEGER NOT NULL REFERENCES contracts(id) ON DELETE CASCADE,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code_hash   TEXT    NOT NULL,
+    attempts    INTEGER NOT NULL DEFAULT 0,
+    expires_at  TEXT    NOT NULL,
+    used_at     TEXT,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
 """
 
 
@@ -367,7 +446,11 @@ MIGRATIONS = {
         "deleted_at": "TEXT", "district": "TEXT",
     },
     "car_images": {"label": "TEXT NOT NULL DEFAULT 'other'"},
-    "cars": {"district": "TEXT"},
+    "cars": {"district": "TEXT", "lat": "REAL", "lng": "REAL", "address": "TEXT",
+             # Yoqilg'i: same — qanday olsa shunday qaytaradi; full — to'la bak oladi, to'la qaytaradi
+             "fuel_policy": "TEXT NOT NULL DEFAULT 'same'", "tank_l": "INTEGER", "fuel_price": "INTEGER", "extra_km_price": "INTEGER",
+             "require_docs": "INTEGER NOT NULL DEFAULT 0", "plate": "TEXT"},
+    "messages": {"kind": "TEXT NOT NULL DEFAULT 'text'", "lat": "REAL", "lng": "REAL"},
     # Bildirishnoma qaysi kabinetga tegishli (renter | owner | admin | any) va kim sabab bo'lgani (Telegram uslubidagi oyna uchun)
     "notifications": {"mode": "TEXT NOT NULL DEFAULT 'any'", "actor_id": "INTEGER"},
     "payments": {"refund_amount": "INTEGER NOT NULL DEFAULT 0", "kept_commission": "INTEGER NOT NULL DEFAULT 0",

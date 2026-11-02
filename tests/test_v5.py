@@ -19,7 +19,7 @@ def test_notifications_carry_mode_and_actor():
     n = owner.get("/api/notifications").json()["items"][0]
     assert n["type"] == "booking_new" and n["mode"] == "owner" and n["actor_name"] == r["full_name"]
     owner.post(f"/api/bookings/{b['id']}/approve", headers=H)
-    n = renter.get("/api/notifications").json()["items"][0]
+    n = next(x for x in renter.get("/api/notifications").json()["items"] if x["type"] == "booking_approved")
     assert n["type"] == "booking_approved" and n["mode"] == "renter" and n["actor_name"] == o["full_name"]
 
 

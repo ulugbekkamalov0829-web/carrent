@@ -4,14 +4,15 @@
   await guard("user", "admin");
   const meta = await api("/api/meta").catch(() => ({}));
   const body = $("#setBody");
-  const SECTIONS = [["profile", "set.profile", "user"], ["verify", "set.verify", "shield"], ["security", "set.security", "lock"],
+  const SECTIONS = [["profile", "set.profile", "user"], ["verify", "set.verify", "shield"], ["documents", "docs.title", "idcard"], ["cards", "cards.title", "card"],
+    ["security", "set.security", "lock"],
     ["notifications", "set.notifications", "bell"], ["privacy", "set.privacy", "eye"], ["language", "set.language", "globe"], ["danger", "set.danger", "trash"]];
   const u = () => Auth.user;
   const can = { email: meta.email_real || meta.dev_inbox, sms: meta.sms_real || meta.dev_inbox };
 
   function nav() {
     $("#setNav").setAttribute("aria-label", t("nav.settings"));
-    $("#setNav").innerHTML = SECTIONS.filter(([k]) => k !== "danger" || u().role !== "admin")
+    $("#setNav").innerHTML = SECTIONS.filter(([k]) => !["danger", "documents", "cards"].includes(k) || u().role !== "admin")
       .map(([k, key, ico]) => `<a href="#${k}" class="${k === "danger" ? "danger" : ""}" data-sec="${k}">${icon(ico, 18)}${esc(t(key))}</a>`).join("");
   }
   const card = (id, title, sub, inner, cls = "") => `<section class="card card-pad ${cls}" id="${id}"><div class="set-head"><div><h2>${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ""}</div></div>${inner}</section>`;
@@ -41,6 +42,8 @@
           <div class="verify-box hidden" id="vbox-sms"></div></div>
         ${!can.email || !can.sms ? `<p class="small muted" style="margin:10px 0 0">${esc(t(!can.email ? "set.channels_off" : "set.sms_off"))}</p>` : ""}
         <div class="verify-box hidden" id="emailChangeBox" style="margin-top:12px"></div>`) +
+      (me.role === "admin" ? "" : card("documents", t("docs.title"), t("docs.sub"), `<div id="docsBox"><div class="skeleton" style="height:180px"></div></div>`)
+        + card("cards", t("cards.title"), t("cards.sub"), `<div id="cardsBox"><div class="skeleton" style="height:140px"></div></div>`)) +
       card("security", t("set.security"), t("set.security_sub"), `
         <form id="pwForm" novalidate style="max-width:520px">
           <div class="field"><label for="op">${esc(t("sec.current"))}</label><div class="pw-wrap"><input class="input" type="password" id="op" name="old_password" autocomplete="current-password" required><button type="button" class="pw-eye" data-pw="op"></button></div></div>
@@ -65,8 +68,82 @@
           <input class="input" type="password" id="dp" autocomplete="current-password" required data-hint="hint.delete"></div>
           <button class="btn btn-danger">${icon("trash", 16)} ${esc(t("set.delete"))}</button></form>`, "danger-zone"));
     applyHints(body); bindPasswordToggles(body);
-    newPw = pwChecklist($("#np"));
+    newPw = pwChecklist($("#np")); pwGenerator($("#np"));
     bind(); loadSessions(); showSection();
+    if (me.role !== "admin") { loadDocs(); loadCards(); }
+  }
+
+  // ---------------- Hujjatlar: guvohnoma, pasport/ID, selfi ----------------
+  const DOCS = [["license", "idcard"], ["id_card", "user"], ["selfie", "camera"]];
+  const docTag = (st) => `<span class="tag ${st === "approved" ? "tag-ok" : st === "pending" ? "tag-pending" : st === "rejected" ? "tag-bad" : "tag-hidden"}">${esc(t("docs.st_" + (st || "none")))}</span>`;
+  async function loadDocs() {
+    const box = $("#docsBox"); if (!box) return;
+    const d = await api("/api/me/documents");
+    Auth.user.docs_status = d.status;
+    box.innerHTML = `<div class="docs-banner st-${d.status}">${icon(d.status === "verified" ? "check" : d.status === "rejected" ? "flag" : "shield", 20)}
+        <div><b>${esc(t("docs.overall_" + d.status))}</b><div class="small">${esc(t("docs.why"))}</div></div></div>
+      <div class="docs-grid">${DOCS.map(([k, ico]) => { const x = d.docs[k];
+        return `<div class="doc-card card">
+          <div class="row" style="justify-content:space-between"><b>${icon(ico, 18)} ${esc(t("docs.k_" + k))}</b>${docTag(x?.expired ? "rejected" : x?.status)}</div>
+          <p class="small muted" style="margin:6px 0">${esc(t("docs.h_" + k))}</p>
+          ${x ? `<div class="doc-meta small">${x.number_mask ? `<span>№ ${esc(x.number_mask)}</span>` : ""}${x.categories ? `<span>${esc(t("docs.cat"))}: ${esc(x.categories)}</span>` : ""}${x.expires_on ? `<span>${esc(t("docs.until"))}: ${fmtDate(x.expires_on)}</span>` : ""}</div>
+            <div class="doc-thumbs">${x.files.map((f) => `<a href="/api/files/${esc(f)}" target="_blank" rel="noopener"><img src="/api/files/${esc(f)}" alt="" loading="lazy"></a>`).join("")}</div>
+            ${x.status === "rejected" || x.expired ? `<div class="notice small" style="margin-top:8px">${esc(x.expired ? t("docs.expired") : t("docs.rejected", { r: x.reject_reason || "" }))}</div>` : ""}` : ""}
+          ${!x || x.status !== "approved" || x.expired ? `<form class="doc-form" data-kind="${k}" novalidate>
+            ${k !== "selfie" ? `<div class="field"><label>${esc(t(k === "license" ? "docs.lic_no" : "docs.id_no"))}</label><input class="input" name="number" maxlength="30" required placeholder="${k === "license" ? "AF 1234567" : "AD 1234567"}" autocomplete="off"></div>` : ""}
+            ${k === "license" ? `<div class="grid-2"><div class="field"><label>${esc(t("docs.cat"))}</label><input class="input" name="categories" maxlength="20" placeholder="B, C" required></div>
+              <div class="field"><label>${esc(t("docs.until"))}</label><input class="input" type="date" name="expires_on" required min="${isoDate(new Date())}"></div></div>` : ""}
+            <div class="field"><label>${esc(t(k === "selfie" ? "docs.selfie_photo" : "docs.photos"))}</label>
+              <input class="input" type="file" name="files" accept="image/*" ${k === "selfie" ? 'capture="user"' : ""} multiple required></div>
+            <button class="btn btn-sm">${icon("plus", 15)} ${esc(t(x ? "docs.reupload" : "docs.upload"))}</button></form>` : ""}
+        </div>`; }).join("")}</div>
+      <p class="small muted" style="margin-top:12px">${icon("lock", 14)} ${esc(t("docs.privacy"))}</p>`;
+    $$(".doc-form", box).forEach((f) => f.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData();
+      fd.append("kind", f.dataset.kind);
+      for (const n of ["number", "categories", "expires_on"]) if (f.elements[n]) fd.append(n, f.elements[n].value.trim());
+      const files = [...f.elements.files.files].slice(0, 3);
+      if (!files.length) { toast(t("docs.pick_files"), "error"); return; }
+      for (const x of files) fd.append("files", await compressImage(x, 1800));
+      await withLoading($("button", f), async () => {
+        try { await api("/api/me/documents", { method: "POST", form: fd }); toast(t("docs.sent"), "ok"); loadDocs(); }
+        catch (err) { toast(err.message, "error"); }
+      });
+    }));
+  }
+
+  // ---------------- Bank kartalari (faqat maskalangan ko'rinishda saqlanadi) ----------------
+  const BRAND = { uzcard: "UZCARD", humo: "HUMO", visa: "VISA", mastercard: "Mastercard", other: "" };
+  async function loadCards() {
+    const box = $("#cardsBox"); if (!box) return;
+    const { items } = await api("/api/me/cards");
+    box.innerHTML = `<div class="bank-cards">${items.map((c) => `<div class="bank-card b-${c.brand}">
+        <div class="bc-top"><b>${esc(BRAND[c.brand] || "")}</b>${c.is_default ? `<span class="bc-def">${esc(t("cards.default"))}</span>` : ""}</div>
+        <div class="bc-num">${esc(c.first6.slice(0, 4))} ${esc(c.first6.slice(4))}•• •••• ${esc(c.last4)}</div>
+        <div class="bc-bot"><span>${esc(c.holder || "")}</span><span>${String(c.exp_month).padStart(2, "0")}/${String(c.exp_year).slice(2)}</span></div>
+        <div class="bc-acts">${c.is_default ? "" : `<button class="linkbtn" data-cdef="${c.id}">${esc(t("cards.make_default"))}</button>`}<button class="linkbtn danger" data-cdel="${c.id}">${esc(t("common.delete"))}</button></div></div>`).join("")}
+      ${items.length < 5 ? `<form class="bank-card add" id="cardForm" novalidate>
+        <div class="field"><label for="cNum">${esc(t("cards.number"))}</label><input class="input" id="cNum" name="number" inputmode="numeric" autocomplete="cc-number" placeholder="8600 1234 5678 9012" maxlength="23" required></div>
+        <div class="grid-2"><div class="field"><label for="cExp">${esc(t("cards.exp"))}</label><input class="input" id="cExp" name="exp" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/YY" maxlength="5" required></div>
+          <div class="field"><label for="cHold">${esc(t("cards.holder"))}</label><input class="input" id="cHold" name="holder" autocomplete="cc-name" maxlength="60" placeholder="ALISHER KARIMOV"></div></div>
+        <button class="btn btn-sm">${icon("plus", 15)} ${esc(t("cards.add"))}</button></form>` : ""}</div>
+      <p class="small muted" style="margin-top:12px">${icon("lock", 14)} ${esc(t("cards.safe"))}</p>`;
+    const num = $("#cNum"), exp = $("#cExp");
+    num?.addEventListener("input", () => { const d = num.value.replace(/\D/g, "").slice(0, 19); num.value = d.replace(/(\d{4})(?=\d)/g, "$1 "); });
+    exp?.addEventListener("input", () => { const d = exp.value.replace(/\D/g, "").slice(0, 4); exp.value = d.length > 2 ? d.slice(0, 2) + "/" + d.slice(2) : d; });
+    $("#cardForm")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try { await api("/api/me/cards", { method: "POST", body: formData(e.target) }); toast(t("cards.added"), "ok"); loadCards(); }
+      catch (err) { toast(err.message, "error"); }
+    });
+    box.onclick = async (e) => {
+      const d = e.target.closest("[data-cdel]"), f = e.target.closest("[data-cdef]");
+      try {
+        if (d && await confirmBox(t("cards.delete_confirm"), t("common.delete"), true)) { await api(`/api/me/cards/${d.dataset.cdel}`, { method: "DELETE" }); loadCards(); }
+        if (f) { await api(`/api/me/cards/${f.dataset.cdef}/default`, { method: "POST" }); loadCards(); }
+      } catch (err) { toast(err.message, "error"); }
+    };
   }
   let newPw;
   /** Har bir bo'lim alohida oyna: faqat tanlangani ko'rinadi (uzun bitta sahifa emas) */
@@ -175,7 +252,7 @@
       e.preventDefault();
       if (!$("#dp").value) { toast(t("val.password"), "error"); return; }
       if (!(await confirmBox(t("set.delete_confirm"), t("set.delete"), true))) return;
-      try { await api("/api/me/delete", { method: "POST", body: { password: $("#dp").value } }); toast(t("set.deleted"), "ok"); setTimeout(() => (location.href = "/"), 900); }
+      try { const r = await api("/api/me/delete", { method: "POST", body: { password: $("#dp").value } }); toast(t(r.mode === "deleted" ? "set.deleted_full" : "set.deleted"), "ok"); setTimeout(() => (location.href = "/"), 1200); }
       catch (err) { toast(err.message, "error"); }
     });
   }

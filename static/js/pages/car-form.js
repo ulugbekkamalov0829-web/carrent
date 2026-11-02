@@ -25,10 +25,11 @@ const LABELS = [...ANGLES, "other"];
     if (!car.is_mine) { location.replace("/dashboard.html#cars"); return; }
     $("#formTitle").dataset.i18n = "form.title_edit";
     for (const el of form.elements) if (el.name && el.name in car && el.type !== "checkbox") el.value = car[el.name] ?? "";
+    $("#require_docs").checked = !!car.require_docs;
     $("#hasDelivery").checked = car.delivery_price !== null;
     $("#delivery_price").disabled = car.delivery_price === null;
     images = car.images;
-  }
+  } else $("#require_docs").checked = true;    // yangi e'londa tavsiya: faqat hujjati tasdiqlanganlar
   drawFeatures();
   applyI18n();
   // Viloyat -> tuman (tahrirlashda saqlangan qiymat; yangi e'londa — egasining o'z hududi)
@@ -49,6 +50,27 @@ const LABELS = [...ANGLES, "other"];
   form.brand.addEventListener("input", drawModels); drawModels();
   const drawCommission = () => { $("#commissionNote").textContent = t("form.commission_note", { pct: meta.commission_bps / 100 }); };
   drawCommission();
+
+  // ---------- Joylashuv: xaritadan tanlash yoki "Mening joylashuvim" ----------
+  let picker = null;
+  const showLoc = () => { const a = form.lat.value, b = form.lng.value; $("#locInfo").textContent = a && b ? `${(+a).toFixed(5)}, ${(+b).toFixed(5)}` : t("map.not_set"); };
+  $("#myLoc").innerHTML = `${icon("search", 15)} ${esc(t("map.my_location"))}`;
+  const initPicker = async () => {
+    if (picker) { setTimeout(() => picker.map.invalidateSize(), 50); return; }
+    try {
+      picker = await MapKit.picker($("#pickMap"), { lat: car?.lat ?? null, lng: car?.lng ?? null, region: form.city.value,
+        onPick: (a, b) => { form.lat.value = a; form.lng.value = b; showLoc(); } });
+    } catch (err) { $("#pickMap").innerHTML = `<div class="empty small">${esc(err.message)}</div>`; }
+    showLoc();
+  };
+  $("#myLoc").addEventListener("click", async (e) => {
+    await withLoading(e.currentTarget, async () => {
+      try { const p = await MapKit.locate(); await initPicker(); picker?.set(p.lat, p.lng, true); toast(t("map.located", { m: p.acc }), "ok"); }
+      catch (err) { toast(err.message, "error"); }
+    });
+  });
+  $("#clearLoc").addEventListener("click", () => { form.lat.value = ""; form.lng.value = ""; picker?.clear(); showLoc(); });
+  form.city.addEventListener("change", () => { if (picker && !form.lat.value) picker.center(form.city.value); });
 
   $("#hasDelivery").addEventListener("change", (e) => { $("#delivery_price").disabled = !e.target.checked; if (e.target.checked && !$("#delivery_price").value) $("#delivery_price").value = fmtMoneyInput(50000); });
 
@@ -76,6 +98,7 @@ const LABELS = [...ANGLES, "other"];
     $("#publishBtn").classList.toggle("hidden", n !== 6);
     $("#draftBtn").classList.toggle("hidden", n !== 6);
     if (n === 6) drawPreview();
+    if (n === 3) initPicker();
     form.scrollIntoView({ behavior: "smooth", block: "start" });
   }
   $("#nextBtn").addEventListener("click", () => { if (validStep(step)) go(step + 1); });
@@ -228,6 +251,8 @@ const LABELS = [...ANGLES, "other"];
       features: $$("#features input:checked").map((i) => i.value), city: d.city, district: d.district || null, description: d.description || null,
       price_per_day: +d.price_per_day, deposit: num(d.deposit) || 0, min_days: +d.min_days || 1, max_days: +d.max_days || 30,
       km_limit: num(d.km_limit), delivery_price: $("#hasDelivery").checked ? num(d.delivery_price) ?? 0 : null, is_active: active,
+      lat: num(d.lat), lng: num(d.lng), address: d.address || null, plate: d.plate || null, fuel_policy: d.fuel_policy || "same",
+      tank_l: num(d.tank_l), fuel_price: num(d.fuel_price), extra_km_price: num(d.extra_km_price), require_docs: $("#require_docs").checked,
     };
   }
   function drawPreview() {

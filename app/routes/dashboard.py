@@ -33,6 +33,22 @@ def _monthly(db, where: str, params: list, n: int = 6) -> list[dict]:
              "count": (data.get(m) or {}).get("cnt") or 0} for m in months]
 
 
+def _daily(db, where: str, params: list, n: int = 30) -> list[dict]:
+    """Oxirgi n kun: har kuni boshlangan (tasdiqlangan/yakunlangan) ijaralar summasi va soni — maydonli grafik uchun."""
+    t = today()
+    start = t - timedelta(days=n - 1)
+    data = {r["d"]: r for r in rows(db.execute(
+        f"SELECT b.start_date AS d, SUM(b.total_price) AS revenue, SUM(b.owner_payout) AS payout, COUNT(*) AS cnt FROM bookings b "
+        f"JOIN cars c ON c.id = b.car_id WHERE {where} AND b.status IN {PAID} AND b.start_date BETWEEN ? AND ? GROUP BY d",
+        params + [start.isoformat(), t.isoformat()]))}
+    out = []
+    for i in range(n):
+        d = (start + timedelta(days=i)).isoformat()
+        r = data.get(d) or {}
+        out.append({"day": d, "revenue": r.get("revenue") or 0, "payout": r.get("payout") or 0, "count": r.get("cnt") or 0})
+    return out
+
+
 def _status_counts(db, where: str, params: list) -> dict:
     counts = {s: 0 for s in ("pending", "approved", "rejected", "cancelled", "completed")}
     for r in db.execute(f"SELECT b.status, COUNT(*) FROM bookings b JOIN cars c ON c.id = b.car_id WHERE {where} "
@@ -93,7 +109,7 @@ async def owner_dashboard(request: Request):
             "rating_avg": rating["avg"], "reviews_count": rating["cnt"], "bookings": statuses,
             "conversion": round(100 * all_bookings / cars[2], 1) if cars[2] else 0.0,
             "occupancy": _occupancy(db, car_ids), "periods": _period_totals(db, "c.owner_id = ?", [uid]),
-            "monthly": _monthly(db, "c.owner_id = ?", [uid]), "per_car": per_car,
+            "monthly": _monthly(db, "c.owner_id = ?", [uid], 12), "daily": _daily(db, "c.owner_id = ?", [uid]), "per_car": per_car,
             "commission_bps": int(get_setting(db, "commission_bps", "1000")),
         }
     return ok(result)
@@ -158,6 +174,22 @@ async def admin_stats(request: Request):
             "reports_new": db.execute("SELECT COUNT(*) FROM reports WHERE status = 'new'").fetchone()[0],
             "paid_online": db.execute("SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'paid'").fetchone()[0],
             "refunds_pending": db.execute("SELECT COUNT(*) FROM payments WHERE status = 'refund_pending'").fetchone()[0],
+            "daily": _daily(db, "1 = 1", []),
+            # Admin tasdig'ini kutayotganlar: imzolangan shartnomalar va tekshirilmagan hujjatlar
+            "queue": rows(db.execute(
+                """SELECT 'contract' AS kind, k.id, k.booking_id, k.number AS title, c.brand, c.model, c.year, c.id AS car_id,
+                          (SELECT path FROM car_images i WHERE i.car_id = c.id ORDER BY position, id LIMIT 1) AS cover,
+                          ru.full_name AS who, k.created_at AS at, NULL AS user_id, NULL AS avatar
+                   FROM contracts k JOIN bookings b ON b.id = k.booking_id JOIN cars c ON c.id = b.car_id JOIN users ru ON ru.id = b.renter_id
+                   WHERE k.status = 'signed'
+                   UNION ALL
+                   SELECT 'doc' AS kind, d.id, NULL, d.kind, NULL, NULL, NULL, NULL, NULL, u.full_name, d.created_at, u.id, u.avatar
+                   FROM user_documents d JOIN users u ON u.id = d.user_id WHERE d.status = 'pending'
+                   ORDER BY at DESC LIMIT 6""")),
+            "latest_users": rows(db.execute(
+                """SELECT u.id, u.full_name, u.email, u.phone, u.avatar, u.is_active, u.created_at,
+                          (SELECT COUNT(*) FROM bookings b WHERE b.renter_id = u.id) AS bookings
+                   FROM users u WHERE u.role = 'user' ORDER BY u.id DESC LIMIT 5""")),
         }
     return ok(result)
 

@@ -71,10 +71,16 @@
                   <p class="neon-sub" id="fSentTo"></p>
                   <div class="chan-note hidden" id="fChanNote"></div>
                   <form id="resetForm" novalidate>
-                    <div class="field"><div id="fOtp"></div><div class="code-timer" id="fTimer" aria-live="polite"></div></div>
-                    <div class="field nf"><div class="pw-wrap"><input class="input" type="password" id="fPass" autocomplete="new-password" required minlength="8" placeholder=" ">
-                      <label for="fPass" data-i18n="sec.new"></label><button type="button" class="pw-eye" data-pw="fPass"></button></div></div>
-                    <button class="btn btn-block neon-btn" data-i18n="forgot.save"></button>
+                    <div id="fCodePart">
+                      <div class="field"><div id="fOtp"></div><div class="code-timer" id="fTimer" aria-live="polite"></div></div>
+                      <button type="button" class="btn btn-block neon-btn" id="fCheck" data-i18n="forgot.check"></button>
+                    </div>
+                    <div id="fPwPart" class="hidden">
+                      <div class="code-ok"><span id="fOkIco"></span><span data-i18n="forgot.code_ok"></span></div>
+                      <div class="field nf"><div class="pw-wrap"><input class="input" type="password" id="fPass" autocomplete="new-password" required minlength="8" placeholder=" ">
+                        <label for="fPass" data-i18n="sec.new"></label><button type="button" class="pw-eye" data-pw="fPass"></button></div></div>
+                      <button class="btn btn-block neon-btn" data-i18n="forgot.save"></button>
+                    </div>
                     <div class="neon-options" style="margin:12px 0 0">
                       <button type="button" class="linkbtn" id="fResend" data-i18n="otp.resend"></button>
                       <button type="button" class="linkbtn" id="fOther" data-i18n="forgot.other_way"></button>

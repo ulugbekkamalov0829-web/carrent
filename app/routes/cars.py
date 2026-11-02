@@ -18,6 +18,7 @@ CAR_COLUMNS = """
     c.id, c.owner_id, c.brand, c.model, c.year, c.color, c.body_type, c.seats, c.transmission, c.fuel, c.engine_l,
     c.mileage_km, c.drive, c.features, c.city, c.district, c.description, c.price_per_day, c.deposit, c.min_days, c.max_days,
     c.km_limit, c.delivery_price, c.is_active, c.is_approved, c.views, c.is_demo, c.created_at, c.updated_at,
+    c.lat, c.lng, c.address, c.fuel_policy, c.tank_l, c.fuel_price, c.extra_km_price, c.require_docs,
     (SELECT path FROM car_images i WHERE i.car_id = c.id ORDER BY position, id LIMIT 1) AS cover,
     (SELECT ROUND(AVG(rating), 1) FROM reviews r WHERE r.car_id = c.id AND r.kind = 'car') AS rating,
     (SELECT COUNT(*) FROM reviews r WHERE r.car_id = c.id AND r.kind = 'car') AS reviews_count
@@ -85,7 +86,10 @@ def get_car_row(db, car_id: int, user_id: int | None = None) -> dict:
     car = one(db.execute(f"SELECT {CAR_COLUMNS}{FAV_COLUMN} FROM cars c WHERE c.id = ?", (user_id or 0, car_id)))
     if not car:
         raise HTTPException(404, tr("E'lon topilmadi"))
-    return serialize(car)
+    car = serialize(car)
+    if user_id and car["owner_id"] == user_id:      # davlat raqami faqat egasiga (shartnomada esa ikkala tomonga)
+        car["plate"] = db.execute("SELECT plate FROM cars WHERE id = ?", (car_id,)).fetchone()[0]
+    return car
 
 
 def own_car(db, car_id: int, user: dict) -> dict:
@@ -164,7 +168,11 @@ async def meta(request: Request):
                "owners_total": owners, "completed_total": done, "commission_bps": bps, "support_user_id": support[0] if support else None,
                "demo": settings.DEMO_MODE, "max_images": settings.MAX_IMAGES_PER_CAR, "max_image_mb": settings.MAX_IMAGE_MB,
                "dev_inbox": settings.DEV_INBOX, "email_real": settings.email_enabled,
-               "sms_real": settings.sms_enabled, "code_ttl_min": settings.CODE_TTL_MIN, "payments": {"test": settings.PAYMENT_TEST_MODE, "click": settings.click_enabled,
+               "sms_real": settings.sms_enabled, "code_ttl_min": settings.CODE_TTL_MIN,
+               # Maslahatchi uchun haqiqiy suratlar: static/img/adv/photo/<kalit>.jpg qo'yilsa, ikonka o'rniga shu chiqadi
+               "adv_photos": sorted({f.stem: f.name for f in (settings.STATIC_DIR / "img" / "adv" / "photo").glob("*")
+                                     if f.suffix.lower() in (".jpg", ".jpeg", ".png", ".webp")}.items()),
+               "payments": {"test": settings.PAYMENT_TEST_MODE, "click": settings.click_enabled,
                                                               "payme": settings.payme_enabled}})
 
 
@@ -186,6 +194,12 @@ async def get_car(request: Request):
         if not visible and not (is_owner or (user and user["role"] == "admin")):
             raise HTTPException(404, tr("E'lon topilmadi"))
         car["images"] = rows(db.execute("SELECT id, path, label FROM car_images WHERE car_id = ? ORDER BY position, id", (car_id,)))
+        # Aniq manzil (uy bo'lishi mumkin) faqat egasiga, adminga va tasdiqlangan bron qilgan ijarachiga; boshqalarga — taxminiy hudud
+        booked = bool(user and db.execute("SELECT 1 FROM bookings WHERE car_id = ? AND renter_id = ? AND status IN ('approved', 'completed')",
+                                          (car_id, user["id"])).fetchone())
+        car["loc_exact"] = bool(car.get("lat") is not None and (is_owner or booked or (user and user["role"] == "admin")))
+        if car.get("lat") is not None and not car["loc_exact"]:
+            car["lat"], car["lng"], car["address"] = round(car["lat"], 2), round(car["lng"], 2), None
         if not is_owner:
             db.execute("UPDATE cars SET views = views + 1 WHERE id = ?", (car_id,))
         # O'xshash avtomobillar: shu kuzov yoki shu shahar, narxi ±40%
@@ -315,11 +329,13 @@ async def my_cars(request: Request):
 def _values(d: CarIn) -> tuple:
     return (d.brand, d.model, d.year, d.color, d.body_type, d.seats, d.transmission, d.fuel, d.engine_l, d.mileage_km,
             d.drive, json.dumps(d.features), d.city, d.district, d.description, d.price_per_day, d.deposit, d.min_days, d.max_days,
-            d.km_limit, d.delivery_price, int(d.is_active))
+            d.km_limit, d.delivery_price, int(d.is_active), d.lat, d.lng, d.address, d.plate, d.fuel_policy, d.tank_l,
+            d.fuel_price, d.extra_km_price, int(d.require_docs))
 
 
 FIELDS = ("brand, model, year, color, body_type, seats, transmission, fuel, engine_l, mileage_km, drive, features, city, district, "
-          "description, price_per_day, deposit, min_days, max_days, km_limit, delivery_price, is_active")
+          "description, price_per_day, deposit, min_days, max_days, km_limit, delivery_price, is_active, lat, lng, address, plate, "
+          "fuel_policy, tank_l, fuel_price, extra_km_price, require_docs")
 
 
 @require("user")
@@ -328,7 +344,7 @@ async def create_car(request: Request):
     data = await parse_body(request, CarIn)
     uid = request.state.user["id"]
     with get_db() as db:
-        cur = db.execute(f"INSERT INTO cars (owner_id, {FIELDS}) VALUES (?{', ?' * 22})", (uid, *_values(data)))
+        cur = db.execute(f"INSERT INTO cars (owner_id, {FIELDS}) VALUES (?{', ?' * 31})", (uid, *_values(data)))
         # Birinchi e'londan keyin foydalanuvchi owner rejimiga o'tadi (faqat interfeys holati)
         db.execute("UPDATE users SET active_mode = 'owner' WHERE id = ?", (uid,))
         car = get_car_row(db, cur.lastrowid, uid)

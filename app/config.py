@@ -31,6 +31,8 @@ class Settings:
     DATA_DIR: Path = Path(os.getenv("DATA_DIR", BASE_DIR / "data"))
     DB_PATH: Path = Path(os.getenv("DB_PATH", DATA_DIR / "app.db"))
     UPLOAD_DIR: Path = Path(os.getenv("UPLOAD_DIR", DATA_DIR / "uploads"))
+    # Hujjatlar va dalolatnoma rasmlari: ochiq /uploads emas, faqat ruxsatli foydalanuvchiga API orqali beriladi
+    PRIVATE_DIR: Path = Path(os.getenv("PRIVATE_DIR", DATA_DIR / "private"))
     STATIC_DIR: Path = BASE_DIR / "static"
 
     # JWT
@@ -85,6 +87,7 @@ class Settings:
     def __init__(self) -> None:
         self.DATA_DIR.mkdir(parents=True, exist_ok=True)
         self.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        self.PRIVATE_DIR.mkdir(parents=True, exist_ok=True)
         self.SECRET_KEY = os.getenv("SECRET_KEY") or self._persistent_secret()
         prod = self.ENV == "production"
         # Test pochta qutisi va test to'lov — faqat dev/demo'da; productionda hech qachon yoqilmaydi

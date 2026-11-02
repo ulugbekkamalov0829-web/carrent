@@ -118,20 +118,55 @@
   // ===================== OWNER =====================
   async function ownerOverview() {
     head("dash.owner_overview", "dash.owner_sub", `<a class="btn" href="/car-form.html">+ ${esc(t("nav.add_car"))}</a>`);
-    const s = await api("/api/dashboard/owner");
+    const [s, inc] = await Promise.all([api("/api/dashboard/owner"), api("/api/bookings/incoming")]);
     if (!s.cars_total) {
       view.innerHTML = `<div class="empty card"><h3>${esc(t("owner.empty"))}</h3><p>${esc(t("owner.empty_hint", { pct: s.commission_bps / 100 }))}</p>
         <a class="btn btn-lg" href="/car-form.html">+ ${esc(t("nav.add_car"))}</a></div>`;
       return;
     }
-    const p = s.periods;
-    view.innerHTML = `<div class="stats">
+    const p = s.periods, today = isoDate(new Date());
+    const months = t("cal.months_short").split(",");
+    const pay = s.monthly.map((m) => m.payout), cnt = s.monthly.map((m) => m.count);
+    const rentedNow = new Set(inc.items.filter((b) => b.status === "approved" && b.start_date <= today && b.end_date >= today).map((b) => b.car_id)).size;
+    const pending = inc.items.filter((b) => b.status === "pending");
+    const series = {
+      month: s.daily.map((d) => ({ k: d.day, v: d.payout, n: d.count, label: fmtDate(d.day).slice(0, 5) })),
+      year: s.monthly.map((m) => ({ k: m.month, v: m.payout, n: m.count, label: months[+m.month.slice(5) - 1] })),
+    };
+    let period = "year";
+    const chartDrill = (pt) => DR("owner", "bookings", `${t("owner.monthly")}: ${pt.label}`, { status: "done", ...(pt.k.length === 7 ? { month: pt.k } : { day: pt.k }) });
+    view.innerHTML = `<p class="drill-note">${icon("info", 14)} ${esc(t("drill.note"))}</p>
+      <div class="owner-dash">
+        <div class="od-main">
+          <div class="kpi-row three">
+            ${kpiCard({ label: t("owner.month_income"), value: money(p.month.payout), icon: "trend", tone: "green", trend: trendPct(pay), spark: sparkline(pay.slice(-8)),
+              href: p.month.revenue ? DR("owner", "bookings", t("owner.month_income"), { status: "done", from: periodRange("month")[0], to: periodRange("month")[1] }) : "", hint: t("hint.o_payout") })}
+            ${kpiCard({ label: t("owner.active_cars"), value: `${s.cars_active} <small>/ ${s.cars_total}</small>`, icon: "car", tone: "blue",
+              sub: esc(t("owner.rented_free", { a: rentedNow, b: Math.max(0, s.cars_active - rentedNow) })), spark: donut(rentedNow, Math.max(1, s.cars_active)),
+              href: DR("owner", "cars", t("owner.active_cars"), { sort: "occupancy" }), hint: t("hint.o_cars") })}
+            ${kpiCard({ label: t("owner.orders_n"), value: cnt[cnt.length - 1] || 0, icon: "list", tone: "orange", sub: esc(t("owner.this_month")), spark: miniBars(cnt.slice(-10)),
+              href: DR("owner", "bookings", t("owner.orders_n"), { from: periodRange("month")[0], to: periodRange("month")[1] }) })}
+          </div>
+          <div class="card card-pad"><div class="card-head"><h3>${esc(t("owner.monthly"))}</h3>
+            <div class="seg small-seg" id="perSeg">${["month", "year"].map((k) => `<button type="button" data-per="${k}" class="${k === period ? "on" : ""}">${esc(t("per." + k))}</button>`).join("")}</div></div>
+            <div id="areaBox"></div></div>
+        </div>
+        <div class="card card-pad od-cal"><h3>${esc(t("owner.occ_calendar"))}</h3><div id="occCal"></div></div>
+      </div>
+      <div class="card" style="margin-top:18px"><div class="card-pad card-head" style="padding-bottom:4px"><h3>${esc(t("owner.pending_orders"))} ${pending.length ? `<span class="cnt-badge">${pending.length}</span>` : ""}</h3><a class="small" href="#bookings">${esc(t("admin.see_all"))} →</a></div>
+        ${pending.length ? `<div class="po-list">${pending.slice(0, 6).map((b) => `<div class="po-row">
+            <span class="avatar">${esc(initials(b.renter_name))}</span>
+            <div class="po-who"><b>${esc(b.renter_name)}</b>${b.renter_docs_verified ? ` <span class="verified docs">${icon("idcard", 12)}</span>` : ""}<div class="small muted">${b.renter_rating ? `★ ${b.renter_rating}` : esc(t("booking.new_renter"))}</div></div>
+            <div class="po-car"><b>${esc(b.brand)} ${esc(b.model)}</b><div class="small muted">${b.year}</div></div>
+            <div class="po-when"><span class="small">${fmtDate(b.start_date)} → ${fmtDate(b.end_date)}</span><b>${money(b.total_price)}</b></div>
+            <div class="po-acts"><button class="btn btn-sm btn-ok" data-act="approve" data-id="${b.id}">${esc(t("booking.approve"))}</button>
+              <button class="btn btn-sm btn-outline danger-outline" data-act="reject" data-id="${b.id}">${esc(t("booking.reject"))}</button></div></div>`).join("")}</div>`
+          : `<div class="empty small">${icon("check", 18)} ${esc(t("owner.all_done"))}</div>`}</div>
+      <div class="stats small-stats" style="margin-top:18px">
         ${stat(t("owner.revenue"), money(s.revenue_total), esc(t("owner.revenue_sub")), s.revenue_total ? DR("owner", "bookings", t("owner.revenue"), { status: "done" }) : "", t("hint.o_revenue"))}
         ${stat(t("owner.commission", { pct: s.commission_bps / 100 }), money(s.commission_total), esc(t("owner.commission_sub")), s.commission_total ? DR("owner", "bookings", t("owner.commission", { pct: s.commission_bps / 100 }), { status: "done" }) : "", t("hint.o_commission"))}
         ${stat(t("owner.payout"), money(s.payout_total), esc(t("owner.payout_sub")), s.payout_total ? DR("owner", "bookings", t("owner.payout"), { status: "done" }) : "", t("hint.o_payout"))}
         ${stat(t("owner.occupancy"), `${s.occupancy}%`, esc(t("owner.occupancy_sub")), DR("owner", "cars", t("owner.occupancy"), { sort: "occupancy" }), t("hint.o_occupancy"))}
-        ${stat(t("owner.cars"), `${s.cars_active} / ${s.cars_total}`, esc(t("owner.cars_sub")), DR("owner", "cars", t("owner.cars")), t("hint.o_cars"))}
-        ${stat(t("dash.pending"), s.bookings.pending, s.bookings.pending ? `<span class="link-like">${esc(t("owner.review_now"))}</span>` : esc(t("owner.all_done")), s.bookings.pending ? "#bookings" : "", t("hint.o_pending"))}
         ${stat(t("owner.rating"), s.rating_avg ? `★ ${s.rating_avg}` : "—", esc(t("car.reviews_n", { n: s.reviews_count })), s.reviews_count ? DR("owner", "reviews", t("owner.rating")) : "", t("hint.o_rating"))}
         ${stat(t("owner.conversion"), `${s.conversion}%`, esc(t("owner.conversion_sub", { n: s.views_total })), DR("owner", "cars", t("owner.conversion")), t("hint.o_conversion"))}
       </div>
@@ -139,16 +174,18 @@
         <div class="stats" style="margin:0">${["today", "week", "month", "year"].map((k) => `<div class="period-cell" ${p[k].revenue ? drillAttr(DR("owner", "bookings", `${t("owner.periods")}: ${t("period." + k)}`, { status: "done", from: periodRange(k)[0], to: periodRange(k)[1] })) : ""}><div class="small muted">${esc(t("period." + k))}</div>
           <b>${money(p[k].payout)}</b><div class="small muted">${esc(t("owner.gross"))}: ${money(p[k].revenue)}</div></div>`).join("")}</div></div>
       <div class="two-col">
-        <div class="card card-pad"><h3>${esc(t("owner.monthly"))}</h3>${revenueChart(s.monthly, { drill: (m) => DR("owner", "bookings", `${t("owner.monthly")}: ${m.month}`, { status: "done", month: m.month }) })}</div>
         <div class="card card-pad"><h3>${esc(t("owner.statuses"))}</h3>${statusBars(s.bookings, (k) => DR("owner", "bookings", `${t("owner.statuses")}: ${t("status." + k)}`, { status: k }))}</div>
-      </div>
-      <div class="card" style="margin-top:18px"><div class="card-pad" style="padding-bottom:0"><h3>${esc(t("owner.per_car"))}</h3></div>
-        <div class="table-wrap"><table class="table responsive"><thead><tr><th>${esc(t("col.car"))}</th><th>${esc(t("col.bookings"))}</th><th>${esc(t("col.occupancy"))}</th>
-          <th>${esc(t("col.views"))}</th><th>${esc(t("col.revenue"))}</th><th>${esc(t("col.payout"))}</th></tr></thead><tbody>
+        <div class="card"><div class="card-pad" style="padding-bottom:0"><h3>${esc(t("owner.per_car"))}</h3></div>
+          <div class="table-wrap"><table class="table responsive"><thead><tr><th>${esc(t("col.car"))}</th><th>${esc(t("col.bookings"))}</th><th>${esc(t("col.occupancy"))}</th><th>${esc(t("col.payout"))}</th></tr></thead><tbody>
           ${s.per_car.map((c) => `<tr ${c.bookings ? drillAttr(DR("owner", "bookings", `${c.brand} ${c.model} ${c.year}`, { car_id: c.id })) : ""}><td data-label="${esc(t("col.car"))}"><a href="/car.html?id=${c.id}">${esc(c.brand)} ${esc(c.model)} ${c.year}</a></td>
             <td data-label="${esc(t("col.bookings"))}">${c.bookings}</td><td data-label="${esc(t("col.occupancy"))}">${c.occupancy}%</td>
-            <td data-label="${esc(t("col.views"))}">${c.views}</td><td data-label="${esc(t("col.revenue"))}">${money(c.revenue)}</td>
-            <td data-label="${esc(t("col.payout"))}"><b>${money(c.payout)}</b></td></tr>`).join("")}</tbody></table></div></div>`;
+            <td data-label="${esc(t("col.payout"))}"><b>${money(c.payout)}</b></td></tr>`).join("")}</tbody></table></div></div>
+      </div>`;
+    const drawArea = () => { $("#areaBox").innerHTML = areaChart(series[period], { drill: chartDrill, color: "var(--primary)" }); };
+    drawArea();
+    $("#perSeg").addEventListener("click", (e) => { const b = e.target.closest("[data-per]"); if (!b) return; period = b.dataset.per; $$("#perSeg button").forEach((x) => x.classList.toggle("on", x === b)); drawArea(); });
+    occCalendar($("#occCal"), inc.items, { cars: s.per_car });
+    bindBookingActions(ownerOverview);
   }
 
   async function ownerCars() {
@@ -364,6 +401,11 @@
       actions += `<button class="btn btn-sm" data-pay="${b.id}" data-total="${b.total_price}">${icon("card", 16)} ${esc(t("pay.online"))}</button>`;
     if (!owner && (b.status === "pending" || (b.status === "approved" && b.start_date > today)))
       actions += `<button class="btn btn-sm btn-danger" data-act="cancel" data-id="${b.id}">${esc(t("booking.cancel"))}</button>`;
+    if (["approved", "completed"].includes(b.status)) {
+      const cs = b.contract_status || "pending";
+      actions += `<a class="btn btn-sm ${cs === "approved" ? "btn-outline" : "btn-soft"}" href="/contract.html?booking=${b.id}">${icon("doc", 16)} ${esc(t("ctr.btn"))}${cs === "pending" ? ` <i class="dot-warn"></i>` : ""}</a>
+        <a class="btn btn-sm btn-outline" href="/handover.html?booking=${b.id}">${icon("key", 16)} ${esc(t("ho.btn"))}</a>`;
+    }
     if (b.payment_id) actions += `<a class="btn btn-sm btn-outline" href="/receipt.html?payment=${b.payment_id}">${icon("receipt", 16)} ${esc(t("pay.receipt"))}</a>`;
     if (b.status === "completed" && (owner ? !b.renter_review_id : !b.car_review_id))
       actions += `<button class="btn btn-sm btn-soft" data-review="${b.id}" data-title="${esc(owner ? b.renter_name : `${b.brand} ${b.model}`)}" data-owner="${owner ? 1 : 0}">★ ${esc(t(owner ? "review.rate_renter" : "review.leave"))}</button>`;
@@ -378,8 +420,10 @@
     const money_line = owner
       ? `${esc(t("booking.total"))}: <b>${money(b.total_price)}</b> · ${esc(t("booking.fee", { pct: b.commission_bps / 100 }))}: ${money(b.commission)} · ${esc(t("booking.yours"))}: <b>${money(b.owner_payout)}</b>`
       : `${esc(t("booking.total"))}: <b>${money(b.total_price)}</b>${b.deposit ? ` · ${esc(t("book.deposit"))}: ${money(b.deposit)}` : ""}${where}`;
-    const verified = owner && (b.renter_phone_verified || b.renter_email_verified)
-      ? ` <span class="verified" title="${esc(t("verify.badge"))}">${icon("check", 13)} ${esc(t("verify.badge"))}</span>` : "";
+    const verified = (owner && (b.renter_phone_verified || b.renter_email_verified)
+      ? ` <span class="verified" title="${esc(t("verify.badge"))}">${icon("check", 13)} ${esc(t("verify.badge"))}</span>` : "")
+      + (owner ? (b.renter_docs_verified ? ` <span class="verified docs" title="${esc(t("docs.badge_t"))}">${icon("idcard", 13)} ${esc(t("docs.badge"))}</span>`
+        : ` <span class="tag tag-pending" title="${esc(t("docs.no_badge_t"))}">${esc(t("docs.no_badge"))}</span>`) : "");
     return `<div class="list-item">
       <a class="thumb" href="/car.html?id=${b.car_id}">${carImage({ id: b.car_id, brand: b.brand, model: b.model, cover: b.cover })}</a>
       <div><div class="row" style="gap:8px"><a href="/car.html?id=${b.car_id}"><b>${esc(b.brand)} ${esc(b.model)} ${b.year}</b></a>${statusTag(b.status)}${payTag(b)}</div>

@@ -69,8 +69,11 @@ def ask(prompt: str, default: str = "", secret: bool = False) -> str:
 
 
 def yes(prompt: str, default: bool = True) -> bool:
-    v = input(f"  {prompt} [{'H/y' if default else 'h/Y'}]: ").strip().lower()
-    return default if not v else v in ("h", "ha", "y", "yes")
+    # H = ha, Y = yo'q (katta harf — Enter bosilganda tanlanadigani)
+    v = input(f"  {prompt} [{'H/y' if default else 'h/Y'}]: ").strip().lower().replace("'", "").replace("ʻ", "")
+    if not v:
+        return default
+    return v in ("h", "ha", "yes")
 
 
 def ok(msg): print(f"  ✓ {msg}")

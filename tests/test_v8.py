@@ -159,3 +159,46 @@ def test_advisor_prefers_cheaper_among_equals_and_shows_saving():
     assert any(p["code"] in ("below_market", "cheapest_city") for p in first["pros"])
     assert {t["code"] for t in r["save_tips"]} >= {"save_compare", "save_deposit"}
     assert first["badge"] in ("best_match", "best_price")
+
+
+# ---------------- Gmail ko'prigi (Render SMTP portlarini yopgan) ----------------
+def test_email_relay_follows_redirect_and_reports_errors(monkeypatch):
+    import json as _json
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    from app import channels
+    from app.config import settings
+    got = {}
+
+    class H_(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_POST(self):   # Apps Script kabi: POST qabul qilib, natija sahifasiga 302
+            got.update(_json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
+            self.send_response(302)
+            self.send_header("Location", "/result?ok=" + ("1" if got["token"] == "sir" else "0"))
+            self.end_headers()
+
+        def do_GET(self):
+            ok_ = self.path.endswith("=1")
+            body = _json.dumps({"ok": ok_} if ok_ else {"ok": False, "error": "token"}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(body)
+
+    srv = HTTPServer(("127.0.0.1", 0), H_)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    monkeypatch.setattr(settings, "EMAIL_RELAY_URL", f"http://127.0.0.1:{srv.server_port}/exec")
+    monkeypatch.setattr(settings, "EMAIL_RELAY_TOKEN", "sir")
+    try:
+        assert settings.email_enabled
+        assert channels._email_send("a@b.uz", "Kod", "123456")["status"] == "sent"
+        assert got["to"] == "a@b.uz" and got["body"] == "123456"
+        monkeypatch.setattr(settings, "EMAIL_RELAY_TOKEN", "xato")
+        r = channels._email_send("a@b.uz", "Kod", "1")
+        assert r["status"] == "failed" and "token" in r["error"]
+    finally:
+        srv.shutdown()

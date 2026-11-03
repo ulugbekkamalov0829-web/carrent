@@ -71,6 +71,10 @@ class Settings:
     SMTP_USER: str = os.getenv("SMTP_USER", "")
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
     SMTP_FROM: str = os.getenv("SMTP_FROM", "CarRent <no-reply@carrent.uz>")
+    # Render bepul tarifi kabi SMTP portlari (25/465/587) yopiq joylar uchun: Gmail orqali HTTPS ko'prik
+    # (Google Apps Script — scripts/gmail_relay.gs). Berilsa, SMTP o'rniga shu ishlatiladi.
+    EMAIL_RELAY_URL: str = os.getenv("EMAIL_RELAY_URL", "").strip()
+    EMAIL_RELAY_TOKEN: str = os.getenv("EMAIL_RELAY_TOKEN", "").strip()
 
     # SMS (Eskiz.uz)
     ESKIZ_EMAIL: str = os.getenv("ESKIZ_EMAIL", "")
@@ -98,7 +102,7 @@ class Settings:
 
     @property
     def email_enabled(self) -> bool:
-        return bool(self.SMTP_HOST)
+        return bool(self.SMTP_HOST or self.EMAIL_RELAY_URL)
 
     @property
     def sms_enabled(self) -> bool:

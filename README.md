@@ -150,6 +150,14 @@ Testlar: **78 ta** (yangi: to‘lov siyosati va so‘rovlar — 11, maslahatchi 
 | Dizayn | Admin va owner boshqaruv paneli (KPI kartalar, daromad grafigi, bandlik kalendari, tasdiq navbati), yangi avtomobil sahifasi, hisobotlar grafigi; admin menyusi 6 guruhga ajratildi |
 | Maslahatchi | `static/img/adv/photo/<kalit>.jpg` qo‘yilsa real rasm chiqadi (README.txt ichida nomlar) |
 
+## 📧 Render'da email kod (Gmail ko'prigi)
+
+Render bepul tarifi SMTP portlarini (25/465/587) yopgan, shuning uchun `SMTP_*` sozlamalari u yerda ishlamaydi.
+Yechim — Gmail orqali HTTPS ko'prik (bepul, kuniga 100 ta xat):
+1. https://script.google.com → New project → `scripts/gmail_relay.gs` matnini qo'ying, `TOKEN` ni o'zgartiring.
+2. Deploy → New deployment → Web app → Execute as: **Me**, Who has access: **Anyone** → Deploy → ruxsat bering.
+3. Render → Environment: `EMAIL_RELAY_URL` = Web app URL, `EMAIL_RELAY_TOKEN` = TOKEN. Saqlang va qayta deploy qiling.
+
 ## 🛠 Texnologiyalar
 
 | Qatlam | Tanlov |

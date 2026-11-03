@@ -173,7 +173,7 @@ async def admin_channels(request: Request):
     templates = [{"key": k, "text": v["uz"], "ru": v["ru"], "en": v["en"]} for k, v in channels.SMS_TEMPLATES.items() if k != "booking"]
     return ok({
         "sms": {"enabled": settings.sms_enabled, "from": settings.ESKIZ_FROM, "account": _mask_email(settings.ESKIZ_EMAIL)},
-        "email": {"enabled": settings.email_enabled, "host": settings.SMTP_HOST or None, "from": settings.SMTP_FROM},
+        "email": {"enabled": settings.email_enabled, "host": ("Gmail (Apps Script)" if settings.EMAIL_RELAY_URL else settings.SMTP_HOST) or None, "from": settings.SMTP_FROM},
         "dev_inbox": settings.DEV_INBOX, "production": settings.ENV == "production", "public_url": settings.PUBLIC_URL,
         "templates": templates, "log": log, "stats_30d": stats,
     })

@@ -123,7 +123,7 @@ def send(channel: str, to: str, template: str, lang: str = "uz", db=None, **para
     subject, body = render(template, lang, channel, **params)
     if channel == "email" and settings.email_enabled:
         log_id = _log(db, "email", to, template, "queued")
-        threading.Thread(target=_smtp_send, args=(to, subject, body, log_id), daemon=True).start()
+        threading.Thread(target=_email_send, args=(to, subject, body, log_id), daemon=True).start()
         return "email"
     if channel == "sms" and settings.sms_enabled:
         log_id = _log(db, "sms", to, template, "queued")
@@ -146,11 +146,42 @@ def send_now(channel: str, to: str, template: str = "test", lang: str = "uz") ->
     subject, body = render(template, lang, channel)
     if channel == "email" and settings.email_enabled:
         log_id = _log(None, "email", to, template, "queued")
-        return _smtp_send(to, subject, body, log_id)
+        return _email_send(to, subject, body, log_id)
     if channel == "sms" and settings.sms_enabled:
         log_id = _log(None, "sms", to, template, "queued")
         return _eskiz_send(to, body, log_id)
     return {"status": send(channel, to, template, lang)}
+
+
+def _email_send(to: str, subject: str, body: str, log_id: int | None = None) -> dict:
+    return (_relay_send if settings.EMAIL_RELAY_URL else _smtp_send)(to, subject, body, log_id)
+
+
+def _relay_send(to: str, subject: str, body: str, log_id: int | None = None) -> dict:
+    """Gmail ko'prigi (Google Apps Script veb-ilovasi) orqali HTTPS bilan yuborish.
+    Ko'prik {"ok": true} qaytaradi; token mos kelmasa yoki Gmail rad etsa — {"ok": false, "error": "..."}."""
+    payload = json.dumps({"token": settings.EMAIL_RELAY_TOKEN, "to": to, "subject": subject, "body": body,
+                          "name": settings.SMTP_FROM.split("<")[0].strip() or "CarRent"}).encode()
+    req = urllib.request.Request(settings.EMAIL_RELAY_URL, data=payload, method="POST",
+                                 headers={"Content-Type": "text/plain;charset=utf-8"})
+    try:
+        with urllib.request.urlopen(req, timeout=25) as r:   # Apps Script 302 bilan javob sahifasiga yo'naltiradi — urllib o'zi ergashadi
+            raw = r.read().decode("utf-8", "replace")
+        try:
+            res = json.loads(raw)
+        except ValueError:
+            res = {"ok": False, "error": "Ko'prik JSON qaytarmadi (Apps Script 'Anyone' uchun ochiq deploy qilinganini tekshiring): " + raw[:80]}
+        if not res.get("ok"):
+            raise RuntimeError(str(res.get("error") or "relay error"))
+    except Exception as exc:
+        log.warning("Email (ko'prik) yuborilmadi (%s): %s", to.split("@")[-1], type(exc).__name__)
+        err = f"{type(exc).__name__}: {exc}"[:200]
+        if log_id:
+            _update_log(log_id, "failed", err)
+        return {"status": "failed", "error": err}
+    if log_id:
+        _update_log(log_id, "sent")
+    return {"status": "sent"}
 
 
 def _smtp_send(to: str, subject: str, body: str, log_id: int | None = None) -> dict:

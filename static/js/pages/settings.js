@@ -68,7 +68,7 @@
         `<button type="button" data-setlang="${l}" class="${l === I18N.lang ? "on" : ""}"><b>${l.toUpperCase()}</b>${esc(I18N.names[l])}</button>`).join("")}</div>`) +
       (me.role === "admin" ? "" : card("danger", t("set.danger"), t("set.danger_sub"), `
         <form id="delForm" novalidate style="max-width:520px"><div class="field"><label for="dp">${esc(t("field.password"))}</label>
-          <input class="input" type="password" id="dp" autocomplete="current-password" required data-hint="hint.delete"></div>
+          <div class="pw-wrap"><input class="input" type="password" id="dp" autocomplete="current-password" required data-hint="hint.delete"><button type="button" class="pw-eye" data-pw="dp"></button></div></div>
           <button class="btn btn-danger">${icon("trash", 16)} ${esc(t("set.delete"))}</button></form>`, "danger-zone"));
     applyHints(body); bindPasswordToggles(body);
     newPw = pwChecklist($("#np")); pwGenerator($("#np"));
@@ -226,9 +226,9 @@
     $("#emailChangeBtn").addEventListener("click", () => {
       const box = $("#emailChangeBox"); box.classList.remove("hidden");
       box.innerHTML = `<form id="ecForm" novalidate><div class="grid-2"><div class="field"><label for="ecE">${esc(t("set.new_email"))}</label><input class="input" type="email" id="ecE" required placeholder="new@example.com" data-hint="hint.new_email"></div>
-        <div class="field"><label for="ecP">${esc(t("field.password"))}</label><input class="input" type="password" id="ecP" required autocomplete="current-password" data-hint="hint.confirm_pw"></div></div>
+        <div class="field"><label for="ecP">${esc(t("field.password"))}</label><div class="pw-wrap"><input class="input" type="password" id="ecP" required autocomplete="current-password" data-hint="hint.confirm_pw"><button type="button" class="pw-eye" data-pw="ecP"></button></div></div></div>
         <button class="btn btn-sm">${esc(t("verify.send"))}</button></form>`;
-      applyHints(box); $("#ecE").focus();
+      applyHints(box); bindPasswordToggles(box); $("#ecE").focus();
       $("#ecForm").addEventListener("submit", async (e) => {
         e.preventDefault();
         const start = () => api("/api/me/email/start", { method: "POST", body: { new_email: $("#ecE").value.trim(), password: $("#ecP").value } });

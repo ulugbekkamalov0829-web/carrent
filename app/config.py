@@ -48,6 +48,8 @@ class Settings:
     MAX_IMAGE_MB: int = 8            # brauzer suratni oldindan kichraytiradi; server baribir qayta kodlaydi
     MAX_IMAGES_PER_CAR: int = 10
     MAX_BOOKING_DAYS: int = 60
+    # Bron qilish uchun email yoki telefon tasdiqlangan bo'lishi shart (soxta akkauntlardan himoya)
+    REQUIRE_VERIFIED_CONTACT: bool = _bool("REQUIRE_VERIFIED_CONTACT", True)
     LOGIN_ATTEMPTS: int = 8          # shuncha urinish...
     LOGIN_WINDOW_SEC: int = 300      # ...shuncha soniya ichida
     REGISTER_PER_HOUR: int = int(os.getenv("REGISTER_PER_HOUR", "10"))  # bir IP'dan soatiga

@@ -126,6 +126,15 @@ Testlar: **78 ta** (yangi: to‘lov siyosati va so‘rovlar — 11, maslahatchi 
 
 ---
 
+## 🆕 v8 yangilanishlari
+
+| Modul | Nima qo‘shildi |
+|---|---|
+| Bron oldidan tekshiruv | Ism-familiya, telefon, tasdiqlangan email/telefon (va mashina talab qilsa — hujjatlar) to‘ldirilmagan bo‘lsa, bron sahifasida nima yetishmasligi va “To‘ldirish” havolalari chiqadi; server ham bunday bronni qabul qilmaydi. `REQUIRE_VERIFIED_CONTACT=0` bilan o‘chiriladi |
+| Admin foydalanuvchini to‘liq boshqaradi | Profilni tahrirlash (ism, email, telefon, hudud, til), vaqtinchalik parol yoki emailga tiklash kodi, hujjat rasmlarini ko‘rish/tasdiqlash/rad etish/o‘chirish, foydalanuvchi o‘rniga hujjat yuklash, kartani o‘chirish, istalgan e’lonni tahrirlash; har amal tarixga yoziladi va foydalanuvchiga xabar boradi |
+| Hisobotlar | Har bir KPI, xulosa qatori, grafik jami, jadval qatori, so‘rovlar voronkasi va holatlar diagrammasi bosiladi — owner, ijarachi va admin uchun |
+| Maslahatchi | Narx har doim hisobga olinadi: teng moslikda arzoni oldinda, “Eng arzon mos variant” va qancha tejash, bozor o‘rtachasi, tejash maslahatlari, “Eng arzon” tartibi. Owner uchun “Tez ijaraga berish narxi” |
+
 ## 🆕 v7 yangilanishlari
 
 | Modul | Nima qo‘shildi |

@@ -5,7 +5,7 @@ const LABELS = [...ANGLES, "other"];
 
 (async () => {
   await boot("");
-  await guard("user");
+  await guard("user", "admin");
   let id = Number(new URLSearchParams(location.search).get("id")) || null;
   const form = $("#carForm");
   let step = 1, car = null, images = [], queue = [], meta = null;
@@ -22,7 +22,7 @@ const LABELS = [...ANGLES, "other"];
   const MAX_IMAGES = meta.max_images || 10, MAX_MB = meta.max_image_mb || 8;
   if (id) {
     car = await api(`/api/cars/${id}`);
-    if (!car.is_mine) { location.replace("/dashboard.html#cars"); return; }
+    if (!car.can_edit) { location.replace("/dashboard.html#cars"); return; }
     $("#formTitle").dataset.i18n = "form.title_edit";
     for (const el of form.elements) if (el.name && el.name in car && el.type !== "checkbox") el.value = car[el.name] ?? "";
     $("#require_docs").checked = !!car.require_docs;
@@ -123,8 +123,11 @@ const LABELS = [...ANGLES, "other"];
       <div class="small">${esc(t("price.range", { a: money(r.low), b: money(r.high) }))}</div>
       <div class="small muted" style="margin-top:6px">${esc(t("price.confidence_" + r.confidence))}</div>
       <ul class="small muted" style="margin:6px 0 8px;padding-left:18px">${factors.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>
-      <button type="button" class="btn btn-sm" id="applySuggest">${esc(t("price.apply"))}</button></div>`;
+      <button type="button" class="btn btn-sm" id="applySuggest">${esc(t("price.apply"))}</button>
+      ${r.low && r.low < r.suggested ? `<div class="price-fast"><div><b>${icon("trend", 15)} ${esc(t("price.fast"))}: ${money(r.low)}</b> ${esc(t("car.per_day"))}
+        <div class="small muted">${esc(t("price.fast_hint"))}</div></div><button type="button" class="btn btn-sm btn-ok" id="applyFast">${esc(t("price.apply_fast"))}</button></div>` : ""}</div>`;
     $("#applySuggest").addEventListener("click", () => { form.price_per_day.value = fmtMoneyInput(r.suggested); toast(t("price.applied"), "ok"); });
+    $("#applyFast")?.addEventListener("click", () => { form.price_per_day.value = fmtMoneyInput(r.low); toast(t("price.applied"), "ok"); });
   });
 
   // ---------- Rasmlar: burchaklar ro'yxati, kamera, siqish, tartiblash, yorliq, asosiy rasm ----------

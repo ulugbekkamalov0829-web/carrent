@@ -55,7 +55,7 @@ const Reports = {
         <span class="muted">· ${esc(t("rep.days_n", { n: r.period.days }))} · ${esc(t("rep.compared", { a: fmtDate(r.prev.from), b: fmtDate(r.prev.to) }))}</span></div>
       <div class="print-only rep-print-head"><b>CarRent — ${esc(t("rep.title"))}: ${esc(t("rep.kind_" + kind))}</b><span>${esc(Auth.user.full_name)} · ${fmtDate(r.generated)}</span></div>
       ${this.insights(r.insights)}
-      <p class="drill-note no-print">${icon("info", 14)} ${esc(t("drill.note"))}</p>
+      <p class="drill-note no-print">${icon("info", 14)} ${esc(t("rep.click_any"))}</p>
       <div class="stats rep-kpis">${r.kpis.map((k) => this.kpi(k)).join("")}</div>
       <div class="card card-pad rep-chart-card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">${esc(t("rep.chart_" + r.series_label))}</h3>
         <span class="small muted">${esc(t(r.series.unit === "day" ? "rep.by_day" : "rep.by_month"))}</span></div>
@@ -95,7 +95,7 @@ const Reports = {
       const up = k.change > 0, good = k.change === 0 ? null : up === k.up_good;
       delta = `<span class="delta ${good === null ? "" : good ? "good" : "bad"}">${up ? "▲" : k.change < 0 ? "▼" : "•"} ${Math.abs(k.change)}%</span>`;
     } else if (!k.prev && k.value) delta = `<span class="delta new">${esc(t("rep.new"))}</span>`;
-    const d = k.value ? this.kpiDrill(this.kind, k.code) : null;
+    const d = this.kpiDrill(this.kind, k.code);
     const ICO = { income: ["wallet", "green"], gross: ["dollar", "purple"], commission: ["chart", "blue"], trips: ["car", "blue"], rental_days: ["calendar", "orange"],
       occupancy: ["gauge", "green"], avg_check: ["receipt", "purple"], lost: ["flag", "red"], spent: ["wallet", "purple"], avg_day: ["dollar", "blue"],
       refunds: ["swap", "green"], cancelled: ["close", "red"], gmv: ["dollar", "purple"], platform_income: ["trend", "green"], online_paid: ["card", "blue"],
@@ -115,12 +115,28 @@ const Reports = {
     return t("rep.i_" + i.code, p);
   },
 
+  /** Xulosa qatori bosilganda — u qaysi yozuvlarga asoslanganini ochadi */
+  insightDrill(i) {
+    const k = this.kind, p = i.params || {}, title = this.insightText(i);
+    const done = { status: "done" }, lost = { status: "cancelled,rejected", date_field: "created" };
+    const m = {
+      income_up: done, income_down: done, income_first: done, best_car: { car_id: p.car_id, status: "done" }, idle_car: { car_id: p.car_id },
+      many_lost: lost, pending_now: { status: "pending", from: null, to: null }, rating: ["reviews", {}], compensation: done,
+      renter_total: done, spent_up: done, spent_down: done, fav_body: { body: p.body, status: "done" }, cheaper_than_market: done, pricier_than_market: done,
+      renter_refunds: ["payments", { status: "refunded,refund_pending", date_field: "cancelled" }], renter_review: { status: "completed", from: null, to: null },
+      gmv_up: done, gmv_down: done, gmv_first: done, top_city: { city: p.city, status: "done" }, online_share: ["payments", {}], admin_lost: lost, users_growth: ["users", {}],
+    }[i.code];
+    if (!m) return null;
+    const [entity, extra] = Array.isArray(m) ? m : ["bookings", m];
+    return this.spec(k, entity, title, extra);
+  },
+
   insights(list) {
     if (!list.length) return "";
     const ico = { good: "check", warn: "flag", info: "bulb", action: "bell" };
     return `<div class="card card-pad rep-insights"><h3>${icon("bulb", 18)} ${esc(t("rep.insights"))}</h3><ul>
-      ${list.map((i) => `<li class="ins ins-${i.kind}"><span class="ins-ico">${icon(ico[i.kind] || "info", 16)}</span>
-        <span>${esc(this.insightText(i))}${i.link ? ` <a href="${esc(i.link)}" class="no-print">${esc(t("rep.open"))} →</a>` : ""}</span></li>`).join("")}</ul></div>`;
+      ${list.map((i) => { const dr = i.link ? null : this.insightDrill(i); return `<li class="ins ins-${i.kind} ${dr ? "ins-link" : ""}" ${dr ? drillAttr(dr) : ""}><span class="ins-ico">${icon(ico[i.kind] || "info", 16)}</span>
+        <span>${esc(this.insightText(i))}${i.link ? ` <a href="${esc(i.link)}" class="no-print">${esc(t("rep.open"))} →</a>` : ""}</span>${dr ? `<span class="ins-go no-print">${icon("arrowr", 15)}</span>` : ""}</li>`; }).join("")}</ul></div>`;
   },
 
   chart(series, series2) {
@@ -131,7 +147,7 @@ const Reports = {
       { status: "done", from: null, to: null, ...(series.unit === "day" ? { day: p.k } : { month: p.k }) });
     const fees = series2 ? series2.points.reduce((a, p) => a + p.v, 0) : 0;
     return `${areaChart(pts, { drill, height: 240 })}
-      <div class="small muted" style="margin-top:6px">${esc(t("rep.chart_total", { sum: money(total) }))}${series2 ? ` · ${esc(t("rep.legend_fee"))}: ${money(fees)}` : ""}</div>`;
+      <div class="small muted" style="margin-top:6px"><button type="button" class="link-btn" ${drillAttr(this.spec(this.kind, "bookings", t("rep.chart_all"), { status: "done" }))}>${esc(t("rep.chart_total", { sum: money(total) }))} →</button>${series2 ? ` · ${esc(t("rep.legend_fee"))}: ${money(fees)}` : ""}</div>`;
   },
 
   table(title, head, body, empty = "rep.no_rows") {
@@ -142,6 +158,28 @@ const Reports = {
       : `<div class="empty">${esc(t(empty))}</div>`}</div>`;
   },
 
+  statusDonut(kind, f) {
+    const ks = ["completed", "approved", "pending", "cancelled", "rejected"], col = { completed: "#10b981", approved: "#3b82f6", pending: "#f59e0b", cancelled: "#9ca3af", rejected: "#ef4444" };
+    const total = ks.reduce((a, k) => a + (f?.[k] || 0), 0);
+    if (!total) return `<div class="card card-pad"><h3>${esc(t("rep.t_status_share"))}</h3><div class="empty">${esc(t("rep.no_rows"))}</div></div>`;
+    let acc = 0;
+    const arcs = ks.filter((k) => f[k]).map((k) => { const a0 = (acc / total) * 2 * Math.PI, a1 = ((acc += f[k]) / total) * 2 * Math.PI;
+      const big = a1 - a0 > Math.PI ? 1 : 0, r = 42, c = 50, p = (a) => `${c + r * Math.sin(a)} ${c - r * Math.cos(a)}`;
+      const d = f[k] === total ? `M ${c} ${c - r} A ${r} ${r} 0 1 1 ${c - 0.01} ${c - r}` : `M ${p(a0)} A ${r} ${r} 0 ${big} 1 ${p(a1)}`;
+      return `<path d="${d}" stroke="${col[k]}" stroke-width="14" fill="none" class="arc" ${drillAttr(this.spec(kind, "bookings", `${t("rep.t_status_share")}: ${t("status." + k)}`, { status: k, date_field: "created" }))}><title>${esc(t("status." + k))}: ${f[k]}</title></path>`; }).join("");
+    return `<div class="card card-pad"><h3>${esc(t("rep.t_status_share"))}</h3><div class="rep-donut"><svg viewBox="0 0 100 100" role="img" aria-label="${esc(t("rep.t_status_share"))}">${arcs}
+        <text x="50" y="48" text-anchor="middle" font-size="16" font-weight="800">${total}</text><text x="50" y="62" text-anchor="middle" font-size="7" fill="#6b7280">${esc(t("rep.requests"))}</text></svg>
+      <ul>${ks.filter((k) => f[k]).map((k) => `<li ${drillAttr(this.spec(kind, "bookings", `${t("rep.t_status_share")}: ${t("status." + k)}`, { status: k, date_field: "created" }))}><i style="background:${col[k]}"></i>${esc(t("status." + k))}<b>${f[k]} · ${Math.round((100 * f[k]) / total)}%</b></li>`).join("")}</ul></div></div>`;
+  },
+
+  funnel(kind, f) {
+    const created = Object.values(f || {}).reduce((a, x) => a + x, 0);
+    return `<div class="card card-pad"><h3>${esc(t("rep.t_funnel"))}</h3>
+      ${created ? `<div class="funnel">${["pending", "approved", "completed", "rejected", "cancelled"].map((s) =>
+        `<div class="fn" ${drillAttr(this.spec(kind, "bookings", `${t("rep.t_funnel")}: ${t("status." + s)}`, { status: s, date_field: "created" }))}><span>${esc(t("status." + s))}</span><div class="track"><i class="st-${s}" style="width:${(f[s] / created) * 100}%"></i></div><b>${f[s]}</b></div>`).join("")}</div>
+        <p class="small muted" style="margin:10px 0 0">${esc(t("rep.funnel_note", { n: created }))}</p>` : `<div class="empty">${esc(t("rep.no_rows"))}</div>`}</div>`;
+  },
+
   share(v, total) { return total ? `<div class="share"><i style="width:${Math.round((v / total) * 100)}%"></i></div>` : ""; },
 
   tables(kind, r) {
@@ -149,11 +187,11 @@ const Reports = {
     if (kind === "owner") {
       const tot = T.per_car.reduce((a, c) => a + c.payout, 0);
       return this.table("rep.t_per_car", ["col.car", "rep.c_trips", "rep.c_busy", "col.occupancy", "col.revenue", "rep.c_income"],
-        T.per_car.map((c) => ({ drill: c.trips ? this.spec(kind, "bookings", c.title, { car_id: c.id, status: "done" }) : null, cells: [
+        T.per_car.map((c) => ({ drill: this.spec(kind, "bookings", c.title, c.trips ? { car_id: c.id, status: "done" } : { car_id: c.id, date_field: "created" }), cells: [
           `<a href="/car.html?id=${c.id}">${esc(c.title)}</a><div class="small muted">${esc(c.city)}${c.rating ? ` · ★ ${c.rating}` : ""}</div>`,
           c.trips, `${c.busy_days} / ${c.busy_days + c.idle_days}`,
           `<span class="occ ${c.occupancy < 25 ? "low" : c.occupancy >= 60 ? "high" : ""}">${c.occupancy}%</span>`, money(c.gross),
-          `<b>${money(c.payout)}</b>${this.share(c.payout, tot)}`] })), "rep.no_cars");
+          `<b>${money(c.payout)}</b>${this.share(c.payout, tot)}`] })), "rep.no_cars") + `<div class="two-col">${this.funnel(kind, T.funnel)}${this.statusDonut(kind, T.funnel)}</div>`;
     }
     if (kind === "renter") {
       const tot = T.by_body.reduce((a, x) => a + x.spent, 0);
@@ -163,20 +201,18 @@ const Reports = {
         ${this.table("rep.t_by_city", ["col.city", "rep.c_trips", "rep.c_spent"], T.by_city.map((x) => ({ drill: this.spec(kind, "bookings", `${t("rep.t_by_city")}: ${x.key}`, { city: x.key, status: "done" }),
           cells: [esc(x.key), x.trips, money(x.spent)] })))}</div>
         ${this.table("rep.t_trips", ["col.car", "col.dates", "rep.c_days", "booking.total", "col.status"],
-          T.trips.map((x) => [`<a href="/car.html?id=${x.car_id}">${esc(x.title)}</a>`, `<span class="small">${fmtDate(x.start_date)} → ${fmtDate(x.end_date)}</span>`,
-            x.days, money(x.total_price), statusTag(x.status)]))}`;
+          T.trips.map((x) => ({ drill: this.spec(kind, "bookings", x.title, { car_id: x.car_id }), cells: [`<a href="/car.html?id=${x.car_id}">${esc(x.title)}</a>`, `<span class="small">${fmtDate(x.start_date)} → ${fmtDate(x.end_date)}</span>`,
+            x.days, money(x.total_price), statusTag(x.status)] })))}
+        <div class="two-col">${this.funnel(kind, T.funnel)}${this.statusDonut(kind, T.funnel)}</div>`;
     }
     const gmv = T.by_city.reduce((a, x) => a + x.gmv, 0);
-    const f = T.funnel, created = Object.values(f).reduce((a, x) => a + x, 0);
+    const f = T.funnel;
     const provName = (k) => (k === "test" ? t("pay.test_name") : k === "click" ? "Click" : "Payme");
     return `<div class="two-col">
         ${this.table("rep.t_by_city", ["col.city", "rep.c_trips", "rep.c_gmv", "rep.c_fee"],
           T.by_city.map((x) => ({ drill: this.spec(kind, "bookings", `${t("rep.t_by_city")}: ${x.key}`, { city: x.key, status: "done" }),
             cells: [esc(x.key), x.trips, `${money(x.gmv)}${this.share(x.gmv, gmv)}`, money(x.commission)] })))}
-        <div class="card card-pad"><h3>${esc(t("rep.t_funnel"))}</h3>
-          ${created ? `<div class="funnel">${["pending", "approved", "completed", "rejected", "cancelled"].map((s) =>
-            `<div class="fn" ${f[s] ? drillAttr(this.spec(kind, "bookings", `${t("rep.t_funnel")}: ${t("status." + s)}`, { status: s, date_field: "created" })) : ""}><span>${esc(t("status." + s))}</span><div class="track"><i class="st-${s}" style="width:${(f[s] / created) * 100}%"></i></div><b>${f[s]}</b></div>`).join("")}</div>
-            <p class="small muted" style="margin:10px 0 0">${esc(t("rep.funnel_note", { n: created }))}</p>` : `<div class="empty">${esc(t("rep.no_rows"))}</div>`}</div>
+        ${this.funnel(kind, f)}
       </div>
       <div class="two-col">
         ${this.table("rep.t_top_owners", ["col.owner", "rep.c_trips", "rep.c_income", "rep.c_fee"],

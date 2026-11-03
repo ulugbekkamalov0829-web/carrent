@@ -219,7 +219,8 @@
     const u = d.user, R = d.renter, O = d.owner;
     $("#viewTitle").textContent = u.full_name;
     $("#viewSub").innerHTML = `<a href="#users">← ${esc(t("admin.users"))}</a>`;
-    const tabs = [["overview", "uadm.t_overview"], ["bookings", "admin.bookings", d.bookings.length], ["cars", "uadm.t_cars", d.cars.length],
+    const docPending = ["license", "id_card", "selfie"].filter((k) => d.docs.docs[k]?.status === "pending").length;
+    const tabs = [["overview", "uadm.t_overview"], ["profile", "uadm.t_profile"], ["docs", "uadm.t_docs", docPending || ""], ["bookings", "admin.bookings", d.bookings.length], ["cars", "uadm.t_cars", d.cars.length],
       ["payments", "admin.payments", d.payments.length], ["complaints", "uadm.t_complaints", d.counts.complaints_new || ""],
       ["disputes", "admin.disputes", d.counts.disputes_open || ""], ["reviews", "admin.reviews", d.reviews.length],
       ["security", "uadm.t_security"], ["history", "uadm.t_history"]];
@@ -233,7 +234,8 @@
           <div><h2>${esc(u.full_name)} <span class="muted small">#${u.id}</span></h2>
             <div class="row" style="gap:6px;flex-wrap:wrap">${blocked ? `<span class="tag tag-bad">${esc(t("admin.blocked_one"))}</span>` : `<span class="tag tag-ok">${esc(t("admin.active"))}</span>`}
               <span class="tag tag-info">${esc(t("role." + u.role))}</span>${O ? `<span class="tag tag-info">${esc(t("uadm.is_owner"))}</span>` : ""}${R.trips ? `<span class="tag tag-info">${esc(t("uadm.is_renter"))}</span>` : ""}
-              ${verified(u.email_verified, "uadm.email_ok")} ${verified(u.phone_verified, "uadm.phone_ok")}</div>
+              ${verified(u.email_verified, "uadm.email_ok")} ${verified(u.phone_verified, "uadm.phone_ok")}
+              ${u.must_change_pw ? `<span class="tag tag-pending">${icon("lock", 12)} ${esc(t("uadm.must_change"))}</span>` : ""}</div>
             <div class="small muted" style="margin-top:6px">${icon("mail", 14)} ${esc(u.email)} ${u.phone ? `· ${icon("phone", 14)} ${esc(fmtPhone(u.phone))}` : ""}
               ${u.region ? `· ${esc(Places.label(u.region, u.district))}` : ""}</div>
             <div class="small muted">${esc(t("uadm.registered", { d: fmtDate(u.created_at) }))} · ${esc(u.last_seen ? t("uadm.last_seen", { d: timeAgo(u.last_seen) }) : t("uadm.never_seen"))}${u.deleted_at ? ` · <b>${esc(t("uadm.deleted"))}</b>` : ""}</div></div></div>
@@ -303,12 +305,62 @@
             <h3 style="margin-top:16px">${esc(t("uadm.as_renter"))}</h3>${statusBars(R.statuses, (k) => A("bookings", `${u.full_name} (${t("notif.for_renter")}): ${t("status." + k)}`, { renter_id: u.id, status: k }))}</div>
           </div>
         </div>`,
+      profile: () => isAdmin ? `<div class="empty card">${esc(t("uadm.cant_self"))}</div>` : `<div class="two-col">
+        <div class="card card-pad"><h3>${icon("user", 18)} ${esc(t("uadm.t_profile"))}</h3><p class="small muted">${esc(t("uadm.profile_sub"))}</p>
+          <form id="admProfile" novalidate>
+            <div class="field"><label for="apN">${esc(t("field.full_name"))}</label><input class="input" id="apN" name="full_name" value="${esc(u.full_name)}" required maxlength="80"></div>
+            <div class="grid-2"><div class="field"><label for="apE">Email</label><input class="input" type="email" id="apE" name="email" value="${esc(u.email)}" required></div>
+              <div class="field"><label for="apP">${esc(t("field.phone"))}</label><input class="input" type="tel" id="apP" name="phone" value="${esc(u.phone || "")}" placeholder="+998 90 123 45 67"></div></div>
+            <div class="grid-2"><div class="field"><label for="apR">${esc(t("place.region"))}</label><select class="input" id="apR" name="region"></select></div>
+              <div class="field"><label for="apD">${esc(t("place.district"))}</label><select class="input" id="apD" name="district"></select></div></div>
+            <div class="grid-2"><div class="field"><label for="apL">${esc(t("uadm.lang"))}</label><select class="input" id="apL" name="lang">${["uz", "ru", "en"].map((l) => `<option value="${l}" ${u.lang === l ? "selected" : ""}>${l.toUpperCase()}</option>`).join("")}</select></div>
+              <div class="field"><label class="check" style="margin-top:28px"><input type="checkbox" name="show_phone" ${u.show_phone ? "checked" : ""}><span>${esc(t("uadm.show_phone"))}</span></label></div></div>
+            <div class="field"><label for="apWhy">${esc(t("uadm.change_reason"))}</label><input class="input" id="apWhy" name="reason" maxlength="300"></div>
+            <p class="small muted">${icon("info", 14)} ${esc(t("uadm.email_change_note"))}</p>
+            <button class="btn">${icon("check", 16)} ${esc(t("uadm.save_profile"))}</button></form></div>
+        <div class="stack">
+          <div class="card card-pad"><h3>${icon("lock", 18)} ${esc(t("uadm.pw_title"))}</h3><p class="small muted">${esc(t("uadm.pw_sub"))}</p>
+            <div class="row" style="gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-sm" data-pw="temp">${icon("key", 15)} ${esc(t("uadm.pw_temp"))}</button>
+              <button type="button" class="btn btn-sm btn-outline" data-pw="email">${icon("mail", 15)} ${esc(t("uadm.pw_send"))}</button></div>
+            <div id="pwOut"></div></div>
+          <div class="card card-pad"><h3>${icon("check", 18)} ${esc(t("uadm.readiness"))} <span class="tag ${d.readiness.ready ? "tag-ok" : "tag-bad"}">${d.readiness.percent}%</span></h3>
+            <p class="small muted">${esc(t("uadm.readiness_sub"))}</p>
+            <ul class="ready-list">${d.readiness.items.map((i) => `<li class="${i.ok ? "ok" : i.required ? "need" : "tip"}">${icon(i.ok ? "check" : i.required ? "close" : "info", 15)}<span>${esc(t("ready." + i.code))}</span>
+              ${!i.ok && i.code === "contact" ? `<button type="button" class="btn btn-sm btn-outline" data-act="verify_email">${esc(t("uadm.verify_email"))}</button>` : !i.ok && i.code === "docs" ? `<button type="button" class="btn btn-sm btn-outline" data-ut="docs">${esc(t("docs.title"))}</button>` : !i.ok && ["name", "phone", "region"].includes(i.code) ? `<a href="#" data-focus="${i.code === "name" ? "apN" : i.code === "phone" ? "apP" : "apR"}">${esc(t("ready.fix"))}</a>` : ""}</li>`).join("")}</ul></div>
+        </div></div>`,
+      docs: () => `<div class="adm-docs-full">${[["license", "idcard"], ["id_card", "idcard"], ["selfie", "user"]].map(([k, ico]) => { const x = d.docs.docs[k];
+          return `<article class="card card-pad adm-doc">
+            <div class="row" style="justify-content:space-between"><b>${icon(ico, 18)} ${esc(t("docs.k_" + k))}</b>
+              ${x ? `<span class="tag ${x.status === "approved" ? "tag-ok" : x.status === "pending" ? "tag-pending" : "tag-bad"}">${esc(t(x.expired ? "docs.expired" : "docs.st_" + x.status))}</span>` : `<span class="tag tag-hidden">${esc(t("uadm.no_doc"))}</span>`}</div>
+            ${x ? `<div class="doc-meta small">${x.number_mask ? `<span>№ ${esc(x.number_mask)}</span>` : ""}${x.categories ? `<span>${esc(t("docs.cat"))}: ${esc(x.categories)}</span>` : ""}${x.expires_on ? `<span>${esc(t("docs.until"))}: ${fmtDate(x.expires_on)}</span>` : ""}<span>${esc(fmtDate(x.created_at))}</span></div>
+              <div class="doc-thumbs big">${x.files.map((f, i) => `<button type="button" data-ulb="${k}" data-i="${i}"><img src="/api/files/${esc(f)}" alt="" loading="lazy"></button>`).join("")}</div>
+              ${x.reject_reason ? `<div class="notice small">${esc(x.reject_reason)}</div>` : ""}
+              <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
+                ${x.status !== "approved" ? `<button type="button" class="btn btn-sm btn-ok" data-dok="${x.id}">${icon("check", 15)} ${esc(t("docs.approve"))}</button>` : ""}
+                ${x.status !== "rejected" ? `<button type="button" class="btn btn-sm btn-outline" data-dno="${x.id}">${esc(t("docs.reject"))}</button>` : ""}
+                <button type="button" class="btn btn-sm btn-danger" data-ddel="${x.id}">${icon("trash", 15)} ${esc(t("common.delete"))}</button></div>` : ""}
+          </article>`; }).join("")}</div>
+        <div class="two-col" style="margin-top:16px">
+          <div class="card card-pad"><h3>${icon("plus", 18)} ${esc(t("uadm.doc_upload"))}</h3><p class="small muted">${esc(t("uadm.doc_upload_sub"))}</p>
+            <form id="admDoc" novalidate>
+              <div class="grid-2"><div class="field"><label for="adK">${esc(t("uadm.doc_kind"))}</label><select class="input" id="adK" name="kind">${["license", "id_card", "selfie"].map((k) => `<option value="${k}">${esc(t("docs.k_" + k))}</option>`).join("")}</select></div>
+                <div class="field"><label for="adNo">№</label><input class="input" id="adNo" name="number" maxlength="30" placeholder="AF 1234567" autocomplete="off"></div></div>
+              <div class="grid-2 lic-only"><div class="field"><label for="adC">${esc(t("docs.cat"))}</label><input class="input" id="adC" name="categories" maxlength="20" placeholder="B, C"></div>
+                <div class="field"><label for="adX">${esc(t("docs.until"))}</label><input class="input" type="date" id="adX" name="expires_on" min="${isoDate(new Date())}"></div></div>
+              <div class="field"><label for="adF">${esc(t("docs.photos"))}</label><input class="input" type="file" id="adF" name="files" accept="image/*" multiple></div>
+              <label class="check"><input type="checkbox" name="approve" checked><span>${esc(t("uadm.doc_approve_now"))}</span></label>
+              <button class="btn btn-sm" style="margin-top:10px">${icon("plus", 15)} ${esc(t("docs.upload"))}</button></form></div>
+          <div class="card card-pad"><h3>${icon("card", 18)} ${esc(t("uadm.cards"))}</h3>
+            ${d.cards.length ? d.cards.map((c) => `<div class="sum-row"><span><b>${esc(c.brand.toUpperCase())}</b> ${esc(c.first6.slice(0, 4))} ${esc(c.first6.slice(4))}•• •••• ${esc(c.last4)}
+                <div class="small muted">${String(c.exp_month).padStart(2, "0")}/${String(c.exp_year).slice(-2)}${c.holder ? ` · ${esc(c.holder)}` : ""}${c.is_default ? ` · ${esc(t("cards.default"))}` : ""}</div></span>
+              <button type="button" class="btn btn-sm btn-outline" data-cdel="${c.id}">${icon("trash", 14)}</button></div>`).join("") : `<p class="muted small">${esc(t("uadm.no_cards"))}</p>`}</div>
+        </div>`,
       bookings: () => bookingTable(d.bookings),
       cars: () => d.cars.length ? `<div class="uadm-cars">${d.cars.map((c) => `<div class="card uadm-car"><a class="car-thumb" href="/car.html?id=${c.id}" target="_blank" rel="noopener">${carImage(c)}</a>
           <div class="card-pad"><b>${esc(c.brand)} ${esc(c.model)} ${c.year}</b><div class="small muted">${esc(Places.label(c.city, c.district))} · ${money(c.price_per_day)} ${esc(t("car.per_day"))}</div>
             <div class="small">${esc(t("drill.trips_n", { n: c.trips }))} · ${esc(t("drill.views_n", { n: c.views }))}${c.rating ? ` · ★ ${c.rating}` : ""}</div>
             <div class="row" style="gap:6px;margin-top:8px;justify-content:space-between">${!c.is_approved ? `<span class="tag tag-bad">${esc(t("car.state_moderated"))}</span>` : c.is_active ? `<span class="tag tag-ok">${esc(t("car.state_active"))}</span>` : `<span class="tag tag-hidden">${esc(t("car.state_hidden"))}</span>`}
-              <span class="row" style="gap:6px"><button class="btn btn-sm btn-outline" ${drillAttr(A("bookings", `${c.brand} ${c.model} ${c.year}`, { car_id: c.id }))}>${esc(t("admin.bookings"))}</button>
+              <span class="row" style="gap:6px"><a class="btn btn-sm btn-outline" href="/car-form.html?id=${c.id}">${icon("pen", 14)} ${esc(t("uadm.edit_car"))}</a><button class="btn btn-sm btn-outline" ${drillAttr(A("bookings", `${c.brand} ${c.model} ${c.year}`, { car_id: c.id }))}>${esc(t("admin.bookings"))}</button>
               <button class="btn btn-sm btn-outline" data-car="${c.id}" data-approve="${c.is_approved ? 0 : 1}">${esc(t(c.is_approved ? "admin.hide" : "admin.restore"))}</button></span></div></div></div>`).join("")}</div>`
         : `<div class="empty card">${esc(t("uadm.no_cars"))}</div>`,
       payments: () => d.payments.length ? `<div class="card table-wrap"><table class="table responsive"><thead><tr><th>#</th><th>${esc(t("col.car"))}</th><th>${esc(t("uadm.role_in"))}</th><th>${esc(t("pay.method"))}</th>
@@ -345,14 +397,46 @@
             <td data-label="${esc(t("col.action"))}">${esc(t("audit." + a.action) || a.action)}</td><td data-label="${esc(t("col.target"))}" class="small">${esc(a.target_type || "")} ${a.target_id ?? ""} <span class="muted">${esc(a.details || "")}</span></td></tr>`).join("")}</tbody></table></div>`
         : `<div class="empty card">${esc(t("admin.audit_empty"))}</div>`,
     };
-    const showTab = (k) => { cur = userPage.tab = k; $$("[data-ut]").forEach((b) => b.classList.toggle("on", b.dataset.ut === k)); $("#uTab").innerHTML = tab[k](); };
+    const showTab = (k) => {
+      cur = userPage.tab = k; $$("[data-ut]").forEach((b) => b.classList.toggle("on", b.dataset.ut === k)); $("#uTab").innerHTML = tab[k]();
+      if (k === "profile" && $("#apR")) { Places.bind($("#apR"), $("#apD"), { region: u.region || "", district: u.district || "", any: true }); applyMasks($("#uTab")); }
+      if (k === "docs") {
+        const lic = () => $$(".lic-only").forEach((x) => x.classList.toggle("hidden", $("#adK").value !== "license"));
+        $("#adK").addEventListener("change", lic); lic(); DateField.enhance($("#uTab"));
+      }
+    };
     showTab(cur);
 
     const reload = () => userPage(id);
     view.onclick = async (e) => {
       const ut = e.target.closest("[data-ut]"); if (ut) return showTab(ut.dataset.ut);
       const act = e.target.closest("[data-act]"), bc = e.target.closest("[data-bcancel]"), car = e.target.closest("[data-approve]"), rev = e.target.closest("[data-rev]");
+      const foc = e.target.closest("[data-focus]"); if (foc) { e.preventDefault(); $("#" + foc.dataset.focus)?.focus(); return; }
+      const ulb = e.target.closest("[data-ulb]");
+      if (ulb) { lightbox(d.docs.docs[ulb.dataset.ulb].files.map((f) => ({ path: "/api/files/" + f })), +ulb.dataset.i); return; }
+      const pw = e.target.closest("[data-pw]"), dok = e.target.closest("[data-dok]"), dno = e.target.closest("[data-dno]"), ddel = e.target.closest("[data-ddel]"), cdel = e.target.closest("[data-cdel]");
       try {
+        if (pw) {
+          if (pw.dataset.pw === "temp") {
+            if (!(await confirmBox(t("uadm.pw_temp_q", { name: u.full_name }), t("uadm.pw_temp"), true))) return;
+            const r = await api(`/api/admin/users/${id}/password`, { method: "POST", body: { mode: "temp" } });
+            $("#pwOut").innerHTML = `<div class="pw-out"><div class="small">${esc(t("uadm.pw_temp_done"))}</div><code id="pwVal">${esc(r.password)}</code>
+              <button type="button" class="btn btn-sm btn-outline" id="pwCopy">${esc(t("uadm.copy"))}</button></div>`;
+            $("#pwCopy").onclick = () => { navigator.clipboard?.writeText(r.password).then(() => toast(t("uadm.copied"), "ok")).catch(() => {}); };
+          } else {
+            await api(`/api/admin/users/${id}/password`, { method: "POST", body: { mode: "email" } });
+            toast(t("uadm.pw_sent"), "ok");
+          }
+          return;
+        }
+        if (dok && await confirmBox(t("docs.approve_q"), t("docs.approve"))) { await api(`/api/admin/documents/${dok.dataset.dok}/review`, { method: "POST", body: { approve: true } }); toast(t("common.done"), "ok"); pollSummary(); return reload(); }
+        if (dno) {
+          const r = await reasonModal({ title: t("docs.reject"), label: t("docs.reject_reason"), danger: true, okText: t("docs.reject") });
+          if (!r) return;
+          await api(`/api/admin/documents/${dno.dataset.dno}/review`, { method: "POST", body: { approve: false, reason: r.reason } }); toast(t("common.done"), "ok"); pollSummary(); return reload();
+        }
+        if (ddel && await confirmBox(t("uadm.doc_delete_q"), t("common.delete"), true)) { await api(`/api/admin/users/${id}/documents/${ddel.dataset.ddel}`, { method: "DELETE" }); toast(t("common.done"), "ok"); return reload(); }
+        if (cdel && await confirmBox(t("uadm.card_delete_q"), t("common.delete"), true)) { await api(`/api/admin/users/${id}/cards/${cdel.dataset.cdel}`, { method: "DELETE" }); toast(t("common.done"), "ok"); return reload(); }
         if (act && ["make_admin", "remove_admin"].includes(act.dataset.act)) {
           const role = act.dataset.act === "make_admin" ? "admin" : "user";
           if (!(await confirmBox(t(role === "admin" ? "uadm.make_admin_q" : "uadm.remove_admin_q", { name: u.full_name }), t("common.yes"), role === "admin"))) return;
@@ -391,6 +475,31 @@
       } catch (err) { toast(err.message, "error"); }
     };
     view.onsubmit = async (e) => {
+      if (e.target.id === "admProfile") {
+        e.preventDefault();
+        const f = e.target, body = { full_name: f.full_name.value.trim(), email: f.email.value.trim(), phone: f.phone.value.trim() || null,
+          region: f.region.value || null, district: f.district.value || null, lang: f.lang.value, show_phone: f.show_phone.checked, reason: f.reason.value.trim() || null };
+        await withLoading($("button", f), async () => {
+          try { const r = await api(`/api/admin/users/${id}/profile`, { method: "PUT", body }); toast(r.changed.length ? t("common.saved") : t("common.done"), "ok"); userPage.tab = "profile"; reload(); }
+          catch (err) { toast(err.message, "error"); }
+        });
+        return;
+      }
+      if (e.target.id === "admDoc") {
+        e.preventDefault();
+        const f = e.target, fd = new FormData();
+        fd.append("kind", f.kind.value);
+        for (const n of ["number", "categories", "expires_on"]) if (f.kind.value === "license" || n === "number") fd.append(n, f.elements[n].value.trim());
+        if (f.approve.checked) fd.append("approve", "1");
+        const files = [...f.files.files].slice(0, 3);
+        if (!files.length) { toast(t("docs.pick_files"), "error"); return; }
+        for (const x of files) fd.append("files", await compressImage(x, 1800));
+        await withLoading($("button", f), async () => {
+          try { await api(`/api/admin/users/${id}/documents`, { method: "POST", form: fd }); toast(t("common.done"), "ok"); userPage.tab = "docs"; reload(); }
+          catch (err) { toast(err.message, "error"); }
+        });
+        return;
+      }
       if (e.target.id !== "noteForm") return;
       e.preventDefault();
       const v = e.target.reason.value.trim();

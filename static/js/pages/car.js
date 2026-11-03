@@ -152,7 +152,7 @@
       return;
     }
     const today = isoDate(new Date());
-    area.innerHTML = `<form id="bookForm" novalidate>
+    area.innerHTML = `<div id="ready"></div><form id="bookForm" novalidate>
       <div class="grid-2"><div class="field"><label for="bStart">${esc(t("book.start"))}</label><input class="input" type="date" id="bStart" min="${today}" value="${esc(form.start)}" required></div>
       <div class="field"><label for="bEnd">${esc(t("book.end"))}</label><input class="input" type="date" id="bEnd" min="${esc(form.start || today)}" value="${esc(form.end)}" required></div></div>
       ${car.delivery_price !== null ? `<label class="check field"><input type="checkbox" id="bDelivery" ${form.delivery ? "checked" : ""}><span>${esc(t("book.delivery", { price: money(car.delivery_price) }))}</span></label>` : ""}
@@ -169,6 +169,7 @@
     f.addEventListener("submit", async (e) => {
       e.preventDefault();
       const btn = $("button[type=submit]", f);
+      if (readyState && !readyState.ready) { readyModal(readyState); return; }
       if (!$("#bStart").value || !$("#bEnd").value) { toast(t("book.pick_dates"), "error"); return; }
       await withLoading(btn, async () => {
         try {
@@ -180,6 +181,35 @@
       });
     });
     updateQuote();
+    loadReadiness();
+  }
+
+  // ---------- Bron oldidan profil tayyorligi: nima yetishmaydi va qayerda to'ldiriladi ----------
+  let readyState = null;
+  const withBack = (link) => link.replace("#", `?back=${encodeURIComponent(location.pathname + location.search + "#book")}#`);
+  const readyItem = (i) => `<li class="${i.ok ? "ok" : i.required ? "need" : "tip"}">${icon(i.ok ? "check" : i.required ? "close" : "info", 15)}
+    <span>${esc(t("ready." + i.code + (i.code === "docs" && !i.ok && i.state === "pending" ? "_pending" : "")))}</span>
+    ${i.ok || (i.code === "docs" && i.state === "pending") ? "" : `<a href="${esc(withBack(i.link))}">${esc(t("ready.fix"))} →</a>`}</li>`;
+  async function loadReadiness() {
+    try { readyState = await api(`/api/bookings/readiness?car_id=${car.id}`); } catch { return; }
+    const r = readyState, box = $("#ready");
+    if (!box) return;
+    const need = r.items.filter((i) => i.required && !i.ok), tips = r.items.filter((i) => !i.required && !i.ok);
+    box.innerHTML = need.length ? `<div class="ready-box bad" role="alert"><b>${icon("flag", 16)} ${esc(t("ready.title_need"))}</b>
+        <p class="small">${esc(t("ready.need_sub"))}</p><ul class="ready-list">${need.map(readyItem).join("")}</ul></div>`
+      : tips.length ? `<details class="ready-box tip"><summary>${icon("bulb", 15)} ${esc(t("ready.title_tip", { p: r.percent }))}</summary>
+        <ul class="ready-list">${tips.map(readyItem).join("")}</ul></details>` : "";
+    const btn = $("#bookForm button[type=submit]");
+    if (btn) btn.classList.toggle("btn-muted", !r.ready);
+  }
+  function readyModal(r) {
+    const bg = document.createElement("div"); bg.className = "modal-bg";
+    bg.innerHTML = `<div class="modal card card-pad" role="dialog" aria-modal="true"><h3>${icon("flag", 18)} ${esc(t("ready.title_need"))}</h3>
+      <p class="muted small">${esc(t("ready.modal_sub"))}</p><ul class="ready-list">${r.items.filter((i) => i.required).map(readyItem).join("")}</ul>
+      <div class="row" style="justify-content:flex-end;margin-top:12px"><button type="button" class="btn btn-outline" data-close>${esc(t("common.close"))}</button>
+      <a class="btn" href="${esc(withBack(r.items.find((i) => i.required && !i.ok)?.link || "/settings.html#profile"))}">${esc(t("ready.go_fill"))}</a></div></div>`;
+    document.body.append(bg);
+    bg.addEventListener("click", (e) => { if (e.target === bg || e.target.matches("[data-close]")) bg.remove(); });
   }
 
   let qTimer;

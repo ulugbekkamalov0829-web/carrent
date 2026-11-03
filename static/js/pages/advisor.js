@@ -49,6 +49,7 @@
       </div><p class="small muted">${esc(t("adv.dates_hint"))}</p>`;
     return `<h2>${esc(t("adv.q_prefs"))}</h2>
       <h3>${esc(t("adv.q_prio"))} <span class="muted small">${esc(t("adv.max3"))}</span></h3>
+      <p class="small muted" style="margin:-4px 0 8px">${icon("info", 14)} ${esc(t("adv.prio_price_hint"))}</p>
       <div class="chips">${PRIOS.map((k) => chip("prio", k, t("adv.prio_" + k), ans.priorities.includes(k))).join("")}</div>
       <div class="grid-2" style="margin-top:18px">
         <div><h3>${esc(t("adv.q_trans"))}</h3><div class="chips">${chip("trans", "", t("common.any"), !ans.transmission)}
@@ -138,9 +139,15 @@
     } catch (err) { toast(err.message, "error"); }
   }
 
+  function reasonTextTip(x) {
+    const p = { ...(x.p || {}) };
+    if (typeof p.sum === "number") p.sum = money(p.sum);
+    return t("adv." + x.code, p);
+  }
+
   function reasonText(x) {
     const p = { ...(x.p || {}) };
-    for (const k of ["price", "left", "over", "deposit"]) if (typeof p[k] === "number") p[k] = money(p[k]);
+    for (const k of ["price", "left", "over", "deposit", "sum"]) if (typeof p[k] === "number") p[k] = money(p[k]);
     if (p.body) p.body = t("body." + p.body);
     if (p.purpose) p.purpose = t(`adv.purpose_${p.purpose}`).toLowerCase();
     if (p.fuel) p.fuel = t("fuel." + p.fuel);
@@ -148,7 +155,10 @@
     return t("adv.r_" + x.code, p);
   }
 
+  let sortBy = "match", lastR = null;
   function results(r) {
+    lastR = r;
+    if (sortBy === "price") r = { ...r, items: [...r.items].sort((a, b) => a.price_per_day - b.price_per_day) };
     const qs = ans.start_date ? `&start=${ans.start_date}&end=${ans.end_date}` : "";
     const summary = [t(`adv.purpose_${ans.purpose}`), t("adv.n_people", { n: ans.passengers }), ans.budget_max ? t("adv.upto", { sum: money(ans.budget_max) }) : null,
       ans.city ? Places.label(ans.city, ans.district) : null, ans.transmission ? t("trans." + ans.transmission) : null].filter(Boolean).join(" · ");
@@ -161,6 +171,12 @@
       <div class="row" style="justify-content:space-between;align-items:flex-end;margin:26px 0 10px"><div><h2 style="margin:0">${esc(t("adv.results", { n: r.items.length }))}</h2>
         <div class="small muted">${esc(summary)}</div></div>
         <button class="btn btn-sm btn-outline" id="advEdit">${esc(t("adv.change"))}</button></div>
+      <div class="row adv-sort" style="gap:6px;margin-bottom:12px"><span class="small muted">${esc(t("adv.sort_label"))}:</span>
+        ${["match", "price"].map((k) => `<button type="button" class="chip-btn ${sortBy === k ? "on" : ""}" data-sort="${k}">${esc(t("adv.sort_" + k))}</button>`).join("")}</div>
+      ${r.cheapest_id && r.saving ? (() => { const c = r.items.find((x) => x.id === r.cheapest_id); return c ? `<a class="adv-cheap card" href="/car.html?id=${c.id}${qs}">
+        <span class="mini-thumb">${carImage(c)}</span><span><b>${icon("wallet", 16)} ${esc(t("adv.cheapest_title"))}: ${esc(carName(c))}</b>
+        <span class="small">${esc(t("adv.cheapest_save", { sum: money(r.saving.per_day), total: r.saving.total ? t("adv.cheapest_total", { days: r.days, sum: money(r.saving.total) }) : "" }))}</span></span>
+        <span class="price">${money(c.price_per_day)}<small>${esc(t("car.per_day"))}</small></span></a>` : ""; })() : ""}
       ${r.relaxed.length ? `<div class="notice" style="margin-bottom:14px">${esc(t("adv.relaxed", { what: r.relaxed.map((k) => t("adv.rel_" + k)).join(", ") }))}</div>` : ""}
       <div class="adv-list">${r.items.map((c, i) => `<article class="card adv-item ${i === 0 ? "first" : ""}">
         <a class="adv-thumb" href="/car.html?id=${c.id}${qs}">${carImage(c)}${c.badge ? `<span class="adv-badge b-${c.badge}">${esc(t("adv.badge_" + c.badge))}</span>` : ""}</a>
@@ -173,14 +189,17 @@
           <ul class="why">${c.pros.map((x) => `<li class="pro">${icon("check", 15)} ${esc(reasonText(x))}</li>`).join("")}
             ${c.cons.map((x) => `<li class="con">${icon("flag", 15)} ${esc(reasonText(x))}</li>`).join("")}</ul>
           <div class="adv-foot"><div class="price">${money(c.price_per_day)} <small>${esc(t("car.per_day"))}</small>
+            ${c.market_avg && c.market_avg > c.price_per_day ? `<div class="small adv-market">${esc(t("adv.market_avg", { sum: money(c.market_avg) }))}</div>` : ""}
             ${c.total ? `<div class="small muted">${esc(t("adv.total_for", { n: r.days }))}: <b>${money(c.total)}</b></div>` : ""}</div>
             <div class="row" style="gap:6px"><a class="btn btn-sm btn-outline" href="/car.html?id=${c.id}${qs}">${esc(t("car.details"))}</a>
               <a class="btn btn-sm" href="/car.html?id=${c.id}${qs}#book" data-quickbook="${c.id}">${esc(t("car.book"))}</a></div></div>
         </div></article>`).join("")}</div>
+      ${r.save_tips?.length ? `<div class="card card-pad adv-tips adv-save"><h3>${icon("wallet", 18)} ${esc(t("adv.save_tips"))}</h3><ul>${r.save_tips.map((x) => `<li>${esc(reasonTextTip(x))}</li>`).join("")}</ul></div>` : ""}
       <div class="card card-pad adv-tips"><h3>${icon("bulb", 18)} ${esc(t("adv.tips"))}</h3><ul>${r.tips.map((k) => `<li>${esc(t("adv." + k))}</li>`).join("")}</ul>
         <p class="small muted" style="margin:8px 0 0">${esc(t("adv.how"))}</p></div>
     </section>`;
     $("#advEdit").addEventListener("click", () => { step = 0; draw(); box.scrollIntoView({ behavior: "smooth" }); });
+    $$("[data-sort]", out).forEach((b) => b.addEventListener("click", () => { sortBy = b.dataset.sort; results(lastR); }));
   }
 
   draw();

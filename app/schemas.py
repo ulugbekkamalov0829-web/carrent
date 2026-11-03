@@ -438,6 +438,40 @@ class AdminUserAction(Base):
         return self
 
 
+class AdminProfileIn(Base):
+    """Admin foydalanuvchi profilini tuzatadi (foydalanuvchi tushunmasa yoki xato yozgan bo'lsa)."""
+    full_name: str = Field(min_length=3, max_length=80)
+    email: str = Field(max_length=120)
+    phone: Optional[str] = Field(default=None, max_length=20)
+    region: Optional[str] = Field(default=None, max_length=40)
+    district: Optional[str] = Field(default=None, max_length=60)
+    lang: Literal["uz", "ru", "en"] = "uz"
+    show_phone: bool = True
+    reason: Optional[str] = Field(default=None, max_length=300)
+
+    @field_validator("email")
+    @classmethod
+    def _email(cls, v: str) -> str:
+        v = v.strip()
+        if not EMAIL_RE.match(v):
+            raise ValueError("Email manzil noto'g'ri")
+        return v.lower()
+
+    @field_validator("phone")
+    @classmethod
+    def _phone(cls, v):
+        return _check_phone(v) if v and v.strip() else None
+
+    @model_validator(mode="after")
+    def _place(self):
+        self.region, self.district = _check_place(self.region, self.district, required=False)
+        return self
+
+
+class AdminPasswordIn(Base):
+    mode: Literal["temp", "email"]
+
+
 class AdminBookingCancel(Base):
     reason: str = Field(min_length=3, max_length=1000)
     full_refund: bool = False

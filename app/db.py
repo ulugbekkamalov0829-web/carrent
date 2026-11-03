@@ -443,7 +443,7 @@ MIGRATIONS = {
     "users": {
         "phone_norm": "TEXT", "email_verified": "INTEGER NOT NULL DEFAULT 0", "phone_verified": "INTEGER NOT NULL DEFAULT 0",
         "avatar": "TEXT", "show_phone": "INTEGER NOT NULL DEFAULT 1", "notify_prefs": "TEXT NOT NULL DEFAULT '{}'",
-        "deleted_at": "TEXT", "district": "TEXT",
+        "deleted_at": "TEXT", "district": "TEXT", "must_change_pw": "INTEGER NOT NULL DEFAULT 0",
     },
     "car_images": {"label": "TEXT NOT NULL DEFAULT 'other'"},
     "cars": {"district": "TEXT", "lat": "REAL", "lng": "REAL", "address": "TEXT",

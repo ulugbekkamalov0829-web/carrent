@@ -84,6 +84,42 @@ def quote(car: dict, days: int, delivery: bool, bps: int) -> dict:
             "pay_now": 0, "pay_on_site": total + car["deposit"]}
 
 
+MISSING_LABEL = {"name": "ism va familiya", "phone": "telefon raqami", "contact": "email yoki telefonni tasdiqlash", "docs": "hujjatlar"}
+
+
+def booking_readiness(db, uid: int, car: dict | None = None) -> dict:
+    """Bron qilishdan oldin profil tayyormi: nima yetishmaydi va qayerda to'ldiriladi.
+    required=True bo'lgan band bajarilmasa — bron qilib bo'lmaydi; qolganlari tavsiya (ishonchni oshiradi)."""
+    from ..config import settings
+    from .trust import docs_state
+    u = one(db.execute("SELECT full_name, phone, region, email_verified, phone_verified, avatar FROM users WHERE id = ?", (uid,)))
+    docs = docs_state(db, uid)["status"]
+    need_docs = bool(car and car.get("require_docs"))
+    has_card = db.execute("SELECT 1 FROM user_cards WHERE user_id = ? LIMIT 1", (uid,)).fetchone() is not None
+    items = [
+        {"code": "name", "ok": len((u["full_name"] or "").split()) >= 2, "required": True, "link": "/settings.html#profile"},
+        {"code": "phone", "ok": bool(u["phone"]), "required": True, "link": "/settings.html#profile"},
+        {"code": "contact", "ok": bool(u["email_verified"] or u["phone_verified"]), "required": settings.REQUIRE_VERIFIED_CONTACT,
+         "link": "/settings.html#verify"},
+        {"code": "docs", "ok": docs == "verified", "required": need_docs, "link": "/settings.html#documents", "state": docs},
+        {"code": "region", "ok": bool(u["region"]), "required": False, "link": "/settings.html#profile"},
+        {"code": "card", "ok": has_card, "required": False, "link": "/settings.html#cards"},
+        {"code": "avatar", "ok": bool(u["avatar"]), "required": False, "link": "/settings.html#profile"},
+    ]
+    missing = [i["code"] for i in items if i["required"] and not i["ok"]]
+    done = sum(1 for i in items if i["ok"])
+    return {"ready": not missing, "missing": missing, "items": items, "percent": round(100 * done / len(items))}
+
+
+@require("user")
+async def readiness_endpoint(request: Request):
+    from ..utils import q_int
+    car_id = q_int(request, "car_id", None, lo=1)
+    with get_db() as db:
+        car = one(db.execute("SELECT id, require_docs FROM cars WHERE id = ?", (car_id,))) if car_id else None
+        return ok(booking_readiness(db, request.state.user["id"], car))
+
+
 @require("user")
 async def create_booking(request: Request):
     data = await parse_body(request, BookingIn)
@@ -105,10 +141,12 @@ async def create_booking(request: Request):
                 raise HTTPException(404, tr("Avtomobil topilmadi yoki hozir ijaraga berilmaydi"))
             if car["owner_id"] == user["id"]:
                 raise HTTPException(400, tr("O'z avtomobilingizni bron qila olmaysiz"))
-            if car["require_docs"]:
-                from .trust import docs_verified
-                if not docs_verified(db, user["id"]):
-                    raise HTTPException(403, tr("Bu mashinani faqat hujjatlari (haydovchilik guvohnomasi va pasport/ID) tasdiqlangan foydalanuvchi ijaraga ola oladi. Sozlamalar → Hujjatlar bo'limida yuklang"))
+            rd = booking_readiness(db, user["id"], car)
+            if "docs" in rd["missing"]:
+                raise HTTPException(403, tr("Bu mashinani faqat hujjatlari (haydovchilik guvohnomasi va pasport/ID) tasdiqlangan foydalanuvchi ijaraga ola oladi. Sozlamalar → Hujjatlar bo'limida yuklang"))
+            if rd["missing"]:
+                raise HTTPException(403, tr("Bron qilishdan oldin profilingizni to'ldiring: {what}",
+                                            what=", ".join(tr(MISSING_LABEL[m]) for m in rd["missing"])))
             if not car["min_days"] <= days <= car["max_days"]:
                 raise HTTPException(400, tr("Bu avtomobil uchun ijara muddati {min}–{max} kun", min=car["min_days"], max=car["max_days"]))
             if data.delivery and car["delivery_price"] is None:
@@ -256,6 +294,7 @@ async def cancel_preview_endpoint(request: Request):
 
 routes = [
     Route("/api/bookings", create_booking, methods=["POST"]),
+    Route("/api/bookings/readiness", readiness_endpoint, methods=["GET"]),
     Route("/api/cars/{id:int}/quote", quote_endpoint, methods=["GET"]),
     Route("/api/bookings/mine", my_bookings, methods=["GET"]),
     Route("/api/bookings/incoming", incoming_bookings, methods=["GET"]),

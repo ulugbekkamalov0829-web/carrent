@@ -18,6 +18,9 @@
   const card = (id, title, sub, inner, cls = "") => `<section class="card card-pad ${cls}" id="${id}"><div class="set-head"><div><h2>${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ""}</div></div>${inner}</section>`;
   const vTag = (ok) => ok ? `<span class="verified">${icon("check", 13)} ${esc(t("verify.ok"))}</span>` : `<span class="tag tag-pending">${esc(t("verify.no"))}</span>`;
 
+  // Bron sahifasidan "To'ldirish" bosib kelgan bo'lsa — qaytish tugmasi (faqat sayt ichidagi manzil)
+  const back = new URLSearchParams(location.search).get("back");
+  const backOk = back && back.startsWith("/") && !back.startsWith("//");
   function draw() {
     nav();
     const me = u(), p = me.notify_prefs || {};
@@ -151,6 +154,8 @@
     const ids = $$(".settings-body > section").map((x) => x.id);
     const cur = ids.includes(location.hash.slice(1)) ? location.hash.slice(1) : "profile";
     $$(".settings-body > section").forEach((x) => x.classList.toggle("hidden", x.id !== cur));
+    if (backOk && !$("#backBar")) body.insertAdjacentHTML("afterbegin", `<div class="ready-back card card-pad" id="backBar">${icon("info", 16)} <span>${esc(t("ready.back_hint"))}</span>
+      <a class="btn btn-sm" href="${esc(back)}">← ${esc(t("ready.back_btn"))}</a></div>`);
     $$("#setNav a").forEach((a) => { a.classList.toggle("active", a.dataset.sec === cur); a.toggleAttribute("aria-current", a.dataset.sec === cur); });
     const sec = SECTIONS.find(([k]) => k === cur);
     document.title = `${t(sec[1])} — ${t("nav.settings")} — CarRent`;

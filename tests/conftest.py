@@ -36,7 +36,7 @@ def client():
 _counter = {"n": 0}
 
 
-def make_user(role: str = "user") -> tuple[TestClient, dict]:
+def make_user(role: str = "user", verified: bool = True) -> tuple[TestClient, dict]:
     _counter["n"] += 1
     c = TestClient(app)
     email = f"{role}{_counter['n']}@t.uz"
@@ -50,6 +50,10 @@ def make_user(role: str = "user") -> tuple[TestClient, dict]:
             "full_name": f"User Test {_counter['n']}", "email": email, "phone": f"+99877{_counter['n']:07d}",
             "password": PASSWORD, "accept_terms": True, "region": "Toshkent shahri", "district": "Chilonzor"})
     assert r.status_code in (200, 201), r.text
+    if role != "admin" and verified:
+        # Bron qilish uchun email tasdiqlangan bo'lishi kerak — testlarda tayyor holatdan boshlaymiz
+        with get_db() as db:
+            db.execute("UPDATE users SET email_verified = 1 WHERE email = ?", (email,))
     return c, r.json()["user"]
 
 

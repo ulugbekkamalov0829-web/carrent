@@ -323,7 +323,16 @@ async function boot(active = "", { bare = false } = {}) {
   DateField.enhance();
   applyMasks();
   renderFooter();
+  mustChangeBanner(user);
   return user;
+}
+
+/** Admin vaqtinchalik parol bergan bo'lsa — har sahifada yangi parol o'rnatishni eslatadi */
+function mustChangeBanner(user) {
+  if (!user?.must_change_pw || document.getElementById("pwBanner")) return;
+  const main = document.querySelector("main") || document.body;
+  main.insertAdjacentHTML("afterbegin", `<div class="notice pw-banner" id="pwBanner" role="alert">${icon("lock", 16)} <span>${esc(t("pw.must_change"))}</span>
+    <a class="btn btn-sm" href="/settings.html#security">${esc(t("pw.must_change_btn"))}</a></div>`);
 }
 
 // ================= Ilova qobig'i: chap panel (desktop), yuqori panel, pastki tablar (telefon) =================

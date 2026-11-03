@@ -104,7 +104,7 @@ def clear_auth_cookie(response) -> None:
 
 
 PUBLIC_USER_FIELDS = ("id, full_name, email, phone, region, district, role, active_mode, lang, is_active, created_at, "
-                      "email_verified, phone_verified, avatar, show_phone, marketing_ok, notify_prefs")
+                      "email_verified, phone_verified, avatar, show_phone, marketing_ok, notify_prefs, must_change_pw")
 
 
 def _token(request: Request) -> str | None:

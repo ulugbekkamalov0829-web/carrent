@@ -8,3 +8,13 @@ data/
 .DS_Store
 .idea/
 .vscode/
+.env.*
+!.env.example
+
+# Mahalliy nusxalar va vaqtinchalik fayllar (GitHub'ga chiqmaydi)
+_nusxa_*/
+_claude_tmp/
+Claude outputs/
+*.zip
+*.db
+*.log

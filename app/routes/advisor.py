@@ -33,8 +33,10 @@ FUEL_ECONOMY = {"electric": 1.0, "hybrid": 0.95, "gas": 0.85, "diesel": 0.7, "pe
 COMFORT_FEATS = {"ac", "cruise", "heated_seats", "leather", "carplay", "sunroof", "navigation", "bluetooth"}
 SAFETY_FEATS = {"abs", "airbags", "camera", "parking_sensors"}
 PREMIUM_BRANDS = {"mercedes-benz", "mercedes", "bmw", "lexus", "audi", "genesis", "porsche", "land rover", "range rover", "volvo", "infiniti"}
-BASE_W = {"purpose": 0.26, "budget": 0.20, "space": 0.14, "rating": 0.10, "features": 0.10, "economy": 0.05,
-          "comfort": 0.05, "safety": 0.05, "prestige": 0.0, "experience": 0.05}
+# Narx (price) har doim hisobga olinadi: bir xil darajada mos keladiganlardan arzonrog'i yuqorida — ko'proq odam bron qiladi
+BASE_W = {"purpose": 0.25, "budget": 0.19, "space": 0.13, "rating": 0.09, "features": 0.09, "economy": 0.05,
+          "comfort": 0.04, "safety": 0.04, "prestige": 0.0, "experience": 0.05, "price": 0.10}
+CRITICAL = {"body_weak", "manual_for_new", "over_budget", "luggage_small", "awd_no"}
 PRIORITY_BOOST = 0.14
 BAYES_C, BAYES_M = 5, 4.2
 TIPS = {"city": ["tip_city_compact", "tip_fuel_gas"], "family": ["tip_child_seat", "tip_luggage"], "trip": ["tip_km_limit", "tip_fuel_gas"],
@@ -68,7 +70,7 @@ def _candidates(db, data: AdvisorIn, uid: int, relax: set) -> list[dict]:
         f"SELECT {CAR_COLUMNS} FROM cars c JOIN users u ON u.id = c.owner_id WHERE {' AND '.join(where)}", params))]
 
 
-def score_car(c: dict, data: AdvisorIn, newest_year: int) -> dict:
+def score_car(c: dict, data: AdvisorIn, newest_year: int, prange: tuple[int, int] = (0, 0), market: dict | None = None) -> dict:
     feats = set(c["features"])
     pros, cons = [], []
     body_fit = PURPOSE_BODY[data.purpose].get(c["body_type"], 0.4)
@@ -136,7 +138,14 @@ def score_car(c: dict, data: AdvisorIn, newest_year: int) -> dict:
     parts["safety"] = min(1.0, 0.6 * len(feats & SAFETY_FEATS) / 3 + 0.4 * max(0.0, 1 - age / 12))
     premium = c["brand"].lower() in PREMIUM_BRANDS
     parts["prestige"] = min(1.0, (0.6 if premium else 0.15) + 0.25 * max(0.0, 1 - age / 6) + (0.15 if "leather" in feats else 0))
-    parts["price"] = max(0.0, 1 - price / 1_500_000)
+    # Narx bahosi nomzodlar orasida nisbiy: eng arzoni 1, eng qimmati 0 (mutlaq chegara emas)
+    lo, hi = prange
+    parts["price"] = 1.0 if hi <= lo else max(0.0, min(1.0, (hi - price) / (hi - lo)))
+    avg = (market or {}).get(c["body_type"])
+    if avg and price <= avg * 0.95:
+        pros.insert(0, {"code": "below_market", "p": {"pct": round(100 * (avg - price) / avg)}})
+    elif hi > lo and parts["price"] >= 0.85:
+        pros.insert(0, {"code": "cheapest_city"})
     if "comfort" in data.priorities and parts["comfort"] >= 0.7:
         pros.append({"code": "comfortable"})
     if "safety" in data.priorities and len(feats & SAFETY_FEATS) >= 2:
@@ -161,7 +170,6 @@ def score_car(c: dict, data: AdvisorIn, newest_year: int) -> dict:
         cons.append({"code": "km_limit", "p": {"km": c["km_limit"]}})
 
     w = dict(BASE_W)
-    w["price"] = 0.0
     for pr in data.priorities:
         w[pr] = w.get(pr, 0) + PRIORITY_BOOST
     if data.experience == "new":
@@ -190,8 +198,12 @@ async def advise(request: Request):
             have = {c["id"] for c in cands}
             cands += [c for c in _candidates(db, data, uid, relaxed | {"city"}) if c["id"] not in have]
         newest = max([c["year"] for c in cands], default=0)
+        prices = [c["price_per_day"] for c in cands]
+        prange = (min(prices, default=0), max(prices, default=0))
+        market = {k: v for k, v in db.execute(f"SELECT c.body_type, AVG(c.price_per_day) FROM cars c JOIN users u ON u.id = c.owner_id "
+                                              f"WHERE {PUBLIC_WHERE} GROUP BY c.body_type")}
         for c in cands:
-            c.update(score_car(c, data, newest))
+            c.update(score_car(c, data, newest, prange, market))
             if days:
                 c["total"] = days * c["price_per_day"] + ((c["delivery_price"] or 0) if data.delivery else 0)
             if data.district and c.get("district") == data.district:
@@ -200,8 +212,22 @@ async def advise(request: Request):
             if data.city and c["city"] != data.city:
                 c["cons"].insert(0, {"code": "other_city", "p": {"city": c["city"]}})
                 c["match"] = max(1, c["match"] - 12)     # boshqa shaharga borish noqulay — o'z shahringizdagisi oldinda
-        cands.sort(key=lambda c: (-c["match"], c["price_per_day"]))
+        # Moslik deyarli teng (2 ball ichida) va jiddiy kamchiligi yo'q bo'lsa — arzonrog'i oldinda
+        crit = lambda c: any(x["code"] in CRITICAL for x in c["cons"])
+        cands.sort(key=lambda c: (crit(c), -(c["match"] // 2), c["price_per_day"], -c["match"]))
         top = cands[:6]
+        # Eng arzon mos variant: eng mosidan 12 balldan ko'p past bo'lmagan eng arzon mashina (ro'yxatda bo'lmasa qo'shiladi)
+        cheapest, saving = None, None
+        if top:
+            ok_ = [c for c in cands if c["match"] >= max(45, top[0]["match"] - 12)
+                   and not any(x["code"] in CRITICAL for x in c["cons"])]
+            ch = min(ok_, key=lambda c: c["price_per_day"]) if ok_ else None
+            if ch and ch["price_per_day"] < top[0]["price_per_day"]:
+                cheapest = ch["id"]
+                saving = {"per_day": top[0]["price_per_day"] - ch["price_per_day"],
+                          "total": (top[0]["price_per_day"] - ch["price_per_day"]) * days if days else None}
+                if ch not in top:
+                    top = top[:5] + [ch]
         # Belgilar: eng mos, eng arzon, eng tejamkor (bir xil avtomobilga takror berilmaydi)
         badges = {}
         if top:
@@ -210,10 +236,28 @@ async def advise(request: Request):
             badges.setdefault(cheap["id"], "best_price")
             eco = max(top, key=lambda c: c["parts"]["economy"])
             badges.setdefault(eco["id"], "best_economy")
+        if cheapest:
+            badges[cheapest] = "best_price" if badges.get(cheapest) in (None, "best_price", "best_economy") else badges[cheapest]
         for c in top:
             c["badge"] = badges.get(c["id"])
+            c["market_avg"] = round(market[c["body_type"]]) if market.get(c["body_type"]) else None
             c.pop("description", None)
+        # Tejash maslahatlari: aniq raqamlar bilan
+        save_tips = []
+        if data.delivery:
+            dl = max([c["delivery_price"] or 0 for c in top], default=0)
+            if dl:
+                save_tips.append({"code": "save_nodelivery", "p": {"sum": dl}})
+        if data.budget_max and top:
+            lower = int(data.budget_max * 0.8 // 10_000 * 10_000)
+            n = sum(1 for c in cands if c["price_per_day"] <= lower and c["match"] >= 50)
+            if n:
+                save_tips.append({"code": "save_budget", "p": {"sum": lower, "n": n}})
+        if not any(c["fuel"] in ("gas", "hybrid", "electric") for c in top[:1]) and any(c["fuel"] in ("gas", "hybrid") for c in cands):
+            save_tips.append({"code": "save_gas"})
+        save_tips += [{"code": "save_compare"}, {"code": "save_deposit"}]
     return ok({"items": top, "total_found": len(cands), "relaxed": sorted(relaxed), "days": days,
+               "cheapest_id": cheapest, "saving": saving, "save_tips": save_tips if cands else [],
                "tips": TIPS[data.purpose] + (["tip_new_driver"] if data.experience == "new" else []) +
                        (["tip_dates"] if not data.start_date else [])})
 

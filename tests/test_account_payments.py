@@ -123,7 +123,7 @@ def test_spoofed_forwarded_for_does_not_bypass_limit():
 
 # ---------------- Tasdiqlash, sozlamalar, sessiyalar ----------------
 def test_verify_email_and_phone():
-    c, u = make_user()
+    c, u = make_user(verified=False)
     assert c.get("/api/auth/me").json()["user"]["email_verified"] is False
     assert c.post("/api/me/verify/start", headers=H, json={"channel": "email"}).json()["sent_to"].startswith(u["email"][0])
     r = c.post("/api/me/verify/confirm", headers=H, json={"channel": "email", "code": last_code(u["email"])})

@@ -250,3 +250,12 @@ CATALOG.update({  # v5: parol qoidalari
     "Bloklangan foydalanuvchini admin qilib bo'lmaydi": ("Заблокированного пользователя нельзя сделать админом", "A blocked user can't be made an admin"),
     "Joylashuv aniqlanmadi": ("Местоположение не определено", "Location not detected"),
 })
+
+# v8: bron oldidan profil tayyorligi, admin foydalanuvchini boshqaradi
+CATALOG.update({
+    "Bron qilishdan oldin profilingizni to'ldiring: {what}": ("Перед бронированием заполните профиль: {what}", "Complete your profile before booking: {what}"),
+    "ism va familiya": ("имя и фамилия", "full name"),
+    "telefon raqami": ("номер телефона", "phone number"),
+    "email yoki telefonni tasdiqlash": ("подтверждение email или телефона", "email or phone verification"),
+    "hujjatlar": ("документы", "documents"),
+})

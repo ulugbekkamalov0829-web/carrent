@@ -27,7 +27,7 @@ def user_payload(db, uid: int) -> dict:
     user = one(db.execute(f"SELECT {PUBLIC_USER_FIELDS} FROM users WHERE id = ?", (uid,)))
     user["cars_count"] = db.execute("SELECT COUNT(*) FROM cars WHERE owner_id = ?", (uid,)).fetchone()[0]
     user["notify_prefs"] = {**DEFAULT_PREFS, **json.loads(user.get("notify_prefs") or "{}")}
-    for k in ("email_verified", "phone_verified", "show_phone", "marketing_ok"):
+    for k in ("email_verified", "phone_verified", "show_phone", "marketing_ok", "must_change_pw"):
         user[k] = bool(user[k])
     from .trust import docs_state
     user["docs_status"] = docs_state(db, uid)["status"]
@@ -223,7 +223,7 @@ async def reset_password(request: Request):
             raise HTTPException(400, tr("Kod noto'g'ri yoki muddati tugagan. Yangi kod so'rang"))
         rec = _check_code(db, user["id"], "reset", data.code)
         with transaction(db, immediate=True):
-            db.execute("UPDATE users SET password_hash = ? WHERE id = ?", (hash_password(data.new_password), user["id"]))
+            db.execute("UPDATE users SET password_hash = ?, must_change_pw = 0 WHERE id = ?", (hash_password(data.new_password), user["id"]))
             # Kod qaysi kanalga kelgan bo'lsa, o'sha kanal tasdiqlangan hisoblanadi
             db.execute(f"UPDATE users SET {'email_verified' if rec['channel'] == 'email' else 'phone_verified'} = 1 WHERE id = ?",
                        (user["id"],))
@@ -313,7 +313,7 @@ async def change_password(request: Request):
         row = one(db.execute("SELECT password_hash FROM users WHERE id = ?", (u["id"],)))
         if not verify_password(data.old_password, row["password_hash"]):
             raise HTTPException(400, tr("Eski parol noto'g'ri"))
-        db.execute("UPDATE users SET password_hash = ? WHERE id = ?", (hash_password(data.new_password), u["id"]))
+        db.execute("UPDATE users SET password_hash = ?, must_change_pw = 0 WHERE id = ?", (hash_password(data.new_password), u["id"]))
         # Boshqa barcha qurilmalardagi sessiyalar yopiladi, joriy qurilma qoladi
         revoke_user_sessions(db, u["id"], except_sid=u["session_id"])
         security_event(db, request, u, "password_changed")

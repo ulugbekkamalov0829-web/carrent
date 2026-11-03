@@ -215,9 +215,8 @@ async def my_documents(request: Request):
         return ok(docs_state(db, request.state.user["id"]))
 
 
-@require("user")
-async def upload_document(request: Request):
-    uid = request.state.user["id"]
+async def read_document_form(request: Request) -> dict:
+    """Hujjat formasini o'qiydi va tekshiradi, rasmlarni maxfiy papkaga saqlaydi."""
     async with request.form(max_files=MAX_DOC_FILES, max_fields=10) as form:
         kind = str(form.get("kind") or "")
         if kind not in DOC_KINDS:
@@ -225,6 +224,7 @@ async def upload_document(request: Request):
         number = str(form.get("number") or "").strip()[:30]
         categories = re.sub(r"[^A-Z, ]", "", str(form.get("categories") or "").upper())[:20] or None
         expires = str(form.get("expires_on") or "").strip() or None
+        approve = str(form.get("approve") or "") in ("1", "true", "on")
         if expires:
             try:
                 if date.fromisoformat(expires) < date.today():
@@ -245,15 +245,30 @@ async def upload_document(request: Request):
         except HTTPException:
             remove_private(names)
             raise
+    return {"kind": kind, "number": number, "categories": categories, "expires": expires, "names": names, "approve": approve}
+
+
+def store_document(db, uid: int, f: dict, approved_by: int | None = None) -> None:
+    """Yangi hujjat yoziladi; shu turdagi tasdiqlanmagan eskisi o'chadi. Admin yuklab darhol tasdiqlashi mumkin."""
+    old = rows(db.execute("SELECT id, files FROM user_documents WHERE user_id = ? AND kind = ? AND (status != 'approved' OR ?)",
+                          (uid, f["kind"], int(bool(approved_by)))))
+    for o in old:
+        remove_private(json.loads(o["files"]))
+        db.execute("DELETE FROM user_documents WHERE id = ?", (o["id"],))
+    db.execute("INSERT INTO user_documents (user_id, kind, files, number_mask, categories, expires_on, status, reviewed_by, reviewed_at) "
+               "VALUES (?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? THEN datetime('now') END)",
+               (uid, f["kind"], json.dumps(f["names"]), _mask(f["number"]), f["categories"], f["expires"],
+                "approved" if approved_by else "pending", approved_by, int(bool(approved_by))))
+
+
+@require("user")
+async def upload_document(request: Request):
+    uid = request.state.user["id"]
+    f = await read_document_form(request)
     with get_db() as db, transaction(db):
-        old = rows(db.execute("SELECT id, files FROM user_documents WHERE user_id = ? AND kind = ? AND status != 'approved'", (uid, kind)))
-        for o in old:
-            remove_private(json.loads(o["files"]))
-            db.execute("DELETE FROM user_documents WHERE id = ?", (o["id"],))
-        db.execute("INSERT INTO user_documents (user_id, kind, files, number_mask, categories, expires_on) VALUES (?, ?, ?, ?, ?, ?)",
-                   (uid, kind, json.dumps(names), _mask(number), categories, expires))
+        store_document(db, uid, f)
         for a in db.execute("SELECT id FROM users WHERE role = 'admin' AND is_active = 1").fetchall():
-            notify(db, a[0], "doc_submitted", "/admin.html#documents", mode="admin", actor_id=uid, kind=kind)
+            notify(db, a[0], "doc_submitted", "/admin.html#documents", mode="admin", actor_id=uid, kind=f["kind"])
         state = docs_state(db, uid)
     return ok(state, 201)
 

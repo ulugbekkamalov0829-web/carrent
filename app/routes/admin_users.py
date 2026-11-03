@@ -13,8 +13,12 @@ from starlette.routing import Route
 
 from ..db import get_db, one, rows, transaction
 from ..i18n import tr
-from ..schemas import AdminBookingCancel, AdminUserAction
-from ..security import require, revoke_user_sessions
+import json
+import secrets
+import string
+
+from ..schemas import AdminBookingCancel, AdminPasswordIn, AdminProfileIn, AdminUserAction
+from ..security import hash_password, require, revoke_user_sessions
 from ..utils import audit, car_title, notify, ok, parse_body, path_int
 from .bookings import BOOKING_SELECT, maintain
 
@@ -48,7 +52,7 @@ async def admin_user_detail(request: Request):
     with get_db() as db:
         maintain(db)
         u = one(db.execute("""SELECT id, full_name, email, phone, avatar, role, is_active, created_at, region, district, lang, active_mode,
-                                     email_verified, phone_verified, deleted_at, marketing_ok,
+                                     email_verified, phone_verified, deleted_at, marketing_ok, show_phone, must_change_pw,
                                      (SELECT MAX(last_seen) FROM sessions s WHERE s.user_id = users.id) AS last_seen
                               FROM users WHERE id = ?""", (uid,)))
         if not u:
@@ -131,9 +135,11 @@ async def admin_user_detail(request: Request):
             flags.append({"code": "unverified", "n": 0})
         from .trust import docs_state
         docs = docs_state(db, uid)
-        cards = rows(db.execute("SELECT brand, last4, exp_month, exp_year, is_default FROM user_cards WHERE user_id = ?", (uid,)))
+        cards = rows(db.execute("SELECT id, brand, first6, last4, exp_month, exp_year, holder, is_default, created_at FROM user_cards WHERE user_id = ?", (uid,)))
+        from .bookings import booking_readiness
+        readiness = booking_readiness(db, uid)
         admins = db.execute("SELECT COUNT(*) FROM users WHERE role = 'admin' AND is_active = 1").fetchone()[0]
-    return ok({"docs": docs, "cards": cards, "admins_count": admins, "user": u, "renter": renter, "owner": owner, "cars": cars, "bookings": bookings, "payments": payments,
+    return ok({"docs": docs, "cards": cards, "admins_count": admins, "readiness": readiness, "user": u, "renter": renter, "owner": owner, "cars": cars, "bookings": bookings, "payments": payments,
                "complaints_against": against, "complaints_by": by_user, "disputes": disputes, "reviews": reviews,
                "sessions": sessions, "notes": notes, "history": history, "counts": counts, "flags": flags})
 
@@ -217,7 +223,125 @@ async def admin_cancel_booking(request: Request):
     return ok({"id": bid, "refund": refund})
 
 
+def _target(db, uid: int, me: int, allow_admin: bool = False) -> dict:
+    u = one(db.execute("SELECT * FROM users WHERE id = ?", (uid,)))
+    if not u or u["deleted_at"]:
+        raise HTTPException(404, tr("Foydalanuvchi topilmadi"))
+    if not allow_admin and u["role"] == "admin" and u["id"] != me:
+        raise HTTPException(400, tr("Administrator akkauntiga bu amalni qo'llab bo'lmaydi"))
+    return u
+
+
+@require("admin")
+async def admin_update_profile(request: Request):
+    """Profilni admin tuzatadi: ism, email, telefon, hudud, til. Email/telefon o'zgarsa — tasdiqlanganlik qayta tekshiriladi."""
+    uid, me = path_int(request), request.state.user["id"]
+    data = await parse_body(request, AdminProfileIn)
+    with get_db() as db, transaction(db):
+        u = _target(db, uid, me)
+        if data.email != u["email"] and db.execute("SELECT 1 FROM users WHERE email = ? AND id != ?", (data.email, uid)).fetchone():
+            raise HTTPException(409, tr("Bu email bilan allaqachon ro'yxatdan o'tilgan"))
+        if data.phone and data.phone != u["phone_norm"] and db.execute("SELECT 1 FROM users WHERE phone_norm = ? AND id != ?",
+                                                                       (data.phone, uid)).fetchone():
+            raise HTTPException(409, tr("Bu telefon raqam bilan allaqachon ro'yxatdan o'tilgan"))
+        changed = [k for k, old, new in (("full_name", u["full_name"], data.full_name), ("email", u["email"], data.email),
+                                         ("phone", u["phone_norm"], data.phone), ("region", u["region"], data.region),
+                                         ("district", u["district"], data.district), ("lang", u["lang"], data.lang),
+                                         ("show_phone", bool(u["show_phone"]), data.show_phone)) if old != new]
+        if not changed:
+            return ok({"changed": []})
+        db.execute("""UPDATE users SET full_name = ?, email = ?, phone = ?, phone_norm = ?, region = ?, district = ?, lang = ?, show_phone = ?,
+                      email_verified = CASE WHEN ? THEN 0 ELSE email_verified END,
+                      phone_verified = CASE WHEN ? THEN 0 ELSE phone_verified END WHERE id = ?""",
+                   (data.full_name, data.email, data.phone or "", data.phone, data.region, data.district, data.lang, int(data.show_phone),
+                    int("email" in changed), int("phone" in changed), uid))
+        db.execute("INSERT INTO admin_notes (user_id, author_id, kind, body) VALUES (?, ?, 'note', ?)",
+                   (uid, me, f"[profile] {', '.join(changed)}" + (f" — {data.reason.strip()}" if data.reason else "")))
+        notify(db, uid, "profile_changed_admin", "/settings.html#profile", mode="any", text=", ".join(changed))
+        audit(db, request, "admin_profile", "user", uid, fields=",".join(changed))
+    return ok({"changed": changed})
+
+
+def temp_password() -> str:
+    """Telefonda aytish oson: chalkash belgilarsiz (0/O, 1/l), lekin parol qoidalariga mos."""
+    abc = "ABCDEFGHJKMNPQRSTUVWXYZ", "abcdefghjkmnpqrstuvwxyz", "23456789"
+    core = "".join(secrets.choice(abc[0] + abc[1] + abc[2]) for _ in range(7))
+    return secrets.choice(abc[0]) + secrets.choice(abc[1]) + core + secrets.choice(abc[2]) + "-" + secrets.choice(abc[2])
+
+
+@require("admin")
+async def admin_password(request: Request):
+    """temp — vaqtinchalik parol (bir marta ko'rsatiladi, kirishda almashtirish so'raladi); email — tiklash kodi emailga."""
+    uid, me = path_int(request), request.state.user["id"]
+    data = await parse_body(request, AdminPasswordIn)
+    with get_db() as db:
+        u = _target(db, uid, me)
+        if data.mode == "email":
+            from .auth import _issue_code
+            with transaction(db):
+                _issue_code(db, u, "reset", "email", u["email"])
+                audit(db, request, "admin_pw_email", "user", uid)
+            return ok({"mode": "email", "sent_to": u["email"]})
+        pw = temp_password()
+        with transaction(db):
+            db.execute("UPDATE users SET password_hash = ?, must_change_pw = 1 WHERE id = ?", (hash_password(pw), uid))
+            revoke_user_sessions(db, uid)
+            db.execute("INSERT INTO admin_notes (user_id, author_id, kind, body) VALUES (?, ?, 'note', ?)", (uid, me, "[password] temp"))
+            notify(db, uid, "password_reset_admin", "/settings.html#security", mode="any")
+            audit(db, request, "admin_pw_temp", "user", uid)
+    return ok({"mode": "temp", "password": pw})
+
+
+@require("admin")
+async def admin_upload_document(request: Request):
+    uid, me = path_int(request), request.state.user["id"]
+    from .trust import docs_state, read_document_form, store_document
+    with get_db() as db:
+        _target(db, uid, me)
+    f = await read_document_form(request)
+    with get_db() as db, transaction(db):
+        store_document(db, uid, f, approved_by=me if f["approve"] else None)
+        notify(db, uid, "doc_approved" if f["approve"] else "doc_added_admin", "/settings.html#documents", mode="any", kind=f["kind"])
+        audit(db, request, "admin_doc_upload", "user", uid, kind=f["kind"], approved=f["approve"])
+        state = docs_state(db, uid)
+    return ok(state, 201)
+
+
+@require("admin")
+async def admin_delete_document(request: Request):
+    uid, did = int(request.path_params["id"]), int(request.path_params["did"])
+    from .trust import docs_state, remove_private
+    with get_db() as db, transaction(db):
+        d = one(db.execute("SELECT files, kind FROM user_documents WHERE id = ? AND user_id = ?", (did, uid)))
+        if not d:
+            raise HTTPException(404, tr("Hujjat topilmadi"))
+        remove_private(json.loads(d["files"]))
+        db.execute("DELETE FROM user_documents WHERE id = ?", (did,))
+        audit(db, request, "admin_doc_delete", "user", uid, kind=d["kind"])
+        state = docs_state(db, uid)
+    return ok(state)
+
+
+@require("admin")
+async def admin_delete_card(request: Request):
+    uid, cid = int(request.path_params["id"]), int(request.path_params["cid"])
+    with get_db() as db, transaction(db):
+        c = one(db.execute("SELECT id, last4, is_default FROM user_cards WHERE id = ? AND user_id = ?", (cid, uid)))
+        if not c:
+            raise HTTPException(404, tr("Karta topilmadi"))
+        db.execute("DELETE FROM user_cards WHERE id = ?", (cid,))
+        if c["is_default"]:
+            db.execute("UPDATE user_cards SET is_default = 1 WHERE id = (SELECT id FROM user_cards WHERE user_id = ? ORDER BY id LIMIT 1)", (uid,))
+        audit(db, request, "admin_card_delete", "user", uid, last4=c["last4"])
+    return ok({"id": cid})
+
+
 routes = [
+    Route("/api/admin/users/{id:int}/profile", admin_update_profile, methods=["PUT"]),
+    Route("/api/admin/users/{id:int}/password", admin_password, methods=["POST"]),
+    Route("/api/admin/users/{id:int}/documents", admin_upload_document, methods=["POST"]),
+    Route("/api/admin/users/{id:int}/documents/{did:int}", admin_delete_document, methods=["DELETE"]),
+    Route("/api/admin/users/{id:int}/cards/{cid:int}", admin_delete_card, methods=["DELETE"]),
     Route("/api/admin/users/{id:int}", admin_user_detail, methods=["GET"]),
     Route("/api/admin/users/{id:int}/action", admin_user_action, methods=["POST"]),
     Route("/api/admin/bookings/{id:int}/cancel", admin_cancel_booking, methods=["POST"]),

@@ -12,7 +12,7 @@ from ..db import get_db, one, rows, transaction
 from ..i18n import tr
 from ..schemas import CarIn
 from ..security import current_user_or_none, require
-from ..utils import audit, complete_finished_bookings, ok, parse_body, path_int, q_date, q_int, q_str, today
+from ..utils import audit, car_title, complete_finished_bookings, notify, ok, parse_body, path_int, q_date, q_int, q_str, today
 
 CAR_COLUMNS = """
     c.id, c.owner_id, c.brand, c.model, c.year, c.color, c.body_type, c.seats, c.transmission, c.fuel, c.engine_l,
@@ -96,6 +96,9 @@ def own_car(db, car_id: int, user: dict) -> dict:
     """Egalik tekshiruvi (IDOR himoyasi): boshqa birovning e'loni 403 qaytaradi."""
     car = get_car_row(db, car_id, user["id"])
     if car["owner_id"] != user["id"]:
+        if user["role"] == "admin":   # admin istalgan e'lonni tuzata oladi (owner tushunmasa yordam beradi)
+            car["plate"] = db.execute("SELECT plate FROM cars WHERE id = ?", (car_id,)).fetchone()[0]
+            return car
         raise HTTPException(403, tr("Bu e'lon sizga tegishli emas"))
     return car
 
@@ -202,6 +205,8 @@ async def get_car(request: Request):
             car["lat"], car["lng"], car["address"] = round(car["lat"], 2), round(car["lng"], 2), None
         if not is_owner:
             db.execute("UPDATE cars SET views = views + 1 WHERE id = ?", (car_id,))
+        if user and user["role"] == "admin" and not is_owner:   # admin e'lonni tahrirlay oladi — davlat raqami ham kerak
+            car["plate"] = db.execute("SELECT plate FROM cars WHERE id = ?", (car_id,)).fetchone()[0]
         # O'xshash avtomobillar: shu kuzov yoki shu shahar, narxi ±40%
         car["similar"] = [serialize(c) for c in rows(db.execute(
             f"""SELECT {CAR_COLUMNS} FROM cars c JOIN users u ON u.id = c.owner_id
@@ -217,6 +222,7 @@ async def get_car(request: Request):
     owner.pop("is_active", None)
     car["owner"] = owner
     car["is_mine"] = is_owner
+    car["can_edit"] = bool(is_owner or (user and user["role"] == "admin"))
     return ok(car)
 
 
@@ -237,7 +243,7 @@ async def calendar(request: Request):
 
 
 # ---------------- Owner yopib qo'ygan kunlar ----------------
-@require("user")
+@require("user", "admin")
 async def list_blocks(request: Request):
     car_id = path_int(request)
     with get_db() as db:
@@ -247,7 +253,7 @@ async def list_blocks(request: Request):
     return ok({"items": items})
 
 
-@require("user")
+@require("user", "admin")
 async def add_block(request: Request):
     from ..schemas import BlockIn
     car_id = path_int(request)
@@ -267,7 +273,7 @@ async def add_block(request: Request):
     return ok({"id": cur.lastrowid, "start_date": s, "end_date": e, "note": data.note}, 201)
 
 
-@require("user")
+@require("user", "admin")
 async def delete_block(request: Request):
     car_id, bid = path_int(request), path_int(request, "block_id")
     with get_db() as db:
@@ -276,7 +282,7 @@ async def delete_block(request: Request):
     return ok()
 
 
-@require("user")
+@require("user", "admin")
 async def reorder_images(request: Request):
     from ..schemas import ImageOrderIn
     car_id = path_int(request)
@@ -293,7 +299,7 @@ async def reorder_images(request: Request):
     return ok({"images": images})
 
 
-@require("user")
+@require("user", "admin")
 async def label_image(request: Request):
     from ..schemas import ImageLabelIn
     car_id, img_id = path_int(request), path_int(request, "img_id")
@@ -351,15 +357,18 @@ async def create_car(request: Request):
     return ok(car, 201)
 
 
-@require("user")
+@require("user", "admin")
 async def update_car(request: Request):
     car_id = path_int(request)
     data = await parse_body(request, CarIn)
     sets = ", ".join(f"{f.strip()} = ?" for f in FIELDS.split(","))
     with get_db() as db:
-        own_car(db, car_id, request.state.user)
+        before = own_car(db, car_id, request.state.user)
         db.execute(f"UPDATE cars SET {sets}, updated_at = datetime('now') WHERE id = ?", (*_values(data), car_id))
         car = get_car_row(db, car_id, request.state.user["id"])
+        if before["owner_id"] != request.state.user["id"]:
+            notify(db, before["owner_id"], "car_edited_admin", f"/car.html?id={car_id}", mode="owner", car=car_title(car))
+            audit(db, request, "admin_car_edit", "car", car_id, title=car_title(car))
     return ok(car)
 
 
@@ -389,7 +398,7 @@ def _remove_file(public_path: str) -> None:
         target.unlink(missing_ok=True)
 
 
-@require("user")
+@require("user", "admin")
 async def upload_images(request: Request):
     car_id = path_int(request)
     max_bytes = settings.MAX_IMAGE_MB * 1024 * 1024
@@ -426,7 +435,7 @@ async def upload_images(request: Request):
     return ok({"images": images}, 201)
 
 
-@require("user")
+@require("user", "admin")
 async def delete_image(request: Request):
     car_id, img_id = path_int(request), path_int(request, "img_id")
     with get_db() as db:
@@ -439,7 +448,7 @@ async def delete_image(request: Request):
     return ok()
 
 
-@require("user")
+@require("user", "admin")
 async def cover_image(request: Request):
     """Asosiy rasmni belgilash: tanlangan rasm birinchi o'ringa o'tadi."""
     car_id, img_id = path_int(request), path_int(request, "img_id")

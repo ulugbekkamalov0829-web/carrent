@@ -82,6 +82,15 @@ def _weekday(db, where: str, params: list, start: date, end: date) -> int | None
 
 
 # ---------------- Owner ----------------
+def _funnel(db, where: str, params: list, A: str, B: str) -> dict:
+    """Davrda yaratilgan bronlar holat bo'yicha (so'rov -> tasdiq -> yakun / rad / bekor)."""
+    out = {s: 0 for s in ("pending", "approved", "completed", "rejected", "cancelled")}
+    for st, n in db.execute(f"SELECT b.status, COUNT(*) FROM bookings b JOIN cars c ON c.id = b.car_id "
+                            f"WHERE {where} AND date(b.created_at) BETWEEN ? AND ? GROUP BY b.status", [*params, A, B]):
+        out[st] = n
+    return out
+
+
 def owner_report(db, uid: int, start: date, end: date, ps: date, pe: date) -> dict:
     def money(a: date, b: date) -> dict:
         r = db.execute(f"""SELECT COUNT(*), COALESCE(SUM(b.total_price), 0), COALESCE(SUM(b.commission), 0), COALESCE(SUM(b.owner_payout), 0),
@@ -150,12 +159,12 @@ def owner_report(db, uid: int, start: date, end: date, ps: date, pe: date) -> di
         top = per_car[0] if per_car and per_car[0]["payout"] else None
         if top and len([c for c in per_car if c["payout"]]) > 1:
             insights.append({"code": "best_car", "kind": "good", "params": {
-                "car": top["title"], "sum": top["payout"], "share": round(100 * top["payout"] / max(1, cur["payout"] - cur["comp"]))}})
+                "car": top["title"], "car_id": top["id"], "sum": top["payout"], "share": round(100 * top["payout"] / max(1, cur["payout"] - cur["comp"]))}})
         if cur["comp"]:
             insights.append({"code": "compensation", "kind": "info", "params": {"sum": cur["comp"]}})
     for c in per_car:
         if c["occupancy"] < 25 and span >= 7:
-            insights.append({"code": "idle_car", "kind": "warn", "params": {"car": c["title"], "n": c["idle_days"], "pct": c["occupancy"]}})
+            insights.append({"code": "idle_car", "kind": "warn", "params": {"car": c["title"], "car_id": c["id"], "n": c["idle_days"], "pct": c["occupancy"]}})
     wd = _weekday(db, "c.owner_id = ?", [uid], start, end)
     if wd is not None:
         insights.append({"code": "busy_weekday", "kind": "info", "params": {"wd": wd}})
@@ -168,7 +177,8 @@ def owner_report(db, uid: int, start: date, end: date, ps: date, pe: date) -> di
         insights.append({"code": "rating", "kind": "good" if (rating[0] or 0) >= 4.5 else "info", "params": {"avg": rating[0], "n": rating[1]}})
 
     return {"kpis": kpis, "series": _series(db, "c.owner_id = ?", [uid], "b.owner_payout", start, end),
-            "series_label": "income", "tables": {"per_car": per_car}, "insights": insights}
+            "series_label": "income", "insights": insights,
+            "tables": {"per_car": per_car, "funnel": _funnel(db, "c.owner_id = ?", [uid], start.isoformat(), end.isoformat())}}
 
 
 # ---------------- Ijarachi ----------------
@@ -237,7 +247,8 @@ def renter_report(db, uid: int, start: date, end: date, ps: date, pe: date) -> d
     if to_review:
         insights.append({"code": "renter_review", "kind": "action", "params": {"n": to_review}, "link": "/dashboard.html#bookings"})
     return {"kpis": kpis, "series": _series(db, "b.renter_id = ?", [uid], "b.total_price", start, end), "series_label": "spent",
-            "tables": {"trips": trips, "by_body": sorted(by_body.values(), key=lambda v: -v["spent"]),
+            "tables": {"trips": trips, "funnel": _funnel(db, "b.renter_id = ?", [uid], start.isoformat(), end.isoformat()),
+                       "by_body": sorted(by_body.values(), key=lambda v: -v["spent"]),
                        "by_city": sorted(by_city.values(), key=lambda v: -v["spent"])}, "insights": insights}
 
 

@@ -1663,7 +1663,8 @@ a.kpi:hover, .kpi.stat-link:hover { transform: translateY(-2px); box-shadow: var
 
 /* ---- Maslahatchi: haqiqiy surat bo'lsa ---- */
 .adv-tile.has-photo { padding: 0 0 12px; overflow: hidden; }
-.adv-tile.has-photo .adv-photo { display: block; width: 100%; aspect-ratio: 16 / 10; overflow: hidden; margin-bottom: 10px; }
+.adv-tile.has-photo .adv-photo { display: block; width: 100%; aspect-ratio: 4 / 3; overflow: hidden; margin-bottom: 10px; }
+.adv-grid.four .adv-tile.has-photo .adv-photo { aspect-ratio: 3 / 2; }
 .adv-tile.has-photo .adv-photo img { width: 100%; height: 100%; object-fit: cover; transition: transform .3s var(--ease); }
 .adv-tile.has-photo:hover .adv-photo img { transform: scale(1.05); }
 .adv-tile.has-photo b, .adv-tile.has-photo .small { padding: 0 14px; }

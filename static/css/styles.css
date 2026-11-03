@@ -1733,3 +1733,30 @@ a.kpi:hover, .kpi.stat-link:hover { transform: translateY(-2px); box-shadow: var
 @media (max-width: 560px) { .adv-cheap { grid-template-columns: 60px 1fr; } .adv-cheap .price { grid-column: 2; } }
 .price-fast { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--success-soft); display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 .price-fast b { color: var(--success-ink); display: inline-flex; gap: 5px; align-items: center; }
+
+/* ===== Kirish/ro'yxat kartasi: karta faqat ko'rinib turgan tomon balandligida (telefonda bo'sh joy qolmasin) =====
+   Ikki tomon bir katakda turadi; avval karta eng baland tomon (ro'yxat formasi) bo'yicha cho'zilib, kirish oynasida
+   tepa-pastda katta bo'sh joy qolardi. Endi yashirin tomon aylanish tugagach balandligini yo'qotadi. */
+.card3d .face { max-height: 3000px; transition: transform 1s cubic-bezier(.7, 0, .3, 1), opacity .5s, visibility 0s, max-height 0s; }
+.card3d .face.back, .card3d.signup-mode .face.front { max-height: 0; overflow: hidden; transition-delay: 0s, 0s, 1s, 1s; }
+.card3d.signup-mode .face.back { max-height: 3000px; overflow: visible; transition-delay: 0s; }
+/* Neon chegara uzun kartada ham uzilmasin */
+.ring-box::before { width: 300%; }
+@media (max-width: 960px) {
+  .auth-stage { min-height: 0; padding-top: 0; }
+  .ring-wrap { margin-top: 14px; }
+  .card-holder { padding: 26px 18px 22px; border-radius: 24px; }
+  .ring-box { border-radius: 28px; }
+  #faceFront .neon-title { font-size: 1.55rem; }
+  #faceFront .neon-sub { font-size: .9rem; min-height: 0; margin-bottom: 18px; }
+  #faceFront .input { min-height: 52px; font-size: 1rem; }
+  #faceFront .nf label { top: 15px; }
+  #faceFront .nf .input:focus + label, #faceFront .nf .input:not(:placeholder-shown) + label { top: -9px; }
+  #faceFront .neon-btn { min-height: 52px; }
+  #faceFront .field { margin-bottom: 16px; }
+  .neon-demo { margin-top: 14px; }
+}
+/* Katta ekranda halqa o'ng yarmidan chiqib ketmasin (1440 px kenglikda kesilib qolardi) */
+@media (min-width: 1360px) and (min-height: 860px) {
+  .ring-wrap { width: min(clamp(660px, calc(100dvh - 120px), 820px), calc(100% - 32px)); }
+}

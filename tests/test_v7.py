@@ -208,7 +208,8 @@ def test_handover_flow_and_charges():
     photo = p.json()["pickup"]["photos"][0]
     assert renter.get(photo).status_code == 200 and stranger.get(photo).status_code == 404
     assert owner.post(f"/api/bookings/{b['id']}/handover/pickup/confirm", headers=H, json={"agree": True}).status_code == 403  # o'zi emas
-    assert renter.post(f"/api/bookings/{b['id']}/handover/pickup/confirm", headers=H, json={"agree": True}).status_code == 200
+    assert renter.post(f"/api/bookings/{b['id']}/handover/pickup/confirm", headers=H, json={"agree": True}).status_code == 400  # hujjatlar tekshirilmagan
+    assert renter.post(f"/api/bookings/{b['id']}/handover/pickup/confirm", headers=H, json={"agree": True, "docs_checked": True}).status_code == 200
     assert _act(renter, b["id"], "return", 9_000, 50).status_code == 400                               # probeg kamaymaydi
     ret = _act(renter, b["id"], "return", 10_350, 50, damage=True, notes="Old bamperda yangi tirnalish")
     calc = ret.json()["calc"]

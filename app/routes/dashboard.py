@@ -247,7 +247,8 @@ async def admin_patch_user(request: Request):
 
 @require("admin")
 async def admin_cars(request: Request):
-    sql, params = ("SELECT c.id, c.brand, c.model, c.year, c.city, c.price_per_day, c.is_active, c.is_approved, c.created_at, "
+    sql, params = ("SELECT c.id, c.brand, c.model, c.year, c.city, c.district, c.price_per_day, c.is_active, c.is_approved, c.created_at, "
+                   "c.plate, c.tech_passport, c.ownership_status, u.identity_status, "
                    "u.full_name AS owner_name, u.id AS owner_id FROM cars c JOIN users u ON u.id = c.owner_id WHERE 1 = 1"), []
     if q := q_str(request, "q"):
         sql += " AND (c.brand || ' ' || c.model LIKE ? OR u.full_name LIKE ?)"; params += [f"%{q}%"] * 2
@@ -264,11 +265,15 @@ async def admin_patch_car(request: Request):
         car = one(db.execute("SELECT id, owner_id, brand, model, year FROM cars WHERE id = ?", (cid,)))
         if not car:
             raise HTTPException(404, tr("E'lon topilmadi"))
-        db.execute("UPDATE cars SET is_approved = ? WHERE id = ?", (int(data.is_approved), cid))
-        notify(db, car["owner_id"], "car_approved" if data.is_approved else "car_hidden", "/dashboard.html?mode=owner#cars",
-               car=car_title(car))
-        audit(db, request, "car_approved" if data.is_approved else "car_hidden", "car", cid, title=car_title(car))
-    return ok({"id": cid, "is_approved": data.is_approved})
+        if data.ownership_status is not None:
+            db.execute("UPDATE cars SET ownership_status = ? WHERE id = ?", (data.ownership_status, cid))
+            audit(db, request, "car_ownership_" + data.ownership_status, "car", cid, title=car_title(car))
+        if data.is_approved is not None:
+            db.execute("UPDATE cars SET is_approved = ? WHERE id = ?", (int(data.is_approved), cid))
+            notify(db, car["owner_id"], "car_approved" if data.is_approved else "car_hidden", "/dashboard.html?mode=owner#cars",
+                   car=car_title(car))
+            audit(db, request, "car_approved" if data.is_approved else "car_hidden", "car", cid, title=car_title(car))
+    return ok({"id": cid, "is_approved": data.is_approved, "ownership_status": data.ownership_status})
 
 
 @require("admin")

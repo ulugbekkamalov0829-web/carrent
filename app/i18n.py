@@ -279,3 +279,8 @@ CATALOG.update({
     "CBOR: tur qo'llab-quvvatlanmaydi": ("CBOR: тип не поддерживается", "CBOR: unsupported type"),
     "CBOR: noaniq uzunlik qo'llab-quvvatlanmaydi": ("CBOR: неопределённая длина не поддерживается", "CBOR: indefinite length not supported"),
 })
+CATALOG.update({
+    "Avval texpasport, davlat raqami va VIN e'londagi ma'lumotlarga mosligini tekshirib, «tekshirdim, qabul qildim» belgisini qo'ying":
+        ("Сначала сверьте техпаспорт, госномер и VIN с объявлением и отметьте «проверил, принимаю»",
+         "First check the registration, plate and VIN against the listing and tick \"checked, I accept\""),
+})

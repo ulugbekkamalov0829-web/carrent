@@ -22,8 +22,9 @@
   const drawCities = () => {
     const v = $("#city").value;
     $("#city").innerHTML = `<option value="">${esc(t("search.any_city"))}</option>` + Places.data.regions.map((r) =>
-      `<option value="${esc(r.key)}">${esc(Places.regionName(r.key))}${counts[r.key] ? ` (${counts[r.key]})` : ""}</option>`).join("");
+      `<option value="${esc(r.key)}" data-n="${counts[r.key] || 0}">${esc(Places.regionName(r.key))}${counts[r.key] ? ` · ${esc(t("place.n_cars", { n: counts[r.key] }))}` : ""}</option>`).join("");
     $("#city").value = v;
+    SheetSelect.attach($("#city"));
   };
   drawCities();
   document.addEventListener("langchange", drawCities);

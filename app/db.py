@@ -471,6 +471,8 @@ MIGRATIONS = {
              "fuel_per_100": "REAL", "discounts": "TEXT NOT NULL DEFAULT '{}'", "tech_passport": "TEXT",
              "ownership_status": "TEXT NOT NULL DEFAULT 'none'"},
     "messages": {"kind": "TEXT NOT NULL DEFAULT 'text'", "lat": "REAL", "lng": "REAL"},
+    # v9: ijarachi mashina hujjatlarini (texpasport, raqam, VIN) e'lon bilan solishtirib "qabul qildim" dedi
+    "handovers": {"docs_checked": "INTEGER NOT NULL DEFAULT 0"},
     # Bildirishnoma qaysi kabinetga tegishli (renter | owner | admin | any) va kim sabab bo'lgani (Telegram uslubidagi oyna uchun)
     "notifications": {"mode": "TEXT NOT NULL DEFAULT 'any'", "actor_id": "INTEGER"},
     "payments": {"refund_amount": "INTEGER NOT NULL DEFAULT 0", "kept_commission": "INTEGER NOT NULL DEFAULT 0",

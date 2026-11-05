@@ -2261,3 +2261,79 @@ details.fold[open] > summary { margin-bottom: 14px; }
   .neon .auth-stage { padding-top: calc(var(--top-h) + 10px); min-height: 100svh; align-items: flex-start; }
   .passkey-btn { font-size: .74rem; letter-spacing: .04em; padding-left: 10px; padding-right: 10px; white-space: nowrap; }
 }
+
+/* v9: hisobot davri — ixcham sana oralig'i */
+.drp { position: relative; }
+.drp-btn { display: inline-flex; align-items: center; gap: 10px; padding: 7px 12px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--white);
+  color: var(--ink); font: inherit; cursor: pointer; text-align: left; box-shadow: var(--shadow); }
+.drp-btn > .ico:first-child { color: var(--primary); }
+.drp-btn span { display: grid; line-height: 1.15; } .drp-btn small { font-size: .7rem; color: var(--muted); font-weight: 600; } .drp-btn b { font-size: .9rem; white-space: nowrap; }
+.drp-btn > .ico:last-child { transform: rotate(90deg); color: var(--muted); }
+.drp-pop { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; width: min(340px, calc(100vw - 24px)); background: var(--white); border: 1px solid var(--line);
+  border-radius: 16px; box-shadow: var(--shadow-lg); padding: 12px; display: grid; gap: 12px; }
+.drp-quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.drp-quick button { border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 7px 4px; font: inherit; font-size: .8rem; cursor: pointer; color: var(--ink-2); }
+.drp-quick button.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.drp-custom { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.drp-custom label { display: grid; gap: 3px; font-size: .74rem; font-weight: 600; color: var(--muted); }
+.drp-custom .btn { grid-column: 1 / -1; }
+.btn.icon-only { display: inline-flex; gap: 6px; align-items: center; }
+@media (max-width: 600px) { .btn.icon-only span { display: none; } .rep-toolbar { gap: 6px; } .drp-btn b { font-size: .82rem; } }
+
+/* v9: yo'riqnoma (o'ng tomondan chiqadigan panel) */
+.help-btn { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line-2); background: var(--white); color: var(--primary); font: 800 .95rem var(--font); cursor: pointer;
+  box-shadow: var(--shadow); flex: none; }
+.help-btn:hover { background: var(--primary); color: #fff; }
+.help-wrap { position: fixed; inset: 0; z-index: 120; }
+.help-scrim { position: absolute; inset: 0; background: rgba(2, 6, 23, .45); opacity: 0; transition: opacity .25s; }
+.help-drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(440px, 100vw); background: var(--white); box-shadow: -20px 0 50px rgba(2, 6, 23, .25);
+  display: flex; flex-direction: column; transform: translateX(100%); transition: transform .3s var(--ease); }
+.help-wrap.in .help-scrim { opacity: 1; } .help-wrap.in .help-drawer { transform: none; }
+.help-drawer header { display: flex; align-items: center; gap: 12px; padding: 16px 16px 12px; border-bottom: 1px solid var(--line); }
+.help-drawer header > div { flex: 1; } .help-drawer header small { color: var(--muted); font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.help-drawer header h3 { margin: 0; }
+.help-badge { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-weight: 800; font-size: 1.2rem; color: #fff; background: linear-gradient(135deg, #3b82f6, #1e40af); }
+.help-topics { display: flex; gap: 6px; overflow-x: auto; padding: 10px 16px; border-bottom: 1px solid var(--line); scrollbar-width: none; }
+.help-topics button { flex: none; display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: var(--bg); color: var(--ink-2); border-radius: 99px;
+  padding: 5px 11px; font: inherit; font-size: .8rem; cursor: pointer; white-space: nowrap; }
+.help-topics button.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.help-body { padding: 16px; overflow-y: auto; flex: 1; }
+.help-lead { font-weight: 600; color: var(--ink); }
+.help-steps { list-style: none; counter-reset: h; padding: 0; margin: 0; display: grid; gap: 10px; }
+.help-steps li { counter-increment: h; display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: start; padding: 10px 12px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); font-size: .9rem; line-height: 1.5; }
+.help-steps li::before { content: counter(h); width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: var(--primary); background: var(--primary-soft); }
+@media (max-width: 600px) { .help-drawer { top: auto; height: 86vh; width: 100%; border-radius: 20px 20px 0 0; transform: translateY(100%); } .help-top { min-width: 34px; padding: 0 4px; } }
+
+/* v9: viloyat -> tuman; telefonda pastdan chiqadigan tanlash oynasi */
+.field.place-hidden { display: none; }
+.field.place-reveal { animation: lpUp .35s var(--ease) both; }
+.sheet-wrap { position: relative; display: block; }
+.sheet-hit { display: none; }
+@media (max-width: 760px) {
+  .sheet-hit { display: block; position: absolute; inset: 0; width: 100%; background: transparent; border: 0; cursor: pointer; }
+  select:disabled + .sheet-hit { display: none; }
+}
+.sheet-bg { position: fixed; inset: 0; z-index: 130; background: rgba(2, 6, 23, 0); transition: background .2s; display: flex; align-items: flex-end; }
+.sheet-bg.in { background: rgba(2, 6, 23, .45); }
+.sheet { width: 100%; max-height: 78vh; background: var(--white); border-radius: 22px 22px 0 0; display: flex; flex-direction: column; transform: translateY(100%);
+  transition: transform .25s var(--ease); padding-bottom: env(safe-area-inset-bottom); box-shadow: 0 -10px 40px rgba(2, 6, 23, .25); }
+.sheet-bg.in .sheet { transform: none; }
+.sheet-grab { width: 42px; height: 5px; border-radius: 3px; background: var(--line-2); margin: 8px auto 2px; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 10px 6px 18px; }
+.sheet-find { margin: 0 14px 8px; width: auto; }
+.sheet-list { overflow-y: auto; padding: 0 8px 12px; }
+.sheet-opt { width: 100%; display: flex; align-items: center; gap: 10px; padding: 13px 12px; border: 0; background: none; border-radius: 12px; font: inherit; font-size: 1rem;
+  color: var(--ink); text-align: left; cursor: pointer; }
+.sheet-opt span { flex: 1; }
+.sheet-opt em { font-style: normal; font-size: .76rem; font-weight: 700; color: var(--primary); background: var(--primary-soft); padding: 2px 9px; border-radius: 99px; }
+.sheet-opt.dim span { color: var(--muted); }
+.sheet-opt.on { background: var(--primary-soft); color: var(--primary); font-weight: 700; }
+.sheet-opt .ico { color: var(--primary); }
+.sheet-opt + .sheet-opt { border-top: 1px solid var(--line); border-radius: 0; }
+.sheet-opt.on, .sheet-opt.on + .sheet-opt { border-top-color: transparent; }
+.plate-chip { display: inline-block; font: 700 .76rem ui-monospace, Menlo, monospace; border: 1.5px solid var(--ink-2); border-radius: 5px; padding: 0 6px; margin-right: 6px; letter-spacing: .04em; }
+.own-badge { margin-top: 6px; display: inline-flex; }
+.docs-check { margin: 12px 0; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--warning); background: var(--warning-soft); }
+.docs-check ul { margin: 6px 0 8px; padding-left: 20px; font-size: .86rem; }
+.docs-check.shake { animation: shake .4s; }
+@keyframes shake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }

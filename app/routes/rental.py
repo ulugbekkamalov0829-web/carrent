@@ -456,6 +456,7 @@ async def create_handover(request: Request):
         clean = str(form.get("clean") or "1") in ("1", "true", "on")
         damage = str(form.get("damage") or "0") in ("1", "true", "on")
         notes = (str(form.get("notes") or "").strip() or None)
+        docs_checked = str(form.get("docs_checked") or "0") in ("1", "true", "on")
         if notes and len(notes) > 1000:
             notes = notes[:1000]
         files = [f for f in form.getlist("photos") if hasattr(f, "read")]
@@ -476,6 +477,8 @@ async def create_handover(request: Request):
                 raise HTTPException(409, tr("Bu dalolatnoma allaqachon to'ldirilgan"))
             if kind == "return" and not existing["pickup"]:
                 raise HTTPException(400, tr("Avval mashinani topshirish dalolatnomasi to'ldirilishi kerak"))
+            if kind == "pickup" and user["id"] == b["renter_id"] and not docs_checked:
+                raise HTTPException(400, tr(DOCS_CHECK_MSG))
             if kind == "pickup" and b["start_date"] > (today() + timedelta(days=1)).isoformat():
                 raise HTTPException(400, tr("Topshirish dalolatnomasini ijara boshlanishiga 1 kun qolganda to'ldirish mumkin"))
             if kind == "return" and odo < existing["pickup"]["odometer_km"]:
@@ -489,8 +492,9 @@ async def create_handover(request: Request):
             raise
     with get_db() as db, transaction(db):
         try:
-            db.execute("INSERT INTO handovers (booking_id, kind, odometer_km, fuel_pct, clean, damage, notes, photos, created_by) "
-                       "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (bid, kind, odo, fuel, int(clean), int(damage), notes, json.dumps(names), user["id"]))
+            db.execute("INSERT INTO handovers (booking_id, kind, odometer_km, fuel_pct, clean, damage, notes, photos, created_by, docs_checked) "
+                       "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (bid, kind, odo, fuel, int(clean), int(damage), notes, json.dumps(names), user["id"],
+                                                                int(docs_checked and kind == "pickup")))
         except Exception:
             remove_private(names)
             raise HTTPException(409, tr("Bu dalolatnoma allaqachon to'ldirilgan"))
@@ -501,9 +505,14 @@ async def create_handover(request: Request):
         return ok(_handovers(db, b), 201)
 
 
+DOCS_CHECK_MSG = ("Avval texpasport, davlat raqami va VIN e'londagi ma'lumotlarga mosligini tekshirib, "
+                  "«tekshirdim, qabul qildim» belgisini qo'ying")
+
+
 class HandoverConfirmIn(Base):
     agree: bool
     objection: str | None = Field(default=None, max_length=1000)
+    docs_checked: bool = False
 
 
 @require("user")
@@ -524,8 +533,11 @@ async def confirm_handover(request: Request):
             raise HTTPException(409, tr("Dalolatnoma allaqachon tasdiqlangan"))
         if not data.agree and len((data.objection or "").strip()) < 5:
             raise HTTPException(400, tr("E'tirozingizni yozing (kamida 5 belgi)"))
-        db.execute("UPDATE handovers SET confirmed_by = ?, confirmed_at = datetime('now'), objection = ? WHERE id = ?",
-                   (user["id"], None if data.agree else data.objection.strip(), h["id"]))
+        renter_pickup = kind == "pickup" and user["id"] == b["renter_id"] and data.agree
+        if renter_pickup and not data.docs_checked:
+            raise HTTPException(400, tr(DOCS_CHECK_MSG))
+        db.execute("UPDATE handovers SET confirmed_by = ?, confirmed_at = datetime('now'), objection = ?, docs_checked = MAX(docs_checked, ?) WHERE id = ?",
+                   (user["id"], None if data.agree else data.objection.strip(), int(renter_pickup), h["id"]))
         notify(db, h["created_by"], "handover_confirmed" if data.agree else "handover_objection", f"/handover.html?booking={bid}",
                mode="owner" if h["created_by"] == b["owner_id"] else "renter", actor_id=user["id"], car=car_title(b))
         audit(db, request, "handover_confirmed" if data.agree else "handover_objection", "booking", bid, kind=kind)

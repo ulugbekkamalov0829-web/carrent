@@ -513,17 +513,21 @@
     const { items } = await api("/api/admin/cars?" + p);
     view.innerHTML = searchBox("admin.search_cars") + `<div class="card table-wrap"><table class="table responsive"><thead><tr>
       <th>#</th><th>${esc(t("col.car"))}</th><th>${esc(t("col.owner"))}</th><th>${esc(t("col.price"))}</th><th>${esc(t("col.status"))}</th><th></th></tr></thead><tbody>
-      ${items.map((c) => `<tr><td data-label="#">${c.id}</td><td data-label="${esc(t("col.car"))}"><a href="/car.html?id=${c.id}"><b>${esc(c.brand)} ${esc(c.model)} ${c.year}</b></a><div class="small muted">${esc(Places.label(c.city, c.district))} · ${fmtDate(c.created_at)}</div></td>
+      ${items.map((c) => `<tr><td data-label="#">${c.id}</td><td data-label="${esc(t("col.car"))}"><a href="/car.html?id=${c.id}"><b>${esc(c.brand)} ${esc(c.model)} ${c.year}</b></a><div class="small muted">${esc(Places.label(c.city, c.district))} · ${fmtDate(c.created_at)}</div>
+          <div class="small">${c.plate ? `<span class="plate-chip">${esc(c.plate)}</span>` : ""} ${c.tech_passport ? `<span class="muted">${esc(t("field.tech_passport"))}: ${esc(c.tech_passport)}</span>` : ""}
+          ${c.ownership_status === "verified" ? `<span class="verified">${icon("check", 12)} ${esc(t("own.verified"))}</span>` : c.ownership_status === "rejected" ? `<span class="tag tag-bad">${esc(t("own.rejected"))}</span>` : ""}</div></td>
         <td data-label="${esc(t("col.owner"))}"><a href="#user/${c.owner_id}">${esc(c.owner_name)}</a></td><td data-label="${esc(t("col.price"))}">${money(c.price_per_day)}</td>
         <td data-label="${esc(t("col.status"))}">${!c.is_approved ? `<span class="tag tag-bad">${esc(t("car.state_moderated"))}</span>` : c.is_active ? `<span class="tag tag-ok">${esc(t("car.state_active"))}</span>` : `<span class="tag tag-hidden">${esc(t("car.state_hidden"))}</span>`}</td>
         <td><div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn btn-sm btn-outline" data-car="${c.id}" data-approve="${c.is_approved ? 0 : 1}">${esc(t(c.is_approved ? "admin.hide" : "admin.restore"))}</button>
+          <button class="btn btn-sm btn-soft" data-own="${c.id}" data-st="${c.ownership_status === "verified" ? "none" : "verified"}" title="${esc(t("own.hint"))}">${icon("idcard", 14)} ${esc(t(c.ownership_status === "verified" ? "own.unverify" : "own.verify"))}</button>
           <button class="btn btn-sm btn-danger" data-del="${c.id}">${esc(t("common.delete"))}</button></div></td></tr>`).join("")}
       </tbody></table></div>`;
     if (p.get("q")) $("#search [name=q]").value = p.get("q");
     onSearch(cars);
     view.onclick = async (e) => {
-      const a = e.target.closest("[data-approve]"), d = e.target.closest("[data-del]");
+      const a = e.target.closest("[data-approve]"), d = e.target.closest("[data-del]"), o = e.target.closest("[data-own]");
       try {
+        if (o) { await api(`/api/admin/cars/${o.dataset.own}`, { method: "PATCH", body: { ownership_status: o.dataset.st } }); toast(t("common.done"), "ok"); cars(p); }
         if (a) { await api(`/api/admin/cars/${a.dataset.car}`, { method: "PATCH", body: { is_approved: a.dataset.approve === "1" } }); toast(t("common.done"), "ok"); cars(p); }
         if (d && await confirmBox(t("admin.delete_car_confirm"), t("common.delete"), true)) { await api(`/api/cars/${d.dataset.del}`, { method: "DELETE" }); toast(t("common.done"), "ok"); cars(p); }
       } catch (err) { toast(err.message, "error"); }

@@ -501,7 +501,9 @@ class AdminBookingCancel(Base):
 
 
 class AdminCarPatch(Base):
-    is_approved: bool
+    is_approved: Optional[bool] = None
+    # v9: admin texpasport/raqam va egasining hujjatlarini solishtirib, egalikni tasdiqlaydi
+    ownership_status: Optional[Literal["none", "verified", "rejected"]] = None
 
 
 class SettingsIn(Base):

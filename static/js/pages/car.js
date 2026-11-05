@@ -62,7 +62,8 @@
         <div>
           <div class="car-headline">
             <div><h2 style="margin:0">${esc(carName(car))} ${esc(car.year)}</h2>
-              <div class="small muted">${icon("pin", 14)} ${esc(place)}</div></div>
+              <div class="small muted">${icon("pin", 14)} ${esc(place)}</div>
+              ${car.ownership_status === "verified" ? `<span class="verified own-badge">${icon("idcard", 13)} ${esc(t("own.verified"))}</span>` : ""}</div>
             <div class="owner-chip">${avatarHtml(car.owner)}<div><b>${esc(car.owner.full_name)}</b>${car.owner.phone_verified ? ` <span class="verified" title="${esc(t("verify.phone_ok"))}">${icon("check", 13)}</span>` : ""}
               <div class="small"><span class="star-y">★</span> ${car.rating ?? "—"} <span class="muted">(${esc(t("car.reviews_n", { n: car.reviews_count }))})</span></div></div></div>
           </div>

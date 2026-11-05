@@ -157,4 +157,23 @@ T9 = {
     "ready.identity": ("JSHSHIR va pasport tekshirilgan", "ПИНФЛ и паспорт проверены", "PINFL and passport checked"),
 }
 
+T9.update({
+    "place.n_cars": ("{n} ta mashina", "{n} авто", "{n} cars"),
+    "ho.docs_t": ("Mashina va hujjatlarni tekshiring", "Проверьте машину и документы", "Check the car and documents"),
+    "ho.docs_1": ("Texpasportdagi davlat raqami va VIN mashinaning o'zidagi bilan bir xilmi", "Госномер и VIN в техпаспорте совпадают с машиной", "The plate and VIN in the registration match the car"),
+    "ho.docs_2": ("Marka, model, yil, rang e'londagi bilan mosmi", "Марка, модель, год и цвет совпадают с объявлением", "Make, model, year and colour match the listing"),
+    "ho.docs_3": ("Texpasportdagi egasi — owner'ning o'zi yoki ishonchnoma bor", "Владелец в техпаспорте — сам владелец или есть доверенность", "The registered owner is the owner or there is a power of attorney"),
+    "ho.docs_ok": ("Tekshirdim, ma'lumotlar mos — mashinani qabul qildim", "Проверил, данные совпадают — машину принимаю", "Checked, everything matches — I accept the car"),
+    "ho.docs_bad": ("Mos kelmasa — tasdiqlamang, «E'tiroz» yozing: shartnoma bekor qilinadi va pul to'liq qaytariladi", "Если не совпадает — не подтверждайте, напишите возражение: договор расторгается, деньги возвращаются полностью", "If something doesn't match, don't confirm — object: the contract is cancelled with a full refund"),
+    "ho.docs_need": ("Avval hujjatlarni tekshirganingizni belgilang", "Сначала отметьте, что проверили документы", "First tick that you've checked the documents"),
+    "ho.docs_done": ("Ijarachi hujjatlarni tekshirdi va qabul qildi", "Арендатор проверил документы и принял машину", "The renter checked the documents and accepted the car"),
+    "own.verified": ("Egasi tasdiqlangan", "Владелец подтверждён", "Owner verified"),
+    "own.rejected": ("Egalik tasdiqlanmadi", "Владение не подтверждено", "Ownership not confirmed"),
+    "own.verify": ("Egalikni tasdiqlash", "Подтвердить владение", "Verify ownership"),
+    "own.unverify": ("Tasdiqni bekor qilish", "Снять подтверждение", "Remove verification"),
+    "own.hint": ("Davlat raqami, texpasport raqami va egasining hujjatlarini (ism mosligi) solishtiring", "Сверьте госномер, номер техпаспорта и документы владельца (совпадение ФИО)", "Compare the plate, registration number and owner's documents (name match)"),
+})
+from scripts.locales_v9_help import T9H  # noqa: E402
+T9.update(T9H)
+
 OVERRIDE9 = {"cards.holder": ("Karta egasi", "Владелец карты", "Card holder")}

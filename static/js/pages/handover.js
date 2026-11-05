@@ -15,6 +15,12 @@
   const isParty = () => me.id === d.booking.renter_id || me.id === d.booking.owner_id;
   const fuelBar = (pct) => `<div class="fuel-bar" aria-label="${pct}%"><i style="width:${pct}%"></i><span>${pct}%</span></div>`;
 
+  /** Ijarachi mashinani olishda hujjatlarni e'lon bilan solishtiradi (soxta ma'lumotdan himoya) */
+  const docsCheck = (kind) => `<div class="docs-check"><b>${icon("idcard", 16)} ${esc(t("ho.docs_t"))}</b>
+    <ul><li>${esc(t("ho.docs_1"))}</li><li>${esc(t("ho.docs_2"))}</li><li>${esc(t("ho.docs_3"))}</li></ul>
+    <label class="check"><input type="checkbox" data-docs="${kind}"><span><b>${esc(t("ho.docs_ok"))}</b></span></label>
+    <p class="small muted" style="margin:6px 0 0">${esc(t("ho.docs_bad"))}</p></div>`;
+
   function actCard(kind) {
     const h = d[kind], b = d.booking, today = isoDate(new Date());
     const title = `<h3>${icon(kind === "pickup" ? "key" : "car", 18)} ${esc(t("ho.k_" + kind))}</h3>`;
@@ -31,6 +37,8 @@
         <div class="small muted">${esc(t("ho.filled_by", { name: h.created_by_name, d: h.created_at }))}</div>
         ${h.confirmed_at ? `<div class="small ${h.objection ? "bad-ink" : "ok-ink"}">${icon(h.objection ? "flag" : "check", 14)} ${esc(h.objection ? t("ho.objected", { name: h.confirmed_by_name, text: h.objection }) : t("ho.confirmed_by", { name: h.confirmed_by_name, d: h.confirmed_at }))}</div>`
           : `<div class="small muted">${esc(t("ho.wait_confirm"))}</div>`}
+        ${h.docs_checked ? `<div class="small ok-ink">${icon("idcard", 14)} ${esc(t("ho.docs_done"))}</div>` : ""}
+        ${canConfirm && kind === "pickup" && me.id === d.booking.renter_id ? docsCheck(kind) : ""}
         ${canConfirm ? `<div class="row" style="gap:8px;margin-top:10px"><button class="btn btn-sm btn-ok" data-confirm="${kind}">${icon("check", 15)} ${esc(t("ho.confirm"))}</button>
           <button class="btn btn-sm btn-outline" data-object="${kind}">${esc(t("ho.object"))}</button></div>` : ""}</div>`;
     }
@@ -50,6 +58,7 @@
           <label class="btn btn-sm btn-outline" style="margin:0">${icon("plus", 15)} ${esc(t("ho.pick"))}<input type="file" accept="image/*" multiple class="sr-only" data-add="${kind}"></label>
           <span class="small" data-count>${files[kind].length} / 8</span></div>
         <div class="ho-photos preview" data-prev="${kind}">${files[kind].map((f, i) => `<button type="button" data-rm="${kind}" data-i="${i}" title="${esc(t("common.delete"))}"><img src="${esc(f.url)}" alt=""></button>`).join("")}</div></div>
+      ${kind === "pickup" && me.id === d.booking.renter_id ? docsCheck(kind) : ""}
       <button class="btn btn-block">${icon("check", 16)} ${esc(t("ho.save"))}</button></form>`;
   }
 
@@ -98,7 +107,9 @@
       if (rm) { const k = rm.dataset.rm; URL.revokeObjectURL(files[k][+rm.dataset.i].url); files[k].splice(+rm.dataset.i, 1); keepFormAndRedraw(k); }
       if (ph) lightbox(d[ph.dataset.ph].photos.map((p) => ({ path: p })), +ph.dataset.i);
       try {
-        if (cf && await confirmBox(t("ho.confirm_q"), t("ho.confirm"))) { d = await api(`/api/bookings/${bid}/handover/${cf.dataset.confirm}/confirm`, { method: "POST", body: { agree: true } }); toast(t("common.done"), "ok"); draw(); }
+        const dc = $(`[data-docs="${cf?.dataset.confirm}"]`);
+        if (cf && dc && !dc.checked) { toast(t("ho.docs_need"), "error"); dc.closest(".docs-check").classList.add("shake"); setTimeout(() => dc.closest(".docs-check")?.classList.remove("shake"), 450); return; }
+        if (cf && await confirmBox(t("ho.confirm_q"), t("ho.confirm"))) { d = await api(`/api/bookings/${bid}/handover/${cf.dataset.confirm}/confirm`, { method: "POST", body: { agree: true, docs_checked: !!dc?.checked } }); toast(t("common.done"), "ok"); draw(); }
         if (ob) {
           const text = prompt(t("ho.object_q")); if (!text) return;
           d = await api(`/api/bookings/${bid}/handover/${ob.dataset.object}/confirm`, { method: "POST", body: { agree: false, objection: text } }); toast(t("common.done"), "ok"); draw();
@@ -114,6 +125,9 @@
       if (f.damage.checked && !f.notes.value.trim()) { toast(t("ho.need_notes"), "error"); return; }
       const fd = new FormData();
       fd.append("kind", k); fd.append("odometer_km", f.odometer_km.value); fd.append("fuel_pct", f.fuel_pct.value);
+      const dcf = $("[data-docs]", f);
+      if (dcf && !dcf.checked) { toast(t("ho.docs_need"), "error"); return; }
+      fd.append("docs_checked", dcf?.checked ? "1" : "0");
       fd.append("clean", f.clean.checked ? "1" : "0"); fd.append("damage", f.damage.checked ? "1" : "0"); fd.append("notes", f.notes.value.trim());
       files[k].forEach((x) => fd.append("photos", x.file));
       await withLoading($("button.btn-block", f), async () => {

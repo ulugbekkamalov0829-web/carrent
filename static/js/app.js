@@ -161,25 +161,62 @@ const Places = {
     return !r ? (key || "") : I18N.lang === "uz" ? uzTypo(r.key) : r[I18N.lang] || r.key;
   },
   label(region, district) { return [district ? uzTypo(district) : "", this.regionName(region)].filter(Boolean).join(", "); },
-  /** Viloyat tanlansa — faqat shu viloyat tumanlari; o'zgartirilsa ro'yxat yangilanadi */
+  /** Viloyat tanlansa — faqat shu viloyat tumanlari; o'zgartirilsa ro'yxat yangilanadi.
+      Tuman maydoni viloyat tanlanmaguncha yashirin (tanlangach o'zi chiqadi). Telefonda — pastdan chiqadigan tanlash oynasi. */
   async bind(regionSel, districtSel, { region = "", district = "", any = false, counts = null, short = false } = {}) {
     await this.load();
     const fillRegions = () => {
       regionSel.innerHTML = `<option value="">${esc(t(short ? "place.region" : any ? "search.any_city" : "place.pick_region"))}</option>` +
-        this.data.regions.map((r) => `<option value="${esc(r.key)}">${esc(this.regionName(r.key))}${counts && counts[r.key] ? ` (${counts[r.key]})` : ""}</option>`).join("");
+        this.data.regions.map((r) => `<option value="${esc(r.key)}" ${counts ? `data-n="${counts[r.key] || 0}"` : ""}>${esc(this.regionName(r.key))}${counts && counts[r.key] ? ` · ${esc(t("place.n_cars", { n: counts[r.key] }))}` : ""}</option>`).join("");
     };
+    const field = short ? null : districtSel.closest(".field");
     const fillDistricts = (keep) => {
       const r = this.data.regions.find((x) => x.key === regionSel.value);
       districtSel.innerHTML = `<option value="">${esc(t(short ? "place.district_short" : r ? (any ? "place.any_district" : "place.pick_district") : "place.region_first"))}</option>` +
         (r ? r.districts.map((d) => `<option value="${esc(d)}">${esc(uzTypo(d))}</option>`).join("") : "");
       districtSel.disabled = !r;
       if (keep && r?.districts.includes(keep)) districtSel.value = keep;
+      if (field) { field.classList.toggle("place-hidden", !r); if (r && !keep) field.classList.add("place-reveal"); }
     };
     fillRegions();
     regionSel.value = this.data.regions.some((r) => r.key === region) ? region : "";
     fillDistricts(district);
     regionSel.onchange = () => { fillDistricts(""); regionSel.dispatchEvent(new CustomEvent("placechange", { bubbles: true })); };
+    SheetSelect.attach(regionSel, { counts }); SheetSelect.attach(districtSel);
     return { refresh: () => { const r = regionSel.value, d = districtSel.value; fillRegions(); regionSel.value = r; fillDistricts(d); } };
+  },
+};
+
+/** Telefonda uzun ro'yxatli select o'rniga pastdan chiqadigan chiroyli oyna (tizimning oddiy ro'yxati emas) */
+const SheetSelect = {
+  attach(sel, { counts = null } = {}) {
+    if (sel.dataset.sheet) return;
+    sel.dataset.sheet = "1";
+    const wrap = document.createElement("span"); wrap.className = "sheet-wrap";
+    sel.parentNode.insertBefore(wrap, sel); wrap.append(sel);
+    const hit = document.createElement("button"); hit.type = "button"; hit.className = "sheet-hit"; hit.tabIndex = -1; hit.setAttribute("aria-hidden", "true");
+    wrap.append(hit);
+    hit.addEventListener("click", () => { if (!sel.disabled) this.open(sel, counts); });
+  },
+  open(sel, counts) {
+    const bg = document.createElement("div"); bg.className = "sheet-bg";
+    const label = sel.closest(".field")?.querySelector("label")?.textContent || sel.getAttribute("aria-label") || "";
+    const opts = [...sel.options];
+    bg.innerHTML = `<div class="sheet" role="dialog" aria-modal="true"><div class="sheet-grab"></div><div class="sheet-head"><b>${esc(label)}</b>
+      <button type="button" class="icon-btn ghost" data-close aria-label="${esc(t("common.close"))}">${icon("close")}</button></div>
+      ${opts.length > 10 ? `<input class="input sheet-find" type="search" placeholder="${esc(t("common.search"))}…">` : ""}
+      <div class="sheet-list">${opts.map((o) => { const n = o.dataset.n; return `<button type="button" class="sheet-opt ${o.value === sel.value ? "on" : ""} ${n === "0" ? "dim" : ""}" data-v="${esc(o.value)}">
+        <span>${esc(n !== undefined ? o.textContent.split(" · ")[0] : o.textContent)}</span>${n && n !== "0" ? `<em>${esc(t("place.n_cars", { n }))}</em>` : ""}${o.value === sel.value ? icon("check", 18) : ""}</button>`; }).join("")}</div></div>`;
+    document.body.append(bg);
+    requestAnimationFrame(() => bg.classList.add("in"));
+    const close = () => { bg.classList.remove("in"); setTimeout(() => bg.remove(), 220); };
+    bg.addEventListener("click", (e) => {
+      if (e.target === bg || e.target.closest("[data-close]")) return close();
+      const b = e.target.closest(".sheet-opt");
+      if (b) { sel.value = b.dataset.v; sel.dispatchEvent(new Event("change", { bubbles: true })); sel.dispatchEvent(new Event("input", { bubbles: true })); close(); }
+    });
+    $(".sheet-find", bg)?.addEventListener("input", (e) => { const q = e.target.value.toLowerCase(); $$(".sheet-opt", bg).forEach((b) => b.classList.toggle("hidden", !b.textContent.toLowerCase().includes(q))); });
+    $(".sheet-opt.on", bg)?.scrollIntoView({ block: "center" });
   },
 };
 /** O'zbek lotin tipografiyasi: o' g' -> oʻ gʻ (faqat ko'rsatish uchun, qiymat o'zgarmaydi) */
@@ -398,6 +435,54 @@ const Install = {
 };
 window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); Install.evt = e; if (typeof renderNavInner === "function" && $(".topbar")) renderNavInner(); });
 
+/** Foydalanish yo'riqnomasi: har bo'limda "?" — o'sha bo'limga tegishli qism ochiladi (kompyuter va telefonda) */
+const Help = {
+  TOPICS: ["start", "search", "book", "dates", "bookings", "contract", "handover", "pay", "cards", "docs", "add_car", "discounts", "owner", "reports", "messages", "advisor", "security", "admin"],
+  ICONS: { start: "home", search: "search", book: "calendar", dates: "calendar", bookings: "list", contract: "doc", handover: "key", pay: "card", cards: "card",
+    docs: "idcard", add_car: "plus", discounts: "tag", owner: "car", reports: "chart", messages: "chat", advisor: "spark", security: "finger", admin: "shield" },
+  /** Joriy sahifaga mos bo'lim */
+  context() {
+    const p = location.pathname, h = location.hash.slice(1).split("/")[0];
+    if (p.startsWith("/admin")) return h === "analytics" ? "reports" : h === "contracts" ? "contract" : h === "documents" ? "docs" : "admin";
+    if (p.startsWith("/car-form")) return "add_car";
+    if (p.startsWith("/car.html")) return "book";
+    if (p.startsWith("/cars")) return "search";
+    if (p.startsWith("/contract")) return "contract";
+    if (p.startsWith("/handover")) return "handover";
+    if (p.startsWith("/pay") || p.startsWith("/receipt")) return "pay";
+    if (p.startsWith("/messages")) return "messages";
+    if (p.startsWith("/advisor")) return "advisor";
+    if (p.startsWith("/settings")) return { cards: "cards", documents: "docs", security: "security" }[h] || "security";
+    if (p.startsWith("/dashboard")) return { bookings: "bookings", analytics: "reports", cars: "owner", calendar: "owner", earnings: "owner", payments: "pay" }[h] || (Auth.user?.active_mode === "owner" ? "owner" : "bookings");
+    return "start";
+  },
+  button(topic) { return `<button type="button" class="help-btn" data-help="${topic}" aria-label="${esc(t("help.open"))}" title="${esc(t("help.open"))}">?</button>`; },
+  open(topic = this.context()) {
+    $("#helpDrawer")?.remove();
+    const el = document.createElement("div"); el.id = "helpDrawer"; el.className = "help-wrap";
+    const steps = (k) => t(`help.${k}.b`).split("|").map((x) => `<li>${esc(x.trim())}</li>`).join("");
+    el.innerHTML = `<div class="help-scrim" data-close></div><aside class="help-drawer" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <header><span class="help-badge">?</span><div><small>${esc(t("help.guide"))}</small><h3 id="helpTitle"></h3></div><button class="icon-btn ghost" data-close aria-label="${esc(t("common.close"))}">${icon("close")}</button></header>
+      <nav class="help-topics">${this.TOPICS.filter((k) => k !== "admin" || Auth.user?.role === "admin").map((k) => `<button type="button" data-topic="${k}">${icon(this.ICONS[k], 15)}<span>${esc(t(`help.${k}.t`))}</span></button>`).join("")}</nav>
+      <div class="help-body" id="helpBody"></div></aside>`;
+    document.body.append(el);
+    const show = (k) => {
+      $("#helpTitle", el).textContent = t(`help.${k}.t`);
+      $("#helpBody", el).innerHTML = `<p class="help-lead">${esc(t(`help.${k}.l`))}</p><ol class="help-steps">${steps(k)}</ol>`;
+      $$("[data-topic]", el).forEach((b) => b.classList.toggle("on", b.dataset.topic === k));
+      $(`[data-topic="${k}"]`, el)?.scrollIntoView({ block: "nearest", inline: "center" });
+    };
+    show(this.TOPICS.includes(topic) ? topic : "start");
+    requestAnimationFrame(() => el.classList.add("in"));
+    el.addEventListener("click", (e) => {
+      const tb = e.target.closest("[data-topic]"); if (tb) show(tb.dataset.topic);
+      if (e.target.closest("[data-close]")) { el.classList.remove("in"); setTimeout(() => el.remove(), 250); }
+    });
+    document.addEventListener("keydown", function esc_(e) { if (e.key === "Escape") { el.remove(); document.removeEventListener("keydown", esc_); } });
+  },
+};
+document.addEventListener("click", (e) => { const b = e.target.closest("[data-help]"); if (b) { e.preventDefault(); Help.open(b.dataset.help || undefined); } });
+
 /** Har sahifa boshida: foydalanuvchi, til, header va footer */
 async function boot(active = "", { bare = false } = {}) {
   const [user] = await Promise.all([Auth.load(), I18N.load(I18N.initial(null)), Places.load().catch(() => null)]);
@@ -575,6 +660,7 @@ function renderNavInner() {
       <a href="/" class="logo ${Nav.bare ? "" : "only-mobile"}"><span class="logo-mark">${LOGO}</span><span>Car<b>Rent</b></span></a>
       ${u && !admin && !Nav.bare ? `<span class="mode-chip only-desktop">${icon(mode === "owner" ? "car" : "user", 16)}${esc(t("mode." + mode))}</span>` : ""}
       <span class="spacer"></span>
+      ${Nav.bare ? "" : `<button class="icon-btn ghost help-top" data-help="" aria-label="${esc(t("help.open"))}" title="${esc(t("help.open"))}">${icon("help")}</button>`}
       <div class="menu-wrap"><button class="icon-btn ghost" id="langBtn" aria-haspopup="true" aria-label="${esc(t("nav.language"))}">${icon("globe")}<span class="lang-code">${I18N.lang.toUpperCase()}</span></button></div>
       ${u ? `<div class="menu-wrap"><button class="icon-btn ghost" id="bellBtn" aria-label="${esc(t("nav.notifications"))}">${icon("bell")}<span class="badge-dot hidden" id="notifBadge"></span></button></div>
         <a class="only-desktop top-user" href="/settings.html" aria-label="${esc(t("nav.settings"))}">${avatarHtml(u)}</a>`

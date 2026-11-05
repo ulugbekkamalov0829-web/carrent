@@ -67,18 +67,25 @@ const Reports = {
   },
 
   toolbar(kind, qs) {
-    const p = this.state.preset;
+    const p = this.state.preset, [from, to] = this.range();
+    // Ixcham davr tanlagich: bitta tugma (sana oralig'i) -> ochiladigan panel: tezkor davrlar + ikkita sana
     return `<div class="rep-toolbar no-print">
-      <div class="chips" role="group" aria-label="${esc(t("rep.period"))}">${["week", "month", "last_month", "d30", "q", "year", "custom"].map((k) =>
-        `<button type="button" class="chip-btn ${p === k ? "on" : ""}" data-preset="${k}">${esc(t("rep.p_" + k))}</button>`).join("")}</div>
-      <form class="rep-custom ${p === "custom" ? "" : "hidden"}" id="repCustom">
-        <input class="input" type="date" id="repFrom" value="${esc(this.state.from)}" aria-label="${esc(t("rep.from"))}" required>
-        <span class="muted">—</span>
-        <input class="input" type="date" id="repTo" value="${esc(this.state.to)}" aria-label="${esc(t("rep.to"))}" required>
-        <button class="btn btn-sm">${esc(t("rep.show"))}</button></form>
+      <div class="drp" id="drp">
+        <button type="button" class="drp-btn" id="drpBtn" aria-haspopup="true" aria-expanded="false">${icon("calendar", 17)}
+          <span><small>${esc(p === "custom" ? t("rep.period") : t("rep.p_" + p))}</small><b>${fmtDate(from)} — ${fmtDate(to)}</b></span>${icon("chevron", 14)}</button>
+        <div class="drp-pop hidden" id="drpPop" role="dialog" aria-label="${esc(t("rep.period"))}">
+          <div class="drp-quick">${["week", "month", "last_month", "d30", "q", "year"].map((k) =>
+            `<button type="button" class="${p === k ? "on" : ""}" data-preset="${k}">${esc(t("rep.p_" + k))}</button>`).join("")}</div>
+          <form class="drp-custom" id="repCustom">
+            <label><span>${esc(t("rep.from"))}</span><input class="input" type="date" id="repFrom" value="${esc(from)}" required></label>
+            <label><span>${esc(t("rep.to"))}</span><input class="input" type="date" id="repTo" value="${esc(to)}" required></label>
+            <button class="btn btn-sm btn-block">${esc(t("rep.show"))}</button></form>
+        </div>
+      </div>
       <span class="spacer"></span>
-      <a class="btn btn-sm btn-outline" href="/api/analytics/${kind}.csv?${qs}" download>${icon("download", 16)} ${esc(t("rep.csv"))}</a>
-      <button type="button" class="btn btn-sm btn-outline" id="repPrint">${icon("print", 16)} ${esc(t("rep.print"))}</button>
+      <a class="btn btn-sm btn-outline icon-only" href="/api/analytics/${kind}.csv?${qs}" download title="${esc(t("rep.csv"))}" aria-label="${esc(t("rep.csv"))}">${icon("download", 16)}<span>${esc(t("rep.csv_short"))}</span></a>
+      <button type="button" class="btn btn-sm btn-outline icon-only" id="repPrint" title="${esc(t("rep.print"))}" aria-label="${esc(t("rep.print"))}">${icon("print", 16)}<span>PDF</span></button>
+      ${Help.button("reports")}
     </div>`;
   },
 
@@ -228,13 +235,17 @@ const Reports = {
 
   bind(view, kind) {
     const save = () => { try { localStorage.setItem("rep.state", JSON.stringify(this.state)); } catch {} };
+    const pop = $("#drpPop", view), btn = $("#drpBtn", view);
+    const close = (ev) => { if (!ev || !$("#drp", view)?.contains(ev.target)) { pop?.classList.add("hidden"); btn?.setAttribute("aria-expanded", "false"); document.removeEventListener("click", close); } };
+    btn?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const open = pop.classList.toggle("hidden") === false;
+      btn.setAttribute("aria-expanded", String(open));
+      if (open) setTimeout(() => document.addEventListener("click", close));
+    });
     $$("[data-preset]", view).forEach((b) => b.addEventListener("click", () => {
       this.state.preset = b.dataset.preset;
-      if (b.dataset.preset === "custom") {
-        if (!this.state.from) [this.state.from, this.state.to] = this.presets().month;
-        save(); $$("[data-preset]", view).forEach((x) => x.classList.toggle("on", x === b)); $("#repCustom").classList.remove("hidden"); return;
-      }
-      save(); this.render(view, kind).catch((e) => toast(e.message, "error"));
+      save(); close(); this.render(view, kind).catch((e) => toast(e.message, "error"));
     }));
     $("#repCustom")?.addEventListener("submit", (e) => {
       e.preventDefault();

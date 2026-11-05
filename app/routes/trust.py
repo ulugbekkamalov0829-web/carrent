@@ -209,6 +209,70 @@ def _mask(num: str | None) -> str | None:
     return f"{letters} ***{s[-3:]}".strip()
 
 
+# ---------------- JSHSHIR (PINFL) va pasport: avtomatik tekshiruv ----------------
+def parse_pinfl(pinfl: str) -> dict:
+    """JSHSHIR 14 raqam: 1-raqam asr va jins (3/4 — 1900-yillar, 5/6 — 2000-yillar; toq — erkak),
+    2–7 — tug'ilgan sana (KKOOYY), keyin tuman kodi, tartib raqami va nazorat raqami.
+    Davlat bazasida borligini faqat MyID/OneID integratsiyasi (shartnoma asosida) tasdiqlay oladi."""
+    from datetime import date as _d
+    p = re.sub(r"\D", "", pinfl or "")
+    if len(p) != 14:
+        raise HTTPException(400, tr("JSHSHIR 14 ta raqamdan iborat bo'lishi kerak"))
+    first = int(p[0])
+    century = {1: 1800, 2: 1800, 3: 1900, 4: 1900, 5: 2000, 6: 2000}.get(first)
+    if not century:
+        raise HTTPException(400, tr("JSHSHIR noto'g'ri: birinchi raqam 3, 4, 5 yoki 6 bo'lishi kerak"))
+    try:
+        born = _d(century + int(p[5:7]), int(p[3:5]), int(p[1:3]))
+    except ValueError:
+        raise HTTPException(400, tr("JSHSHIR ichidagi tug'ilgan sana noto'g'ri"))
+    age = (_d.today() - born).days // 365
+    if not 18 <= age <= 100:
+        raise HTTPException(400, tr("Ijara uchun yoshingiz 18 dan katta bo'lishi kerak"))
+    return {"pinfl": p, "birth_date": born.isoformat(), "gender": "m" if first % 2 else "f", "age": age}
+
+
+PASSPORT_RE = re.compile(r"^[A-Z]{2}\d{7}$")
+
+
+class IdentityIn(Base):
+    pinfl: str = Field(min_length=14, max_length=20)
+    passport: str = Field(min_length=9, max_length=12)
+
+
+@require("user")
+async def save_identity(request: Request):
+    """Foydalanuvchi JSHSHIR va pasport/ID seriya-raqamini kiritadi: tizim formatni, tug'ilgan sanani, yoshni
+    va boshqa akkauntda ishlatilmaganini tekshiradi. To'liq raqamlar saqlanmaydi (faqat xesh va niqob)."""
+    import hashlib
+    data = await parse_body(request, IdentityIn)
+    info = parse_pinfl(data.pinfl)
+    passport = re.sub(r"[^A-Za-z0-9]", "", data.passport).upper()
+    if not PASSPORT_RE.match(passport):
+        raise HTTPException(400, tr("Pasport yoki ID kartani AA1234567 ko'rinishida yozing"))
+    uid = request.state.user["id"]
+    h = hashlib.sha256((settings.SECRET_KEY[:16] + info["pinfl"]).encode()).hexdigest()
+    with get_db() as db:
+        other = db.execute("SELECT id FROM users WHERE pinfl_hash = ? AND id != ? AND deleted_at IS NULL", (h, uid)).fetchone()
+        if other:
+            raise HTTPException(409, tr("Bu JSHSHIR boshqa akkauntga bog'langan. Muammo bo'lsa admin bilan bog'laning"))
+        mask = info["pinfl"][:1] + "*" * 9 + info["pinfl"][-4:]
+        db.execute("UPDATE users SET pinfl_hash = ?, pinfl_mask = ?, birth_date = ?, gender = ?, passport_mask = ?, "
+                   "identity_status = 'checked' WHERE id = ?", (h, mask, info["birth_date"], info["gender"], _mask(passport), uid))
+        return ok(identity_state(db, uid))
+
+
+def identity_state(db, uid: int) -> dict:
+    u = one(db.execute("SELECT pinfl_mask, birth_date, gender, passport_mask, identity_status FROM users WHERE id = ?", (uid,)))
+    return {**u, "myid": False}
+
+
+@require("user")
+async def get_identity(request: Request):
+    with get_db() as db:
+        return ok(identity_state(db, request.state.user["id"]))
+
+
 @require("user")
 async def my_documents(request: Request):
     with get_db() as db:
@@ -422,6 +486,8 @@ routes = [
     Route("/api/me/cards/{id:int}", delete_card, methods=["DELETE"]),
     Route("/api/me/cards/{id:int}/default", default_card, methods=["POST"]),
     Route("/api/me/documents", my_documents, methods=["GET"]),
+    Route("/api/me/identity", get_identity, methods=["GET"]),
+    Route("/api/me/identity", save_identity, methods=["PUT"]),
     Route("/api/me/documents", upload_document, methods=["POST"]),
     Route("/api/me/documents/{id:int}", delete_document, methods=["DELETE"]),
     Route("/api/admin/documents", admin_documents, methods=["GET"]),

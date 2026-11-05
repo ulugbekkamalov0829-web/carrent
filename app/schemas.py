@@ -219,18 +219,41 @@ class CarIn(Base):
     lat: Optional[float] = Field(default=None, ge=37.0, le=46.0)       # O'zbekiston chegarasi atrofida
     lng: Optional[float] = Field(default=None, ge=55.0, le=74.0)
     address: Optional[str] = Field(default=None, max_length=160)
-    plate: Optional[str] = Field(default=None, max_length=12)
+    plate: str = Field(min_length=6, max_length=14)          # v9: davlat raqami majburiy
     fuel_policy: Literal["same", "full"] = "same"
     tank_l: Optional[int] = Field(default=None, ge=10, le=200)
     fuel_price: Optional[int] = Field(default=None, ge=1000, le=100_000)
     extra_km_price: Optional[int] = Field(default=None, ge=0, le=100_000)
     require_docs: bool = False
+    fuel_per_100: Optional[float] = Field(default=None, ge=2, le=40)    # litr / 100 km (elektr uchun kVt·soat)
+    # Uzoq muddat chegirmasi: {"3": 5, "7": 10, "30": 20} — shuncha kundan boshlab kunlik narx shuncha foiz arzon
+    discounts: dict[str, int] = Field(default_factory=dict, max_length=4)
+    tech_passport: Optional[str] = Field(default=None, max_length=14)
+
+    @field_validator("discounts")
+    @classmethod
+    def _discounts(cls, v: dict) -> dict:
+        out = {}
+        for k, pct in v.items():
+            if str(k) not in ("3", "7", "14", "30") or not isinstance(pct, int) or not 0 <= pct <= 50:
+                raise ValueError("Chegirma 0–50% oralig'ida bo'lishi kerak")
+            if pct:
+                out[str(k)] = pct
+        return out
+
+    @field_validator("tech_passport")
+    @classmethod
+    def _tp(cls, v: Optional[str]) -> Optional[str]:
+        if not v:
+            return None
+        v = re.sub(r"[^0-9A-Za-z]", "", v).upper()
+        if not re.fullmatch(r"[A-Z]{3}\d{7}", v):
+            raise ValueError("Texpasportni AAF1234567 ko'rinishida yozing")
+        return v
 
     @field_validator("plate")
     @classmethod
-    def _plate(cls, v: Optional[str]) -> Optional[str]:
-        if not v:
-            return None
+    def _plate(cls, v: str) -> str:
         v = re.sub(r"[^0-9A-Za-z]", "", v).upper()
         if not re.fullmatch(r"\d{2}[A-Z]\d{3}[A-Z]{2}|\d{2}\d{3}[A-Z]{3}", v):
             raise ValueError("Davlat raqamini 01A123BC yoki 01123ABC ko'rinishida yozing")

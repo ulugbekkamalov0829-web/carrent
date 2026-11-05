@@ -205,7 +205,12 @@ async def advise(request: Request):
         for c in cands:
             c.update(score_car(c, data, newest, prange, market))
             if days:
-                c["total"] = days * c["price_per_day"] + ((c["delivery_price"] or 0) if data.delivery else 0)
+                from .bookings import discount_pct
+                pct = discount_pct(c, days)
+                full = days * c["price_per_day"]
+                c["total"] = full - full * pct // 100 + ((c["delivery_price"] or 0) if data.delivery else 0)
+                if pct:
+                    c["discount_pct"] = pct
             if data.district and c.get("district") == data.district:
                 c["pros"].insert(0, {"code": "same_district", "p": {"district": c["district"]}})
                 c["match"] = min(99, c["match"] + 4)     # o'z tumaningizda — olib ketish oson

@@ -427,6 +427,20 @@ CREATE TABLE IF NOT EXISTS contract_codes (
     used_at     TEXT,
     created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
+
+-- v9: barmoq izi / yuz bilan kirish (WebAuthn passkey). Barmoq izi emas — faqat ochiq kalit saqlanadi.
+CREATE TABLE IF NOT EXISTS passkeys (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    cred_id     TEXT    NOT NULL UNIQUE,
+    public_key  TEXT    NOT NULL,
+    alg         INTEGER NOT NULL,
+    sign_count  INTEGER NOT NULL DEFAULT 0,
+    name        TEXT,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+    last_used   TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_passkeys_user ON passkeys(user_id);
 """
 
 
@@ -444,12 +458,18 @@ MIGRATIONS = {
         "phone_norm": "TEXT", "email_verified": "INTEGER NOT NULL DEFAULT 0", "phone_verified": "INTEGER NOT NULL DEFAULT 0",
         "avatar": "TEXT", "show_phone": "INTEGER NOT NULL DEFAULT 1", "notify_prefs": "TEXT NOT NULL DEFAULT '{}'",
         "deleted_at": "TEXT", "district": "TEXT", "must_change_pw": "INTEGER NOT NULL DEFAULT 0",
+        # v9: JSHSHIR (PINFL) — to'liq raqam saqlanmaydi: xesh (bitta odam bir nechta akkaunt ochmasligi uchun) va niqob
+        "pinfl_hash": "TEXT", "pinfl_mask": "TEXT", "birth_date": "TEXT", "gender": "TEXT", "passport_mask": "TEXT",
+        "identity_status": "TEXT NOT NULL DEFAULT 'none'",
     },
     "car_images": {"label": "TEXT NOT NULL DEFAULT 'other'"},
     "cars": {"district": "TEXT", "lat": "REAL", "lng": "REAL", "address": "TEXT",
              # Yoqilg'i: same — qanday olsa shunday qaytaradi; full — to'la bak oladi, to'la qaytaradi
              "fuel_policy": "TEXT NOT NULL DEFAULT 'same'", "tank_l": "INTEGER", "fuel_price": "INTEGER", "extra_km_price": "INTEGER",
-             "require_docs": "INTEGER NOT NULL DEFAULT 0", "plate": "TEXT"},
+             "require_docs": "INTEGER NOT NULL DEFAULT 0", "plate": "TEXT",
+             # v9: yoqilg'i sarfi (l/100 km), uzoq muddat chegirmalari {"7": 10, ...} (kun: foiz), texpasport seriya-raqami
+             "fuel_per_100": "REAL", "discounts": "TEXT NOT NULL DEFAULT '{}'", "tech_passport": "TEXT",
+             "ownership_status": "TEXT NOT NULL DEFAULT 'none'"},
     "messages": {"kind": "TEXT NOT NULL DEFAULT 'text'", "lat": "REAL", "lng": "REAL"},
     # Bildirishnoma qaysi kabinetga tegishli (renter | owner | admin | any) va kim sabab bo'lgani (Telegram uslubidagi oyna uchun)
     "notifications": {"mode": "TEXT NOT NULL DEFAULT 'any'", "actor_id": "INTEGER"},

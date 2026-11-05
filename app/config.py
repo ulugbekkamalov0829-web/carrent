@@ -44,6 +44,16 @@ class Settings:
     # Demo rejimi: kirish sahifasida demo hisoblarni ko'rsatadi (productionda o'chiring)
     DEMO_MODE: bool = _bool("DEMO_MODE", True)
 
+    # Shu emaillar (vergul bilan) tasdiqlangach admin huquqini oladi: ADMIN_EMAILS=me@gmail.com
+    ADMIN_EMAILS: set = {e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()}
+
+    # Doimiy saqlash (Render bepul diski har qayta ishga tushganda tozalanadi): Supabase Storage.
+    # Baza (SQLite) nusxasi va yuklangan rasmlar shu yerda saqlanadi, server yonganda qayta tiklanadi.
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+    SUPABASE_SERVICE_KEY: str = os.getenv("SUPABASE_SERVICE_KEY", "").strip()
+    SUPABASE_BUCKET: str = os.getenv("SUPABASE_BUCKET", "carrent-data").strip()
+    BACKUP_EVERY_SEC: int = int(os.getenv("BACKUP_EVERY_SEC", "20"))
+
     # Cheklovlar
     MAX_IMAGE_MB: int = 8            # brauzer suratni oldindan kichraytiradi; server baribir qayta kodlaydi
     MAX_IMAGES_PER_CAR: int = 10

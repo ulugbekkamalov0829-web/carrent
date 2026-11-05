@@ -111,6 +111,11 @@ def seed(reset: bool = False) -> None:
                     (uids[o], brand, model, year, color, body, seats, tr_, fuel, eng, km, drv, json.dumps(sorted(set(feats))),
                      city, district, desc, price, dep, mn, mx, kml, dlv, random.randint(40, 400), created, created)).lastrowid
                 cars.append({"id": cid, "price": price, "owner": uids[o], "deposit": dep})
+                # v9: davlat raqami, yoqilg'i sarfi va uzoq muddat chegirmalari
+                plate = f"{random.choice(['01', '10', '40', '30', '50'])}{random.choice('ABCDEHKMOPTX')}{random.randint(100, 999)}{random.choice(['AA', 'BC', 'KA', 'MB'])}"
+                per100 = {"electric": 16.0, "hybrid": 5.2, "diesel": 7.5, "gas": 9.0}.get(fuel, round(6.5 + (eng or 1.5) * 1.3, 1))
+                db.execute("UPDATE cars SET plate = ?, fuel_per_100 = ?, discounts = ? WHERE id = ?",
+                           (plate, per100, json.dumps({"3": 5, "7": 10, "30": 20} if i % 3 else {"7": 8}), cid))
                 for pos, fname in enumerate(photos):
                     src = PHOTO_DIR / fname
                     if src.exists():

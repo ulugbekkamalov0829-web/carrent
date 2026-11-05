@@ -16,7 +16,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from .config import settings
 from .db import init_db
 from .i18n import current_lang, detect_lang, tr
-from .routes import admin_users, advisor, analytics, auth, bookings, cars, dashboard, drill, rental, trust, ops, payments, smart, social
+from .routes import passkeys, admin_users, advisor, analytics, auth, bookings, cars, dashboard, drill, rental, trust, ops, payments, smart, social
 from .utils import ApiValidationError
 
 log = logging.getLogger("carrent")
@@ -126,7 +126,10 @@ async def server_error(request: Request, exc: Exception):
 
 
 async def health(request: Request):
-    return JSONResponse({"status": "ok"})
+    from . import persist
+    st = persist.status()
+    return JSONResponse({"status": "ok", "storage": "supabase" if st["enabled"] else "local",
+                         "storage_ok": st["last_error"] is None if st["enabled"] else None})
 
 
 async def moved(request: Request):
@@ -140,16 +143,34 @@ async def api_not_found(request: Request):
 
 @asynccontextmanager
 async def lifespan(app):
+    from . import persist
+    persist.restore()          # Supabase sozlangan bo'lsa: oxirgi nusxani tiklash
     init_db()
+    seed_if_requested()
     log.info("Ma'lumotlar bazasi tayyor: %s", settings.DB_PATH)
+    persist.start()
     yield
+    persist.stop()
+
+
+def seed_if_requested() -> None:
+    """SEED_DEMO=true bo'lsa va baza bo'sh bo'lsa — namuna ma'lumotlar (endi Dockerfile emas, shu yerda: tiklashdan keyin)."""
+    import os
+    if os.getenv("SEED_DEMO", "").lower() != "true":
+        return
+    from .db import get_db
+    with get_db() as db:
+        if db.execute("SELECT COUNT(*) FROM users").fetchone()[0]:
+            return
+    from scripts import seed
+    seed.seed()
 
 
 def create_app() -> Starlette:
     routes = [
         Route("/api/health", health),
         Route("/about.html", moved),
-        *auth.routes, *cars.routes, *bookings.routes, *social.routes, *dashboard.routes, *smart.routes, *payments.routes, *analytics.routes, *advisor.routes, *ops.routes, *drill.routes, *admin_users.routes, *trust.routes, *rental.routes,
+        *auth.routes, *passkeys.routes, *cars.routes, *bookings.routes, *social.routes, *dashboard.routes, *smart.routes, *payments.routes, *analytics.routes, *advisor.routes, *ops.routes, *drill.routes, *admin_users.routes, *trust.routes, *rental.routes,
         Route("/api/{rest:path}", api_not_found, methods=["GET", "POST", "PUT", "PATCH", "DELETE"]),
         Mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads"),
         Mount("/", StaticFiles(directory=settings.STATIC_DIR, html=True), name="static"),

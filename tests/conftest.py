@@ -59,7 +59,7 @@ def make_user(role: str = "user", verified: bool = True) -> tuple[TestClient, di
 
 CAR = {"brand": "Chevrolet", "model": "Cobalt", "year": 2023, "city": "Toshkent", "body_type": "sedan", "seats": 5,
        "transmission": "automatic", "fuel": "petrol", "features": ["ac", "usb"], "price_per_day": 300000,
-       "deposit": 500000, "min_days": 1, "max_days": 30, "delivery_price": 50000, "description": "Test"}
+       "deposit": 500000, "min_days": 1, "max_days": 30, "delivery_price": 50000, "description": "Test", "plate": "01A123BC"}
 
 
 def make_car(owner_client: TestClient, **overrides) -> dict:

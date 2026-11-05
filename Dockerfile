@@ -20,5 +20,5 @@ USER appuser
 VOLUME ["/data"]
 EXPOSE 8000
 
-# SEED_DEMO=true bo'lsa, bo'sh bazani demo ma'lumotlar bilan to'ldiradi
-CMD ["sh", "-c", "if [ \"$SEED_DEMO\" = \"true\" ]; then python -m scripts.seed; fi; uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]
+# Baza Supabase'dan tiklanadi (sozlangan bo'lsa); SEED_DEMO=true va baza bo'sh bo'lsa — namuna ma'lumotlar (app/main.py)
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]

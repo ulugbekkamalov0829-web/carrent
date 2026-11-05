@@ -44,6 +44,8 @@ Bir tomondan, avtomobil egasi {owner_name} (keyingi o'rinlarda — «Ijaraga ber
 1.1. Ijaraga beruvchi Ijarachiga quyidagi avtomobilni haydovchisiz vaqtincha egalik qilish va foydalanish uchun beradi: {car}, {car_year} yil, rangi: {car_color}, davlat raqami: {plate}, kuzov turi: {body}, yoqilg'i: {fuel}.
 1.2. Avtomobil Ijaraga beruvchiga tegishli bo'lib, u avtomobilni ijaraga berishga haqli ekanini kafolatlaydi.
 1.3. Avtomobil faqat shaxsiy maqsadda, O'zbekiston Respublikasi hududida ishlatiladi. Taksi, yuk tashish xizmati, ko'rsatuv haydash, musobaqa va o'quv haydash uchun foydalanish taqiqlanadi.
+1.4. Platformadagi e'lon ma'lumotlarini (rasm, yil, probeg, jihozlar) Ijaraga beruvchi kiritgan va ular uchun u javobgar. Ijarachi avtomobilni qabul qilishda texnik pasportni, davlat raqamini, kuzov (VIN) raqamini va probegni e'lon hamda ushbu shartnoma bilan solishtiradi va qabul-topshirish dalolatnomasida «tekshirdim, qabul qildim» deb tasdiqlaydi.
+1.5. Agar avtomobil yoki uning hujjatlari e'londagi ma'lumotlarga mos kelmasa (boshqa avtomobil, soxta yoki muddati o'tgan hujjat, egasi boshqa shaxs), Ijarachi avtomobilni qabul qilmaslikka haqli. Bunday holda shartnoma bekor qilinadi, Ijarachiga to'langan barcha summa to'liq qaytariladi, Ijaraga beruvchining e'loni esa platforma tomonidan to'xtatiladi.
 
 ## 2. Ijara muddati va avtomobilni topshirish
 2.1. Ijara muddati: {start} dan {end} gacha ({days} kun).
@@ -52,7 +54,7 @@ Bir tomondan, avtomobil egasi {owner_name} (keyingi o'rinlarda — «Ijaraga ber
 2.4. Avtomobilni kechiktirib qaytarish oldindan kelishilmagan bo'lsa, har bir kechikkan sutka uchun bir kunlik ijara haqi undiriladi.
 
 ## 3. Ijara haqi va to'lov tartibi
-3.1. Kunlik ijara haqi: {price_per_day}. Ijara haqi jami: {rent}. Yetkazib berish: {delivery}. Umumiy summa: {total}.
+3.1. Kunlik ijara haqi: {price_per_day}. Ijara haqi jami (uzoq muddat chegirmasi hisobga olingan): {rent}. Yetkazib berish: {delivery}. Umumiy summa: {total}.
 3.2. To'lov platforma orqali onlayn (Click, Payme) yoki avtomobil topshirilayotganda joyida amalga oshiriladi.
 3.3. Platforma xizmat haqi ({commission_pct}%) Ijaraga beruvchi oladigan summadan ushlanadi va Ijarachi uchun qo'shimcha to'lov emas.
 
@@ -65,6 +67,12 @@ Bir tomondan, avtomobil egasi {owner_name} (keyingi o'rinlarda — «Ijaraga ber
 5.1. Avtomobilni texnik soz, toza, hujjatlari (texnik pasport, amaldagi OSAGO sug'urtasi) bilan topshirish.
 5.2. Avtomobilning yashirin nuqsonlari haqida oldindan xabar berish.
 5.3. Avtomobil Ijarachining aybisiz buzilsa — uni almashtirish yoki to'langan pulni foydalanilmagan kunlar uchun qaytarish.
+
+## 5A. Ijara davomida avtomobil buzilsa
+5A.1. Ijarachi nosozlikni sezgan zahoti harakatni to'xtatadi va Ijaraga beruvchiga (platforma chat yoki telefon orqali) xabar beradi; nosoz avtomobilda harakatni davom ettirib, zararni oshirmaydi.
+5A.2. Tabiiy eskirish, zavod nuqsoni yoki Ijarachiga bog'liq bo'lmagan sabab bilan buzilsa — ta'mir xarajatini Ijaraga beruvchi to'laydi. U 24 soat ichida avtomobilni tuzatadi yoki shunga teng boshqa avtomobil beradi; buning iloji bo'lmasa, foydalanilmagan kunlar haqi to'liq qaytariladi, ta'mirda turgan vaqt esa ijara muddatiga kiritilmaydi.
+5A.3. Kichik ta'mirni (lampochka, g'ildirak teshilishi, akkumulyator kabi) Ijarachi Ijaraga beruvchining roziligi bilan o'zi qildirishi mumkin; chek yoki servis hisob-varag'i asosida xarajat Ijaraga beruvchi tomonidan qaytariladi.
+5A.4. Ijarachining aybi bilan (qoidabuzarlik, noto'g'ri yoqilg'i, beparvolik) yuzaga kelgan buzilish ta'mirini Ijarachi to'laydi; bu holda ta'mirda turgan kunlar uchun ham kunlik haq saqlanib qoladi.
 
 ## 6. Ijarachining majburiyatlari
 6.1. Amaldagi haydovchilik guvohnomasiga ega bo'lish ({renter_license}, toifa: {renter_license_cat}) va avtomobilni faqat o'zi boshqarish. Boshqa shaxsga topshirish faqat Ijaraga beruvchining yozma roziligi bilan.
@@ -82,9 +90,12 @@ Bir tomondan, avtomobil egasi {owner_name} (keyingi o'rinlarda — «Ijaraga ber
 8.2. Ijarachi aybi bilan yetkazilgan, sug'urta qoplamagan zararni Ijarachi qoplaydi. Zarar miqdori dalolatnoma, rasmlar va servis hisob-kitobi asosida aniqlanadi.
 8.3. Tabiiy eskirish va Ijarachiga bog'liq bo'lmagan texnik nosozliklar uchun Ijarachi javobgar emas.
 
-## 9. Shartnomani bekor qilish
-9.1. Ijara boshlanishidan 3 va undan ortiq kun oldin bekor qilinsa — to'langan summa to'liq qaytariladi; 1–2 kun oldin — 50%; ijara kuni yoki keyin — qaytarilmaydi.
-9.2. Tomonlardan biri shartnoma shartlarini qo'pol buzsa, ikkinchi tomon uni bir tomonlama bekor qilishga haqli.
+## 9. Shartnomani bekor qilish va muddatidan oldin tugatish
+9.1. Ijarachi ijara boshlanishidan 3 va undan ortiq kun oldin bekor qilsa — to'langan summa to'liq qaytariladi; 1–2 kun oldin — 50% qaytariladi; ijara kuni yoki keyin — qaytarilmaydi.
+9.2. Ijaraga beruvchi tasdiqlangan bronni bekor qilsa — Ijarachiga to'langan summa to'liq qaytariladi; ijara boshlanishiga 2 kundan kam qolganda bekor qilish takrorlansa, platforma e'lon reytingini pasaytirishi yoki uni to'xtatishi mumkin.
+9.3. Ijarachi avtomobilni muddatidan oldin qaytarsa: foydalanilgan kunlar to'liq haq bilan hisoblanadi (uzoq muddat chegirmasi faqat haqiqatda foydalanilgan kunlar soniga mos qayta hisoblanadi); foydalanilmagan kunlar haqidan Ijaraga beruvchining kompensatsiyasi sifatida 1 kunlik ijara haqi ushlab qolinadi, qolgani Ijarachiga qaytariladi. Ijaraga beruvchi avtomobilni boshqa mijozga bera olsa, ushlab qolingan kompensatsiya ham qaytariladi.
+9.4. Ijaraga beruvchi avtomobilni muddatidan oldin qaytarib olishi faqat Ijarachi shartnomani qo'pol buzganda (6-bo'lim) mumkin; aks holda foydalanilmagan kunlar haqi to'liq qaytariladi va Ijarachiga 1 kunlik ijara haqi miqdorida kompensatsiya to'lanadi.
+9.5. Tomonlardan biri shartnoma shartlarini qo'pol buzsa, ikkinchi tomon uni bir tomonlama bekor qilishga haqli.
 
 ## 10. Nizolarni hal qilish
 10.1. Nizolar avvalo muzokara va platformaning nizolarni ko'rib chiqish xizmati orqali hal qilinadi.
@@ -142,7 +153,7 @@ def render_contract(db, b: dict, number: str) -> str:
         "car": f"{car['brand']} {car['model']}", "car_year": car["year"], "car_color": car["color"] or dash, "plate": car["plate"] or dash,
         "body": BODY_UZ.get(car["body_type"], car["body_type"]), "fuel": FUEL_UZ.get(car["fuel"], car["fuel"]),
         "start": dmy(b["start_date"]), "end": dmy(b["end_date"]), "days": b["days"], "price_per_day": som(b["price_per_day"]),
-        "rent": som(b["price_per_day"] * b["days"]), "delivery": som(b["delivery"]) if b["delivery"] else "yo'q",
+        "rent": som(b["total_price"] - (b["delivery"] or 0)), "delivery": som(b["delivery"]) if b["delivery"] else "yo'q",
         "total": som(b["total_price"]), "deposit": som(b["deposit"]) if b["deposit"] else "olinmaydi (0 so'm)",
         "commission_pct": f"{b['commission_bps'] / 100:g}",
         "fuel_policy_text": "to'la bak bilan olinadi va to'la bak bilan qaytariladi" if car["fuel_policy"] == "full"

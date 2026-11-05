@@ -107,7 +107,7 @@ def test_admin_can_edit_any_listing_owner_notified():
     got = admin.get(f"/api/cars/{car['id']}").json()
     assert got["can_edit"] is True and got["is_mine"] is False and got["plate"] == "01A123BC"
     body = {k: got[k] for k in ("brand", "model", "year", "city", "body_type", "seats", "transmission", "fuel", "features", "deposit",
-                                "min_days", "max_days", "description")}
+                                "min_days", "max_days", "description", "plate")}
     r = admin.put(f"/api/cars/{car['id']}", headers=H, json={**body, "price_per_day": 280000, "delivery_price": None})
     assert r.status_code == 200, r.text
     assert r.json()["price_per_day"] == 280000

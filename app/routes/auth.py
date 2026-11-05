@@ -113,7 +113,9 @@ async def login(request: Request):
         if not row["is_active"]:
             raise HTTPException(403, tr("Hisobingiz administrator tomonidan bloklangan"))
         login_limiter.reset(f"{client_ip(request)}|{ident}")
-        return _login_response(db, row["id"], row["role"], request)
+        promote_admin_if_listed(db, row["id"])
+        role = db.execute("SELECT role FROM users WHERE id = ?", (row["id"],)).fetchone()[0]
+        return _login_response(db, row["id"], role, request)
 
 
 async def logout(request: Request):
@@ -274,7 +276,17 @@ async def verify_confirm(request: Request):
     with get_db() as db:
         _check_code(db, u["id"], purpose, data.code)
         db.execute(f"UPDATE users SET {col} = 1 WHERE id = ?", (u["id"],))
+        if col == "email_verified":
+            promote_admin_if_listed(db, u["id"])
         return ok({"user": user_payload(db, u["id"])})
+
+
+def promote_admin_if_listed(db, uid: int) -> None:
+    """ADMIN_EMAILS ro'yxatidagi email tasdiqlangach, akkaunt admin bo'ladi (demo akkauntsiz real ishga tushirish uchun).
+    Email tasdiqlanishi shart: aks holda birov shu manzil bilan ro'yxatdan o'tib admin bo'lib olardi."""
+    u = one(db.execute("SELECT email, role, email_verified FROM users WHERE id = ?", (uid,)))
+    if u and u["email_verified"] and u["role"] != "admin" and u["email"].lower() in settings.ADMIN_EMAILS:
+        db.execute("UPDATE users SET role = 'admin' WHERE id = ?", (uid,))
 
 
 # ---------------- Profil va sozlamalar ----------------

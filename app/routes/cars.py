@@ -18,7 +18,7 @@ CAR_COLUMNS = """
     c.id, c.owner_id, c.brand, c.model, c.year, c.color, c.body_type, c.seats, c.transmission, c.fuel, c.engine_l,
     c.mileage_km, c.drive, c.features, c.city, c.district, c.description, c.price_per_day, c.deposit, c.min_days, c.max_days,
     c.km_limit, c.delivery_price, c.is_active, c.is_approved, c.views, c.is_demo, c.created_at, c.updated_at,
-    c.lat, c.lng, c.address, c.fuel_policy, c.tank_l, c.fuel_price, c.extra_km_price, c.require_docs,
+    c.lat, c.lng, c.address, c.fuel_policy, c.tank_l, c.fuel_price, c.extra_km_price, c.require_docs, c.fuel_per_100, c.discounts, c.ownership_status,
     (SELECT path FROM car_images i WHERE i.car_id = c.id ORDER BY position, id LIMIT 1) AS cover,
     (SELECT ROUND(AVG(rating), 1) FROM reviews r WHERE r.car_id = c.id AND r.kind = 'car') AS rating,
     (SELECT COUNT(*) FROM reviews r WHERE r.car_id = c.id AND r.kind = 'car') AS reviews_count
@@ -39,6 +39,8 @@ IMAGE_SIGNATURES = [(b"\xff\xd8\xff", ".jpg"), (b"\x89PNG\r\n\x1a\n", ".png")]
 
 def serialize(car: dict) -> dict:
     car["features"] = json.loads(car.get("features") or "[]")
+    if "discounts" in car:
+        car["discounts"] = json.loads(car.get("discounts") or "{}")
     car["title"] = f"{car['brand']} {car['model']}"
     if "is_favorite" in car:
         car["is_favorite"] = bool(car["is_favorite"])
@@ -88,7 +90,7 @@ def get_car_row(db, car_id: int, user_id: int | None = None) -> dict:
         raise HTTPException(404, tr("E'lon topilmadi"))
     car = serialize(car)
     if user_id and car["owner_id"] == user_id:      # davlat raqami faqat egasiga (shartnomada esa ikkala tomonga)
-        car["plate"] = db.execute("SELECT plate FROM cars WHERE id = ?", (car_id,)).fetchone()[0]
+        car["plate"], car["tech_passport"] = db.execute("SELECT plate, tech_passport FROM cars WHERE id = ?", (car_id,)).fetchone()
     return car
 
 
@@ -97,7 +99,7 @@ def own_car(db, car_id: int, user: dict) -> dict:
     car = get_car_row(db, car_id, user["id"])
     if car["owner_id"] != user["id"]:
         if user["role"] == "admin":   # admin istalgan e'lonni tuzata oladi (owner tushunmasa yordam beradi)
-            car["plate"] = db.execute("SELECT plate FROM cars WHERE id = ?", (car_id,)).fetchone()[0]
+            car["plate"], car["tech_passport"] = db.execute("SELECT plate, tech_passport FROM cars WHERE id = ?", (car_id,)).fetchone()
             return car
         raise HTTPException(403, tr("Bu e'lon sizga tegishli emas"))
     return car
@@ -336,12 +338,12 @@ def _values(d: CarIn) -> tuple:
     return (d.brand, d.model, d.year, d.color, d.body_type, d.seats, d.transmission, d.fuel, d.engine_l, d.mileage_km,
             d.drive, json.dumps(d.features), d.city, d.district, d.description, d.price_per_day, d.deposit, d.min_days, d.max_days,
             d.km_limit, d.delivery_price, int(d.is_active), d.lat, d.lng, d.address, d.plate, d.fuel_policy, d.tank_l,
-            d.fuel_price, d.extra_km_price, int(d.require_docs))
+            d.fuel_price, d.extra_km_price, int(d.require_docs), d.fuel_per_100, json.dumps(d.discounts), d.tech_passport)
 
 
 FIELDS = ("brand, model, year, color, body_type, seats, transmission, fuel, engine_l, mileage_km, drive, features, city, district, "
           "description, price_per_day, deposit, min_days, max_days, km_limit, delivery_price, is_active, lat, lng, address, plate, "
-          "fuel_policy, tank_l, fuel_price, extra_km_price, require_docs")
+          "fuel_policy, tank_l, fuel_price, extra_km_price, require_docs, fuel_per_100, discounts, tech_passport")
 
 
 @require("user")
@@ -350,7 +352,7 @@ async def create_car(request: Request):
     data = await parse_body(request, CarIn)
     uid = request.state.user["id"]
     with get_db() as db:
-        cur = db.execute(f"INSERT INTO cars (owner_id, {FIELDS}) VALUES (?{', ?' * 31})", (uid, *_values(data)))
+        cur = db.execute(f"INSERT INTO cars (owner_id, {FIELDS}) VALUES (?{', ?' * len(FIELDS.split(','))})", (uid, *_values(data)))
         # Birinchi e'londan keyin foydalanuvchi owner rejimiga o'tadi (faqat interfeys holati)
         db.execute("UPDATE users SET active_mode = 'owner' WHERE id = ?", (uid,))
         car = get_car_row(db, cur.lastrowid, uid)

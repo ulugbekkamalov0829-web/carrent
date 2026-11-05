@@ -259,3 +259,23 @@ CATALOG.update({
     "email yoki telefonni tasdiqlash": ("подтверждение email или телефона", "email or phone verification"),
     "hujjatlar": ("документы", "documents"),
 })
+
+# v9: chegirmalar, texpasport, JSHSHIR, barmoq izi bilan kirish
+CATALOG.update({
+    "Texpasportni AAF1234567 ko'rinishida yozing": ("Укажите техпаспорт в виде AAF1234567", "Enter the registration certificate as AAF1234567"),
+    "Chegirma 0–50% oralig'ida bo'lishi kerak": ("Скидка должна быть от 0 до 50%", "The discount must be between 0 and 50%"),
+    "JSHSHIR 14 ta raqamdan iborat bo'lishi kerak": ("ПИНФЛ должен состоять из 14 цифр", "The PINFL must have 14 digits"),
+    "JSHSHIR noto'g'ri: birinchi raqam 3, 4, 5 yoki 6 bo'lishi kerak": ("Неверный ПИНФЛ: первая цифра должна быть 3, 4, 5 или 6", "Invalid PINFL: the first digit must be 3, 4, 5 or 6"),
+    "JSHSHIR ichidagi tug'ilgan sana noto'g'ri": ("Дата рождения в ПИНФЛ неверна", "The birth date inside the PINFL is invalid"),
+    "Ijara uchun yoshingiz 18 dan katta bo'lishi kerak": ("Для аренды вам должно быть больше 18 лет", "You must be over 18 to rent"),
+    "Bu JSHSHIR boshqa akkauntga bog'langan. Muammo bo'lsa admin bilan bog'laning": ("Этот ПИНФЛ привязан к другому аккаунту. Если это ошибка — свяжитесь с админом", "This PINFL is linked to another account. Contact the admin if this is a mistake"),
+    "Pasport yoki ID kartani AA1234567 ko'rinishida yozing": ("Укажите паспорт или ID-карту в виде AA1234567", "Enter the passport or ID card as AA1234567"),
+    "Barmoq izi bilan tasdiqlash amalga oshmadi": ("Не удалось подтвердить отпечатком", "Fingerprint confirmation failed"),
+    "Qurilma barmoq izi yoki PIN kodni tekshirmadi": ("Устройство не проверило отпечаток или PIN", "The device did not check the fingerprint or PIN"),
+    "Bu barmoq izi hech qaysi akkauntga ulanmagan. Avval parol bilan kiring": ("Этот отпечаток не привязан к аккаунту. Сначала войдите с паролем", "This fingerprint isn't linked to any account. Sign in with your password first"),
+    "Bu qurilmaning kalit turi qo'llab-quvvatlanmaydi": ("Тип ключа этого устройства не поддерживается", "This device's key type isn't supported"),
+    "So'rov muddati o'tdi. Qayta urinib ko'ring": ("Срок запроса истёк. Попробуйте ещё раз", "The request expired. Please try again"),
+    "Qurilma": ("Устройство", "Device"),
+    "CBOR: tur qo'llab-quvvatlanmaydi": ("CBOR: тип не поддерживается", "CBOR: unsupported type"),
+    "CBOR: noaniq uzunlik qo'llab-quvvatlanmaydi": ("CBOR: неопределённая длина не поддерживается", "CBOR: indefinite length not supported"),
+})

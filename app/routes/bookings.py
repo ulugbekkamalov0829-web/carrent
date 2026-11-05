@@ -73,13 +73,30 @@ def _overlap(db, car_id: int, start: str, end: str, exclude_id: int | None = Non
     return db.execute(sql + " LIMIT 1", params).fetchone() is not None
 
 
+def discount_pct(car: dict, days: int) -> int:
+    """Uzoq muddatli ijara chegirmasi: kunlar soniga mos eng katta pog'ona (masalan 7+ kun -> 10%)."""
+    tiers = car.get("discounts") or {}
+    if isinstance(tiers, str):
+        import json
+        tiers = json.loads(tiers or "{}")
+    best = 0
+    for k, pct in tiers.items():
+        if days >= int(k):
+            best = max(best, int(pct))
+    return best
+
+
 def quote(car: dict, days: int, delivery: bool, bps: int) -> dict:
     """Narx hisob-kitobi (frontenddagi ko'rsatkich ham shu formuladan): har bir qator alohida."""
-    rent = days * car["price_per_day"]
+    full = days * car["price_per_day"]
+    pct = discount_pct(car, days)
+    discount = full * pct // 100
+    rent = full - discount
     delivery_fee = (car["delivery_price"] or 0) if delivery else 0
     total = rent + delivery_fee
     commission, payout = bps_split(total, bps)
-    return {"days": days, "price_per_day": car["price_per_day"], "rent": rent, "delivery": delivery_fee, "total": total,
+    return {"days": days, "price_per_day": car["price_per_day"], "rent_full": full, "discount_pct": pct, "discount": discount,
+            "rent": rent, "delivery": delivery_fee, "total": total,
             "commission_bps": bps, "commission": commission, "owner_payout": payout, "deposit": car["deposit"],
             "pay_now": 0, "pay_on_site": total + car["deposit"]}
 
@@ -92,7 +109,7 @@ def booking_readiness(db, uid: int, car: dict | None = None) -> dict:
     required=True bo'lgan band bajarilmasa — bron qilib bo'lmaydi; qolganlari tavsiya (ishonchni oshiradi)."""
     from ..config import settings
     from .trust import docs_state
-    u = one(db.execute("SELECT full_name, phone, region, email_verified, phone_verified, avatar FROM users WHERE id = ?", (uid,)))
+    u = one(db.execute("SELECT full_name, phone, region, email_verified, phone_verified, avatar, identity_status FROM users WHERE id = ?", (uid,)))
     docs = docs_state(db, uid)["status"]
     need_docs = bool(car and car.get("require_docs"))
     has_card = db.execute("SELECT 1 FROM user_cards WHERE user_id = ? LIMIT 1", (uid,)).fetchone() is not None
@@ -102,6 +119,7 @@ def booking_readiness(db, uid: int, car: dict | None = None) -> dict:
         {"code": "contact", "ok": bool(u["email_verified"] or u["phone_verified"]), "required": settings.REQUIRE_VERIFIED_CONTACT,
          "link": "/settings.html#verify"},
         {"code": "docs", "ok": docs == "verified", "required": need_docs, "link": "/settings.html#documents", "state": docs},
+        {"code": "identity", "ok": u["identity_status"] in ("checked", "verified"), "required": False, "link": "/settings.html#documents"},
         {"code": "region", "ok": bool(u["region"]), "required": False, "link": "/settings.html#profile"},
         {"code": "card", "ok": has_card, "required": False, "link": "/settings.html#cards"},
         {"code": "avatar", "ok": bool(u["avatar"]), "required": False, "link": "/settings.html#profile"},

@@ -151,3 +151,16 @@ def test_web_login_is_session_cookie_app_login_persistent():
     appc = TestClient(app)
     r = appc.post("/api/auth/login", headers={**H, "X-App-Mode": "app"}, json={"login": u["email"], "password": "Uzun-parol-2026"})
     assert "Max-Age" in r.headers["set-cookie"]
+
+
+def test_forgot_pin_by_email_code_or_password():
+    from app.db import get_db as _g
+    c, u = make_user()
+    dev = "dev_" + "b" * 20
+    assert c.put("/api/me/pin", headers=H, json={"device_id": dev, "pin": "5830"}).status_code == 200
+    r = c.post("/api/me/pin/forgot", headers=H, json={"channel": "email"})
+    assert r.status_code == 200, r.text
+    assert c.post("/api/me/pin/forgot/confirm", headers=H, json={"device_id": dev, "code": "000000"}).status_code == 400
+    assert c.post("/api/me/pin/forgot/confirm", headers=H, json={"device_id": dev, "password": "notogri-1A!"}).status_code == 400
+    assert c.post("/api/me/pin/forgot/confirm", headers=H, json={"device_id": dev, "password": "Uzun-parol-2026"}).status_code == 200
+    assert c.get("/api/me/pin", params={"device_id": dev}).json()["set"] is False

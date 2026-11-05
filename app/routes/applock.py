@@ -11,6 +11,7 @@ from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.routing import Route
 
+from ..config import settings
 from ..db import get_db, one
 from ..i18n import tr
 from ..schemas import Base
@@ -92,6 +93,59 @@ async def pin_verify(request: Request):
     raise HTTPException(401, tr("PIN kod noto'g'ri. Yana {n} ta urinish qoldi", n=MAX_FAILS - fails))
 
 
+class ForgotIn(Base):
+    channel: str = Field(pattern="^(email|sms)$")
+
+
+class ForgotConfirmIn(Base):
+    device_id: str = Field(min_length=16, max_length=64)
+    code: str | None = Field(default=None, max_length=8)
+    password: str | None = Field(default=None, max_length=128)
+
+
+@require()
+async def pin_forgot(request: Request):
+    """PIN esdan chiqdi: emailga yoki (tasdiqlangan) telefonga kod yuboriladi."""
+    from .. import channels
+    from .auth import _issue_code
+    data = await parse_body(request, ForgotIn)
+    uid = request.state.user["id"]
+    with get_db() as db:
+        u = one(db.execute("SELECT id, email, phone_norm, phone_verified, lang FROM users WHERE id = ?", (uid,)))
+        if data.channel == "sms" and not (u["phone_norm"] and u["phone_verified"]):
+            raise HTTPException(400, tr("Telefon raqamingiz tasdiqlanmagan. Email orqali tiklang"))
+        target = u["email"] if data.channel == "email" else u["phone_norm"]
+        try:
+            _issue_code(db, u, "reset", data.channel, target, template="pin_reset")
+        except channels.DeliveryUnavailable:
+            raise HTTPException(503, tr("Hozir kod yuborib bo'lmadi. Parolingiz bilan tiklang"))
+    masked = target[:2] + "***" + target[target.find("@"):] if data.channel == "email" else target[:6] + "***" + target[-2:]
+    return ok({"sent": True, "to": masked, "ttl_sec": 60 * settings.CODE_TTL_MIN})
+
+
+@require()
+async def pin_forgot_confirm(request: Request):
+    """Kod (email/SMS) yoki akkaunt paroli to'g'ri bo'lsa — eski PIN o'chadi, foydalanuvchi yangisini o'rnatadi."""
+    from ..security import code_limiter, client_ip
+    from .auth import _check_code
+    data = await parse_body(request, ForgotConfirmIn)
+    dev = _check_device(data.device_id)
+    u = request.state.user
+    if not code_limiter.hit(client_ip(request)):
+        raise HTTPException(429, tr("Juda ko'p urinish. 5 daqiqadan so'ng qayta urinib ko'ring"))
+    with get_db() as db:
+        if data.password:
+            row = one(db.execute("SELECT password_hash FROM users WHERE id = ?", (u["id"],)))
+            if not verify_password(data.password, row["password_hash"]):
+                raise HTTPException(400, tr("Parol noto'g'ri"))
+        elif data.code:
+            _check_code(db, u["id"], "reset", data.code)
+        else:
+            raise HTTPException(400, tr("Kodni yoki parolni kiriting"))
+        db.execute("DELETE FROM app_pins WHERE user_id = ? AND device_id = ?", (u["id"], dev))
+    return ok({"reset": True})
+
+
 @require()
 async def pin_delete(request: Request):
     data = await parse_body(request, DeviceIn)
@@ -105,4 +159,6 @@ routes = [
     Route("/api/me/pin", pin_set, methods=["PUT"]),
     Route("/api/me/pin/verify", pin_verify, methods=["POST"]),
     Route("/api/me/pin/delete", pin_delete, methods=["POST"]),
+    Route("/api/me/pin/forgot", pin_forgot, methods=["POST"]),
+    Route("/api/me/pin/forgot/confirm", pin_forgot_confirm, methods=["POST"]),
 ]

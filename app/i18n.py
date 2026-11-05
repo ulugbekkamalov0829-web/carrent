@@ -297,3 +297,9 @@ CATALOG.update({
     "PIN kod 5 marta noto'g'ri kiritildi. Email va parol bilan qayta kiring": ("PIN-код неверно введён 5 раз. Войдите заново по email и паролю", "Wrong PIN 5 times. Sign in again with your email and password"),
     "PIN kod noto'g'ri. Yana {n} ta urinish qoldi": ("Неверный PIN-код. Осталось попыток: {n}", "Wrong PIN. {n} attempts left"),
 })
+CATALOG.update({
+    "Telefon raqamingiz tasdiqlanmagan. Email orqali tiklang": ("Ваш телефон не подтверждён. Восстановите через email", "Your phone isn't verified. Reset via email"),
+    "Hozir kod yuborib bo'lmadi. Parolingiz bilan tiklang": ("Сейчас не удалось отправить код. Восстановите с помощью пароля", "Couldn't send a code right now. Reset with your password"),
+    "Parol noto'g'ri": ("Неверный пароль", "Wrong password"),
+    "Kodni yoki parolni kiriting": ("Введите код или пароль", "Enter the code or your password"),
+})

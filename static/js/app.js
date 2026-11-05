@@ -602,13 +602,58 @@ const AppLock = {
       el.querySelector("[data-cancel]")?.addEventListener("click", () => { off(); this.close(el); resolve(false); });
     });
   },
-  /** Qulf ekrani: PIN yoki barmoq izi */
-  lock(user) {
-    if ($(".lock-screen.unlock")) return Promise.resolve();
+  /** PIN esdan chiqdi: emailga (yoki tasdiqlangan telefonga) kod yoki akkaunt paroli — keyin yangi PIN */
+  forgot(el, onOk) {
+    const box = $(".lock-box", el), u = Auth.user;
+    const card = document.createElement("div"); card.className = "lock-forgot";
+    card.innerHTML = `<h2>${esc(t("lock.forgot_t"))}</h2><p class="lock-sub">${esc(t("lock.forgot_sub"))}</p>
+      <div class="lf-opts">
+        <button type="button" class="lf-opt" data-ch="email">${icon("mail", 20)}<span><b>${esc(t("lock.by_email"))}</b><small>${esc(u.email)}</small></span></button>
+        ${u.phone_verified ? `<button type="button" class="lf-opt" data-ch="sms">${icon("phone", 20)}<span><b>${esc(t("lock.by_sms"))}</b><small>${esc(fmtPhone(u.phone || ""))}</small></span></button>` : ""}
+        <button type="button" class="lf-opt" data-ch="pw">${icon("key", 20)}<span><b>${esc(t("lock.by_pw"))}</b><small>${esc(t("lock.by_pw_sub"))}</small></span></button>
+      </div>
+      <form class="lf-form hidden" novalidate><p class="lock-sub lf-to"></p>
+        <input class="lf-input" autocomplete="one-time-code" inputmode="numeric" maxlength="6">
+        <p class="lock-err"></p><button class="lf-btn">${esc(t("lock.confirm"))}</button></form>
+      <button type="button" class="linkbtn lock-link" data-back>← ${esc(t("common.back"))}</button>`;
+    box.hidden = true; el.append(card);
+    let mode = "";
+    const form = $(".lf-form", card), inp = $(".lf-input", card);
+    card.addEventListener("click", async (e) => {
+      if (e.target.closest("[data-back]")) { card.remove(); box.hidden = false; return; }
+      const o = e.target.closest("[data-ch]"); if (!o) return;
+      mode = o.dataset.ch; $(".lock-err", card).textContent = "";
+      if (mode === "pw") {
+        inp.type = "password"; inp.removeAttribute("inputmode"); inp.removeAttribute("maxlength"); inp.autocomplete = "current-password";
+        inp.placeholder = t("field.password"); $(".lf-to", card).textContent = t("lock.pw_hint");
+      } else {
+        o.disabled = true;
+        try {
+          const r = await api("/api/me/pin/forgot", { method: "POST", body: { channel: mode } });
+          inp.type = "text"; inp.inputMode = "numeric"; inp.maxLength = 6; inp.autocomplete = "one-time-code"; inp.placeholder = "••••••";
+          $(".lf-to", card).textContent = t("lock.code_sent", { to: r.to });
+        } catch (err) { o.disabled = false; $(".lock-err", card).textContent = err.message; return; }
+        o.disabled = false;
+      }
+      $(".lf-opts", card).hidden = true; form.classList.remove("hidden"); inp.value = ""; inp.focus();
+    });
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const v = inp.value.trim(); if (!v) return;
+      try {
+        await api("/api/me/pin/forgot/confirm", { method: "POST", body: { device_id: this.device(), ...(mode === "pw" ? { password: v } : { code: v }) } });
+        card.remove(); box.hidden = false; toast(t("lock.reset_ok"), "ok"); onOk();
+      } catch (err) { $(".lock-err", card).textContent = err.message; inp.select(); }
+    });
+  },
+  /** Qulf ekrani: PIN yoki barmoq izi (barmoq izi tugmasi faqat telefonda sensor bor va yoqilgan bo'lsa chiqadi) */
+  async lock(user) {
+    if ($(".lock-screen.unlock")) return;
+    const bio = Passkey.enabledHere() && await Passkey.canPlatform();
     return new Promise((resolve) => {
-      const bio = Passkey.enabledHere() && Passkey.supported();
       const el = this.pad(t("lock.hello", { name: (user.full_name || "").split(" ")[0] }), t(bio ? "lock.enter_or_bio" : "lock.enter"),
-        { bio, footer: `<button type="button" class="linkbtn lock-link" data-other>${esc(t("lock.other"))}</button>` });
+        { bio, footer: `<button type="button" class="linkbtn lock-link" data-forgot>${esc(t("lock.forgot"))}</button>
+          <button type="button" class="linkbtn lock-link sub" data-other>${esc(t("lock.other"))}</button>` });
       el.classList.add("unlock");
       const done = () => { try { sessionStorage.setItem("cr.unlocked", String(user.id)); sessionStorage.removeItem("cr.hiddenAt"); } catch { /* */ } off(); this.close(el); document.documentElement.classList.remove("app-locked"); resolve(); };
       const off = this.input(el, async (pin) => {
@@ -621,6 +666,10 @@ const AppLock = {
       const tryBio = async () => { try { await Passkey.login(); done(); } catch (err) { if (err.name !== "NotAllowedError" && err.name !== "AbortError") this.shake(el, err.message); } };
       el.querySelector("[data-bio]")?.addEventListener("click", tryBio);
       el.querySelector("[data-other]").addEventListener("click", () => Auth.logout());
+      el.querySelector("[data-forgot]").addEventListener("click", () => this.forgot(el, async () => {
+        off(); this.close(el); try { localStorage.removeItem("cr.pinUser"); } catch { /* */ }
+        await this.setup(true); done();
+      }));
       if (bio) setTimeout(tryBio, 350);
     });
   },

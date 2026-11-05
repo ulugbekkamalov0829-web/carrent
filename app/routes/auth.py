@@ -137,7 +137,7 @@ async def me(request: Request):
 
 
 # ---------------- Bir martalik kodlar ----------------
-def _issue_code(db, user: dict, purpose: str, channel: str, target: str) -> str:
+def _issue_code(db, user: dict, purpose: str, channel: str, target: str, template: str | None = None) -> str:
     """Kod yaratib yuboradi. Qayta yuborish 60 soniyadan keyin, kuniga ko'pi bilan N ta."""
     last = one(db.execute("SELECT created_at FROM verification_codes WHERE user_id = ? AND purpose = ? ORDER BY id DESC LIMIT 1",
                           (user["id"], purpose)))
@@ -156,7 +156,7 @@ def _issue_code(db, user: dict, purpose: str, channel: str, target: str) -> str:
     expires = (datetime.now(timezone.utc) + timedelta(minutes=settings.CODE_TTL_MIN)).strftime("%Y-%m-%d %H:%M:%S")
     db.execute("INSERT INTO verification_codes (user_id, purpose, channel, target, code_hash, expires_at) VALUES (?, ?, ?, ?, ?, ?)",
                (user["id"], purpose, channel, target, hash_code(code, purpose, target), expires))
-    template = "verify_phone" if channel == "sms" and purpose != "reset" else purpose
+    template = template or ("verify_phone" if channel == "sms" and purpose != "reset" else purpose)
     return channels.send(channel, target, template, user.get("lang") or "uz", db=db, code=code, ttl=settings.CODE_TTL_MIN)
 
 

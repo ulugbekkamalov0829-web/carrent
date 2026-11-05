@@ -98,8 +98,10 @@
 
   async function loadPasskeys() {
     const box = $("#pkBox"); if (!box) return;
-    const { items } = await api("/api/passkeys");
     const can = await Passkey.canPlatform();
+    // Barmoq izi sensori yo'q qurilmada bu bo'lim umuman ko'rsatilmaydi
+    if (!can) { box.previousElementSibling?.remove(); box.previousElementSibling?.remove(); box.remove(); return; }
+    const { items } = await api("/api/passkeys");
     box.innerHTML = `${items.length ? `<div class="pk-list">${items.map((p) => `<div class="pk-item">${icon("finger", 20)}<div><b>${esc(p.name || t("pk.device"))}</b>
         <div class="small muted">${esc(t("pk.added", { d: fmtDate(p.created_at) }))}${p.last_used ? " · " + esc(t("pk.used", { d: timeAgo(p.last_used) })) : ""}</div></div>
         <button class="linkbtn danger" data-pkdel="${p.id}">${esc(t("common.delete"))}</button></div>`).join("")}</div>` : ""}

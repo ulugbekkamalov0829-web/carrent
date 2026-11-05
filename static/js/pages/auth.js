@@ -249,7 +249,8 @@
   Creds.fill($("#lLogin"), $("#lPassword"));
   // Barmoq izi bilan kirish — faqat o'rnatilgan ilovada; saytda har safar email va parol
   if (new URLSearchParams(location.search).get("again")) toast(t("visit.again"), "");
-  if (IS_APP && Passkey.supported()) {
+  // Barmoq izi tugmasi faqat telefonda/kompyuterda sensor (yoki Face ID) bo'lsa chiqadi
+  if (IS_APP && await Passkey.canPlatform()) {
     $("#passkeyBtn").classList.remove("hidden");
     $("#passkeyBtn").addEventListener("click", async (e) => {
       await withLoading(e.currentTarget, async () => {

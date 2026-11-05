@@ -29,6 +29,11 @@ TEMPLATES = {
         "ru": ("CarRent: код восстановления пароля", "Ваш код восстановления пароля: {code}\nКод действует {ttl} минут. Если вы не запрашивали его, проигнорируйте это письмо."),
         "en": ("CarRent: password reset code", "Your password reset code: {code}\nThe code is valid for {ttl} minutes. If you didn't request it, ignore this message."),
     },
+    "pin_reset": {
+        "uz": ("CarRent: ilova PIN kodini tiklash", "Ilova PIN kodini tiklash kodingiz: {code}\nKod {ttl} daqiqa amal qiladi. Agar siz so‘ramagan bo‘lsangiz, parolingizni almashtiring."),
+        "ru": ("CarRent: сброс PIN-кода приложения", "Код для сброса PIN-кода приложения: {code}\nКод действует {ttl} минут. Если это были не вы — смените пароль."),
+        "en": ("CarRent: reset your app PIN", "Your app PIN reset code: {code}\nThe code is valid for {ttl} minutes. If this wasn't you, change your password."),
+    },
     "verify_email": {
         "uz": ("CarRent: emailni tasdiqlash", "Email manzilingizni tasdiqlash kodi: {code}\nKod {ttl} daqiqa amal qiladi."),
         "ru": ("CarRent: подтверждение email", "Код подтверждения email: {code}\nКод действует {ttl} минут."),
@@ -71,6 +76,9 @@ SMS_TEMPLATES = {
     "verify_phone": {"uz": "CarRent: telefon raqamni tasdiqlash kodi {code}. Kod {ttl} daqiqa amal qiladi.",
                      "ru": "CarRent: код подтверждения телефона {code}. Действует {ttl} минут.",
                      "en": "CarRent: phone confirmation code {code}. Valid for {ttl} minutes."},
+    "pin_reset": {"uz": "CarRent: ilova PIN kodini tiklash kodi {code}. Kod {ttl} daqiqa amal qiladi. Kodni hech kimga bermang.",
+                  "ru": "CarRent: код сброса PIN-кода {code}. Действует {ttl} минут. Никому не сообщайте код.",
+                  "en": "CarRent: app PIN reset code {code}. Valid for {ttl} minutes. Never share this code."},
     "booking": {"uz": "CarRent: {title}", "ru": "CarRent: {title}", "en": "CarRent: {title}"},
     "test": {"uz": "CarRent: sinov xabari. SMS yuborish ishlayapti.", "ru": "CarRent: тестовое сообщение. Отправка SMS работает.",
              "en": "CarRent: test message. SMS delivery works."},

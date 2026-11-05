@@ -14,17 +14,19 @@
 </head>
 <body>
 <div class="lp hidden" id="landing">
+  <div class="lp-progress" id="lpProgress"></div>
   <header class="lp-nav">
     <a href="/" class="lp-logo"><span class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M6 17l1.5-5.5A2 2 0 0 1 9.4 10h5.2a2 2 0 0 1 1.9 1.5L18 17"/><circle cx="8" cy="17.5" r="1.6"/><circle cx="16" cy="17.5" r="1.6"/><path d="M4 13h2M18 13h2"/></svg></span><span>CAR<b>RENT</b><small data-i18n="lp.brand_sub"></small></span></a>
-    <nav class="lp-links"><a href="#lpCollection" data-i18n="lp.nav_cars"></a><a href="#lpTech" data-i18n="lp.nav_tech"></a><a href="#lpExp" data-i18n="lp.nav_exp"></a><a href="/info.html" data-i18n="lp.nav_about"></a></nav>
+    <nav class="lp-links"><a href="#lpCollection" data-i18n="lp.nav_cars"></a><a href="#lpXray" data-i18n="lp.nav_tech"></a><a href="#lpExp" data-i18n="lp.nav_exp"></a><a href="/info.html" data-i18n="lp.nav_about"></a></nav>
     <div class="lp-actions"><button class="lp-lang" id="lpLang" type="button">UZ</button><a class="lp-btn ghost" href="/auth.html#login" data-i18n="nav.login"></a><a class="lp-btn" href="/auth.html#register"><span data-i18n="lp.start"></span> ›</a></div>
   </header>
 
-  <section class="lp-hero" id="lpHero">
+  <!-- 1. Bosh sahna: mashinalar almashadi, faralar yonadi, ho'l poldagi aks, tezlik chiziqlari -->
+  <section class="lp-hero lp-snap" id="lpHero">
     <div class="lp-light l1"></div><div class="lp-light l2"></div><div class="lp-light l3"></div>
     <div class="lp-hero-text">
       <span class="lp-eyebrow" data-i18n="home.eyebrow"></span>
-      <h1><span data-i18n="lp.h1a"></span><em data-i18n="lp.h1b"></em></h1>
+      <h1><span data-i18n="lp.h1a" data-scramble></span><em data-i18n="lp.h1b" data-scramble></em></h1>
       <p data-i18n="lp.h1_sub"></p>
       <div class="lp-cta"><a class="lp-btn big" href="/cars.html"><span data-i18n="lp.explore"></span> ›</a><a class="lp-btn big ghost" href="/car-form.html" data-i18n="home.cta_earn"></a></div>
       <form class="lp-search" id="lpSearch" role="search">
@@ -35,6 +37,7 @@
       </form>
     </div>
     <div class="lp-stage" aria-hidden="true">
+      <div class="lp-streaks"><i></i><i></i><i></i><i></i><i></i></div>
       <div class="lp-cars" id="lpCars"></div>
       <div class="lp-floor"></div>
     </div>
@@ -42,34 +45,61 @@
     <div class="lp-stats" id="lpStats"></div>
   </section>
 
-  <section class="lp-sec" id="lpCollection">
-    <div class="lp-head reveal"><span class="lp-eyebrow" data-i18n="lp.col_eyebrow"></span><h2 data-i18n="lp.col_title"></h2></div>
+  <!-- 2. Kolleksiya: faol karta neon chegarada, o'zi aylanadi -->
+  <section class="lp-sec lp-snap" id="lpCollection">
+    <div class="lp-head reveal"><span class="lp-eyebrow" data-i18n="lp.col_eyebrow"></span><h2 data-i18n="lp.col_title" data-scramble></h2></div>
     <div class="lp-rail-wrap reveal"><button class="lp-arrow prev" id="lpPrev" type="button" aria-label="‹">‹</button>
       <div class="lp-rail" id="lpRail"></div><button class="lp-arrow next" id="lpNext" type="button" aria-label="›">›</button></div>
+    <div class="lp-pager" id="lpRailDots"></div>
     <div class="lp-center reveal"><a class="lp-btn ghost" href="/cars.html"><span data-i18n="home.all_cars"></span> ›</a></div>
   </section>
 
-  <section class="lp-sec" id="lpTech">
-    <div class="lp-head reveal"><span class="lp-eyebrow" data-i18n="lp.tech_eyebrow"></span><h2 data-i18n="lp.tech_title"></h2></div>
+  <!-- 3. "Rentgen": skaner chizig'i mashinani chizmaga aylantiradi, energiya oqimi, nuqtalar -->
+  <section class="lp-xray lp-snap" id="lpXray">
+    <div class="lp-xray-text reveal"><span class="lp-eyebrow" data-i18n="lp.x_eyebrow"></span><h2><span data-i18n="lp.x_a" data-scramble></span><em data-i18n="lp.x_b" data-scramble></em></h2>
+      <p data-i18n="lp.x_sub"></p><a class="lp-btn ghost" href="/info.html#how"><span data-i18n="lp.x_cta"></span> ›</a></div>
+    <div class="lp-xray-stage reveal" aria-hidden="true">
+      <div class="xr-wrap">
+        <img class="xr-car" src="/img/auth/sonata.png" alt="">
+        <img class="xr-blue" src="/img/auth/sonata.png" alt="">
+        <svg class="xr-flow" viewBox="0 0 100 40" preserveAspectRatio="none"><path d="M8 26 C 25 22, 40 30, 55 25 S 80 22, 92 27"/><path d="M12 30 C 30 34, 50 27, 70 31 S 88 30, 95 32"/><path d="M30 18 C 42 14, 58 15, 72 19"/></svg>
+        <div class="xr-scan"></div>
+        <span class="xr-dot" style="--x:20%;--y:58%"><b data-i18n="lp.x_p1"></b></span>
+        <span class="xr-dot" style="--x:47%;--y:72%"><b data-i18n="lp.x_p2"></b></span>
+        <span class="xr-dot" style="--x:62%;--y:30%"><b data-i18n="lp.x_p3"></b></span>
+        <span class="xr-dot" style="--x:84%;--y:55%"><b data-i18n="lp.x_p4"></b></span>
+      </div>
+      <div class="lp-floor xr-floor"></div>
+    </div>
+  </section>
+
+  <!-- 4. Texnologiya kartalari: navbat bilan yonib turadi -->
+  <section class="lp-sec lp-snap" id="lpTech">
+    <div class="lp-head reveal"><span class="lp-eyebrow" data-i18n="lp.tech_eyebrow"></span><h2 data-i18n="lp.tech_title" data-scramble></h2></div>
     <div class="lp-tech" id="lpTechCards"></div>
   </section>
 
-  <section class="lp-exp reveal" id="lpExp">
-    <div class="lp-exp-bg"></div>
-    <div class="lp-exp-text"><span class="lp-eyebrow" data-i18n="lp.exp_eyebrow"></span><h2 data-i18n="lp.exp_title"></h2><p data-i18n="lp.exp_sub"></p>
+  <!-- 5. Tajriba: tungi yo'l, qizil orqa chiroqlar, ko'k tezlik izlari -->
+  <section class="lp-exp lp-snap reveal" id="lpExp">
+    <div class="lp-road"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="lp-exp-car" aria-hidden="true"><div class="lp-streaks blue"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <img src="/img/auth/malibu_black.png" alt=""><span class="tail"></span></div>
+    <div class="lp-exp-text"><span class="lp-eyebrow" data-i18n="lp.exp_eyebrow"></span><h2 data-i18n="lp.exp_title" data-scramble></h2><p data-i18n="lp.exp_sub"></p>
       <ol class="lp-steps"><li><b data-i18n="how.s1"></b><span data-i18n="how.s1d"></span></li><li><b data-i18n="how.s2"></b><span data-i18n="how.s2d"></span></li>
         <li><b data-i18n="how.s3"></b><span data-i18n="how.s3d"></span></li><li><b data-i18n="how.s4"></b><span data-i18n="how.s4d"></span></li></ol></div>
   </section>
 
-  <section class="lp-final reveal">
+  <!-- 6. Yakuniy chaqiriq: faralar yonadi, poldagi aks, pastki qism ko'tariladi -->
+  <section class="lp-final lp-snap" id="lpFinal">
     <div class="lp-light l1"></div><div class="lp-light l2"></div>
-    <div class="lp-final-text"><h2><span data-i18n="lp.final_a"></span><em data-i18n="lp.final_b"></em></h2><p data-i18n="lp.final_sub"></p>
+    <div class="lp-final-text reveal"><h2><span data-i18n="lp.final_a" data-scramble></span><em data-i18n="lp.final_b" data-scramble></em></h2><p data-i18n="lp.final_sub"></p>
       <div class="lp-cta"><a class="lp-btn big" href="/auth.html#register"><span data-i18n="nav.register"></span> ›</a><a class="lp-btn big ghost" href="/advisor.html" data-i18n="home.adv_cta"></a></div></div>
-    <img class="lp-final-car" src="/img/auth/malibu_black.png" alt="" loading="lazy">
+    <div class="lp-final-car car-lit" id="lpFinalCar" style="--hx:31%;--hy:46%;--fx:3%;--fy:44%">
+      <img src="/img/auth/malibu_black.png" alt="" loading="lazy"><img class="refl" src="/img/auth/malibu_black.png" alt="" loading="lazy">
+      <i class="hl near"></i><i class="hl far"></i><i class="beam"></i><i class="pool"></i></div>
+    <footer class="lp-foot reveal"><b>CAR<span>RENT</span></b><a href="/cars.html" data-i18n="nav.cars"></a><a href="/advisor.html" data-i18n="nav.advisor"></a>
+      <a href="/info.html" data-i18n="nav.info"></a><a href="/info.html#faq" data-i18n="lp.faq"></a><a href="/info.html#contact" data-i18n="lp.contact"></a><span>© 2026 CarRent</span></footer>
   </section>
-
-  <footer class="lp-foot"><b>CAR<span>RENT</span></b><a href="/cars.html" data-i18n="nav.cars"></a><a href="/advisor.html" data-i18n="nav.advisor"></a>
-    <a href="/info.html" data-i18n="nav.info"></a><a href="/info.html#faq" data-i18n="lp.faq"></a><a href="/info.html#contact" data-i18n="lp.contact"></a><span>© 2026 CarRent</span></footer>
 </div>
 
 <main id="homeMain">

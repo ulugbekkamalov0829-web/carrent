@@ -164,3 +164,28 @@ def test_forgot_pin_by_email_code_or_password():
     assert c.post("/api/me/pin/forgot/confirm", headers=H, json={"device_id": dev, "password": "notogri-1A!"}).status_code == 400
     assert c.post("/api/me/pin/forgot/confirm", headers=H, json={"device_id": dev, "password": "Uzun-parol-2026"}).status_code == 200
     assert c.get("/api/me/pin", params={"device_id": dev}).json()["set"] is False
+
+
+def test_personal_accounts_take_over_demo_and_password_reset(monkeypatch):
+    from app.main import ensure_personal_accounts
+    from starlette.testclient import TestClient
+    from app.main import app
+    from app.security import hash_password
+    with get_db() as db:
+        db.execute("INSERT OR IGNORE INTO users (full_name, email, phone, password_hash, role) VALUES ('Jasur Karimov', 'jasur@carrent.uz', '', ?, 'user')",
+                   (hash_password("Eski-parol-1!"),))
+    monkeypatch.setenv("SEED_PASSWORD", "Sinov-Parol-2026!")
+    monkeypatch.setenv("ADMIN_EMAILS", "boss.test@gmail.com")
+    monkeypatch.setenv("DEMO_EMAILS", "owner.test@gmail.com")
+    ensure_personal_accounts()
+    c = TestClient(app)
+    r = c.post("/api/auth/login", headers=H, json={"login": "boss.test@gmail.com", "password": "Sinov-Parol-2026!"})
+    assert r.status_code == 200 and r.json()["user"]["role"] == "admin"
+    r = c.post("/api/auth/login", headers=H, json={"login": "owner.test@gmail.com", "password": "Sinov-Parol-2026!"})
+    assert r.status_code == 200 and r.json()["user"]["full_name"] == "Jasur Karimov"
+    monkeypatch.setenv("SEED_PASSWORD", "Yangi-Parol-2027!")
+    ensure_personal_accounts()                     # majburlanmasa — eski parol qoladi
+    assert c.post("/api/auth/login", headers=H, json={"login": "owner.test@gmail.com", "password": "Yangi-Parol-2027!"}).status_code == 401
+    monkeypatch.setenv("SEED_PASSWORD_RESET", "true")
+    ensure_personal_accounts()
+    assert c.post("/api/auth/login", headers=H, json={"login": "owner.test@gmail.com", "password": "Yangi-Parol-2027!"}).status_code == 200

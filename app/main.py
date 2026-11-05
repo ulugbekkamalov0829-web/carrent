@@ -95,6 +95,9 @@ class SecurityMiddleware:
                         hdrs.append((k, v))
                 if scope["path"].startswith("/api/"):
                     hdrs.append((b"cache-control", b"no-store"))
+                elif b"cache-control" not in existing and not scope["path"].startswith("/uploads/"):
+                    # Sahifa, JS, CSS: har safar serverdan tekshiriladi (ETag) — yangi versiya darhol ko'rinadi
+                    hdrs.append((b"cache-control", b"no-cache"))
                 if settings.COOKIE_SECURE:
                     hdrs.append((b"strict-transport-security", b"max-age=31536000; includeSubDomains"))
                 message["headers"] = hdrs
@@ -128,7 +131,7 @@ async def server_error(request: Request, exc: Exception):
 async def health(request: Request):
     from . import persist
     st = persist.status()
-    return JSONResponse({"status": "ok", "storage": "supabase" if st["enabled"] else "local",
+    return JSONResponse({"status": "ok", "version": APP_VERSION, "storage": "supabase" if st["enabled"] else "local",
                          "storage_ok": st["last_error"] is None if st["enabled"] else None})
 
 
@@ -147,10 +150,49 @@ async def lifespan(app):
     persist.restore()          # Supabase sozlangan bo'lsa: oxirgi nusxani tiklash
     init_db()
     seed_if_requested()
+    ensure_personal_accounts()
     log.info("Ma'lumotlar bazasi tayyor: %s", settings.DB_PATH)
     persist.start()
     yield
     persist.stop()
+
+
+APP_VERSION = "v9.6 (2026-11-06)"
+
+
+def ensure_personal_accounts() -> None:
+    """ADMIN_EMAILS va DEMO_EMAILS dagi akkauntlar bazada bo'lmasa — yaratadi (baza oldindan to'lgan bo'lsa ham).
+    Demo ma'lumot bor bo'lsa, tayyor demo akkauntlar (Jasur — owner, Aziz — ijarachi, Nodira — owner) shu emaillarga o'tkaziladi,
+    shunda mashinalar, bronlar va shartnomalar bilan birga keladi. Parol: SEED_PASSWORD (hammasi uchun bitta).
+    SEED_PASSWORD_RESET=true bo'lsa — mavjud akkauntlar paroli ham SEED_PASSWORD ga o'rnatiladi (parol esdan chiqqanda)."""
+    import os
+    from .db import get_db
+    from .security import hash_password, normalize_phone  # noqa: F401
+    pw = os.getenv("SEED_PASSWORD", "").strip()
+    admins = [e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()][:1]
+    demos = [e.strip().lower() for e in os.getenv("DEMO_EMAILS", "").split(",") if e.strip() and e.strip().lower() not in admins]
+    if not pw or not (admins or demos):
+        return
+    force = os.getenv("SEED_PASSWORD_RESET", "").lower() == "true"
+    h = hash_password(pw)
+    plan = [(e, "admin@carrent.uz", "admin") for e in admins] + list(zip(demos, ["jasur@carrent.uz", "aziz@carrent.uz", "nodira@carrent.uz"], ["user"] * 3))
+    with get_db() as db:
+        for email, demo_email, role in plan:
+            have = db.execute("SELECT id FROM users WHERE lower(email) = ?", (email,)).fetchone()
+            if have:
+                if force:
+                    db.execute("UPDATE users SET password_hash = ?, is_active = 1, email_verified = 1 WHERE id = ?", (h, have[0]))
+                if role == "admin":
+                    db.execute("UPDATE users SET role = 'admin' WHERE id = ?", (have[0],))
+                continue
+            demo = db.execute("SELECT id FROM users WHERE lower(email) = ?", (demo_email,)).fetchone()
+            if demo:   # tayyor demo akkaunt (ma'lumotlari bilan) shu emailga o'tadi
+                db.execute("UPDATE users SET email = ?, password_hash = ?, email_verified = 1, is_active = 1, role = ? WHERE id = ?",
+                           (email, h, role, demo[0]))
+            else:
+                db.execute("INSERT INTO users (full_name, email, phone, password_hash, role, email_verified) VALUES (?, ?, '', ?, ?, 1)",
+                           ("Administrator" if role == "admin" else email.split("@")[0], email, h, role))
+            log.info("Sinov akkaunti tayyorlandi: %s (%s)", email, role)
 
 
 def seed_if_requested() -> None:

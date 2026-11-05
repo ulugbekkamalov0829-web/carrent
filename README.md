@@ -346,3 +346,19 @@ carrent/
 ├── scripts/           # seed, create_admin, build_locales
 └── tests/             # pytest
 ```
+
+## v9: doimiy saqlash (Supabase), admin, barmoq izi
+
+**Ma'lumotlar o'chib ketmasligi uchun (Render bepul tarifi):** baza (SQLite) nusxasi va yuklangan rasmlar
+Supabase Storage'da saqlanadi va server har yonganda tiklanadi (`app/persist.py`). Render → Environment:
+
+| O'zgaruvchi | Qiymat |
+|---|---|
+| `SUPABASE_URL` | `https://<loyiha>.supabase.co` |
+| `SUPABASE_SERVICE_KEY` | Supabase → Project Settings → API Keys → **secret** (yoki legacy `service_role`) kalit — hech kimga bermang |
+| `ADMIN_EMAILS` | o'zingizning emailingiz — shu email bilan ro'yxatdan o'tib, emailni tasdiqlagach admin bo'lasiz |
+| `SEED_DEMO`, `DEMO_MODE` | `false` (demo akkauntlar yo'q) |
+
+Holatni tekshirish: `/api/health` → `"storage": "supabase", "storage_ok": true`.
+
+**Barmoq izi bilan kirish:** WebAuthn passkey (`app/routes/passkeys.py`) — faqat HTTPS saytda. Sozlamalar → Xavfsizlik → «Barmoq izini yoqish».

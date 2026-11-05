@@ -10,9 +10,69 @@
   <meta name="theme-color" content="#1e3a8a">
   <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
   <link rel="stylesheet" href="/css/styles.css">
+  <script src="/js/theme.js"></script>
 </head>
 <body>
-<main>
+<div class="lp hidden" id="landing">
+  <header class="lp-nav">
+    <a href="/" class="lp-logo"><span class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M6 17l1.5-5.5A2 2 0 0 1 9.4 10h5.2a2 2 0 0 1 1.9 1.5L18 17"/><circle cx="8" cy="17.5" r="1.6"/><circle cx="16" cy="17.5" r="1.6"/><path d="M4 13h2M18 13h2"/></svg></span><span>CAR<b>RENT</b><small data-i18n="lp.brand_sub"></small></span></a>
+    <nav class="lp-links"><a href="#lpCollection" data-i18n="lp.nav_cars"></a><a href="#lpTech" data-i18n="lp.nav_tech"></a><a href="#lpExp" data-i18n="lp.nav_exp"></a><a href="/info.html" data-i18n="lp.nav_about"></a></nav>
+    <div class="lp-actions"><button class="lp-lang" id="lpLang" type="button">UZ</button><a class="lp-btn ghost" href="/auth.html#login" data-i18n="nav.login"></a><a class="lp-btn" href="/auth.html#register"><span data-i18n="lp.start"></span> ›</a></div>
+  </header>
+
+  <section class="lp-hero" id="lpHero">
+    <div class="lp-light l1"></div><div class="lp-light l2"></div><div class="lp-light l3"></div>
+    <div class="lp-hero-text">
+      <span class="lp-eyebrow" data-i18n="home.eyebrow"></span>
+      <h1><span data-i18n="lp.h1a"></span><em data-i18n="lp.h1b"></em></h1>
+      <p data-i18n="lp.h1_sub"></p>
+      <div class="lp-cta"><a class="lp-btn big" href="/cars.html"><span data-i18n="lp.explore"></span> ›</a><a class="lp-btn big ghost" href="/car-form.html" data-i18n="home.cta_earn"></a></div>
+      <form class="lp-search" id="lpSearch" role="search">
+        <label><span data-i18n="search.where"></span><select id="lpCity" name="city"></select></label>
+        <label><span data-i18n="search.start"></span><input type="date" id="lpStart" name="start"></label>
+        <label><span data-i18n="search.end"></span><input type="date" id="lpEnd" name="end"></label>
+        <button class="lp-btn" type="submit" data-i18n="search.submit"></button>
+      </form>
+    </div>
+    <div class="lp-stage" aria-hidden="true">
+      <div class="lp-cars" id="lpCars"></div>
+      <div class="lp-floor"></div>
+    </div>
+    <div class="lp-dots" id="lpDots"></div>
+    <div class="lp-stats" id="lpStats"></div>
+  </section>
+
+  <section class="lp-sec" id="lpCollection">
+    <div class="lp-head reveal"><span class="lp-eyebrow" data-i18n="lp.col_eyebrow"></span><h2 data-i18n="lp.col_title"></h2></div>
+    <div class="lp-rail-wrap reveal"><button class="lp-arrow prev" id="lpPrev" type="button" aria-label="‹">‹</button>
+      <div class="lp-rail" id="lpRail"></div><button class="lp-arrow next" id="lpNext" type="button" aria-label="›">›</button></div>
+    <div class="lp-center reveal"><a class="lp-btn ghost" href="/cars.html"><span data-i18n="home.all_cars"></span> ›</a></div>
+  </section>
+
+  <section class="lp-sec" id="lpTech">
+    <div class="lp-head reveal"><span class="lp-eyebrow" data-i18n="lp.tech_eyebrow"></span><h2 data-i18n="lp.tech_title"></h2></div>
+    <div class="lp-tech" id="lpTechCards"></div>
+  </section>
+
+  <section class="lp-exp reveal" id="lpExp">
+    <div class="lp-exp-bg"></div>
+    <div class="lp-exp-text"><span class="lp-eyebrow" data-i18n="lp.exp_eyebrow"></span><h2 data-i18n="lp.exp_title"></h2><p data-i18n="lp.exp_sub"></p>
+      <ol class="lp-steps"><li><b data-i18n="how.s1"></b><span data-i18n="how.s1d"></span></li><li><b data-i18n="how.s2"></b><span data-i18n="how.s2d"></span></li>
+        <li><b data-i18n="how.s3"></b><span data-i18n="how.s3d"></span></li><li><b data-i18n="how.s4"></b><span data-i18n="how.s4d"></span></li></ol></div>
+  </section>
+
+  <section class="lp-final reveal">
+    <div class="lp-light l1"></div><div class="lp-light l2"></div>
+    <div class="lp-final-text"><h2><span data-i18n="lp.final_a"></span><em data-i18n="lp.final_b"></em></h2><p data-i18n="lp.final_sub"></p>
+      <div class="lp-cta"><a class="lp-btn big" href="/auth.html#register"><span data-i18n="nav.register"></span> ›</a><a class="lp-btn big ghost" href="/advisor.html" data-i18n="home.adv_cta"></a></div></div>
+    <img class="lp-final-car" src="/img/auth/malibu_black.png" alt="" loading="lazy">
+  </section>
+
+  <footer class="lp-foot"><b>CAR<span>RENT</span></b><a href="/cars.html" data-i18n="nav.cars"></a><a href="/advisor.html" data-i18n="nav.advisor"></a>
+    <a href="/info.html" data-i18n="nav.info"></a><a href="/info.html#faq" data-i18n="lp.faq"></a><a href="/info.html#contact" data-i18n="lp.contact"></a><span>© 2026 CarRent</span></footer>
+</div>
+
+<main id="homeMain">
   <section class="hero photo">
     <div class="hero-bg" aria-hidden="true"></div>
     <div class="container hero-inner">
@@ -88,6 +148,7 @@
   </section>
 </main>
 <script src="/js/app.js"></script>
+<script src="/js/pages/landing.js"></script>
 <script src="/js/pages/home.js"></script>
 </body>
 </html>

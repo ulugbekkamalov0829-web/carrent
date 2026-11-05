@@ -1,0 +1,51 @@
+"""v9 tarjimalari: shishasimon menyu, tungi rejim, kirish sahifasi (landing), karta animatsiyasi, barmoq izi,
+chegirmalar, yoqilg'i sarfi, JSHSHIR, mashina rasmlari katalogi, yo'riqnoma. Format: kalit -> (uz, ru, en)."""
+
+T9 = {
+    # ---- menyu ----
+    "nav.night": ("Tungi rejim", "Ночной режим", "Night mode"),
+    "nav.collapse": ("Menyuni yig'ish / ochish", "Свернуть / развернуть меню", "Collapse / expand menu"),
+    "nav.search_pages": ("Bo'limlarni qidirish", "Поиск разделов", "Search pages"),
+    "nav.search_none": ("Bunday bo'lim topilmadi", "Раздел не найден", "No such page"),
+    "nav.section_comm": ("Aloqa", "Связь", "Communication"),
+    "nav.ws_admin": ("Boshqaruv paneli", "Панель управления", "Control panel"),
+    "nav.ws_guest": ("Avtomobil ijarasi", "Аренда автомобилей", "Car rental"),
+
+    # ---- kirish sahifasi (landing) ----
+    "lp.brand_sub": ("AVTOMOBIL IJARASI", "АРЕНДА АВТО", "CAR RENTAL"),
+    "lp.nav_cars": ("Mashinalar", "Автомобили", "Vehicles"),
+    "lp.nav_tech": ("Texnologiya", "Технологии", "Technology"),
+    "lp.nav_exp": ("Tajriba", "Опыт", "Experience"),
+    "lp.nav_about": ("Biz haqimizda", "О нас", "About"),
+    "lp.start": ("Boshlash", "Начать", "Get started"),
+    "lp.h1a": ("Yo'lga chiqing.", "В путь.", "Hit the road."),
+    "lp.h1b": ("Cheklovsiz.", "Без ограничений.", "Without limits."),
+    "lp.h1_sub": ("O'zbekiston bo'ylab ishonchli egalardan avtomobil ijarasi: elektron shartnoma, xavfsiz to'lov va shaffof narx.",
+                  "Аренда авто у проверенных владельцев по всему Узбекистану: электронный договор, безопасная оплата и честная цена.",
+                  "Rent cars from trusted owners across Uzbekistan: e-contracts, secure payment and transparent pricing."),
+    "lp.explore": ("Mashinani tanlash", "Выбрать авто", "Explore cars"),
+    "lp.tag_business": ("Biznes", "Бизнес", "Business"), "lp.tag_comfort": ("Komfort", "Комфорт", "Comfort"),
+    "lp.tag_family": ("Oila uchun", "Для семьи", "Family"), "lp.tag_style": ("Uslub", "Стиль", "Style"), "lp.tag_trip": ("Sayohat", "Путешествия", "Road trip"),
+    "lp.col_eyebrow": ("Kolleksiya", "Коллекция", "Collection"),
+    "lp.col_title": ("Bugun ijaraga tayyor", "Готовы к аренде сегодня", "Ready to rent today"),
+    "lp.tech_eyebrow": ("CarRent texnologiyasi", "Технологии CarRent", "CarRent technology"),
+    "lp.tech_title": ("Ishonch — har bir qadamda", "Доверие на каждом шаге", "Trust at every step"),
+    "lp.t1": ("Xavfsiz bron", "Безопасная бронь", "Secure booking"),
+    "lp.t1d": ("Owner tasdiqlamaguncha pul yechilmaydi. Bekor qilish shartlari oldindan ma'lum.", "Деньги не списываются до подтверждения владельцем. Условия отмены известны заранее.", "No money is charged until the owner confirms. Cancellation terms are known upfront."),
+    "lp.t2": ("Elektron shartnoma", "Электронный договор", "E-contract"),
+    "lp.t2d": ("Ikki tomon kod bilan imzolaydi, admin muhr va QR-kod qo'yadi — haqiqiyligini istalgan payt tekshirish mumkin.", "Стороны подписывают кодом, админ ставит печать и QR — подлинность можно проверить в любой момент.", "Both sides sign with a code, the admin adds a stamp and QR — verify it any time."),
+    "lp.t3": ("Barmoq izi bilan kirish", "Вход по отпечатку", "Fingerprint sign-in"),
+    "lp.t3d": ("Ilovani telefonga o'rnating va bank ilovalaridagidek bir tegishda kiring.", "Установите приложение и входите одним касанием, как в банковском приложении.", "Install the app and sign in with one touch, like a banking app."),
+    "lp.t4": ("Aqlli maslahatchi", "Умный советник", "Smart advisor"),
+    "lp.t4d": ("Maqsad, yuk va byudjetingizni ayting — eng mos va eng arzon variantni o'zi topadi.", "Расскажите о цели, багаже и бюджете — он сам найдёт лучший и самый выгодный вариант.", "Tell it your purpose, luggage and budget — it finds the best and cheapest option."),
+    "lp.exp_eyebrow": ("CarRent tajribasi", "Опыт CarRent", "The CarRent experience"),
+    "lp.exp_title": ("To'rt qadam — va siz yo'ldasiz", "Четыре шага — и вы в пути", "Four steps and you're on the road"),
+    "lp.exp_sub": ("Qidiruvdan kalitni olishgacha hammasi bitta ilovada: chat, xarita, dalolatnoma va to'lov.", "От поиска до получения ключей — всё в одном приложении: чат, карта, акт и оплата.", "From search to keys — all in one app: chat, map, handover record and payment."),
+    "lp.final_a": ("Kelajak — siz", "Будущее — это дорога,", "The future is the road"),
+    "lp.final_b": ("boshqaradigan yo'l", "которой управляете вы", "you drive"),
+    "lp.final_sub": ("Hisob oching: ijaraga oling yoki o'z mashinangizni e'lon qilib daromad qiling.", "Создайте аккаунт: арендуйте или зарабатывайте, сдавая свою машину.", "Create an account: rent a car or earn by listing your own."),
+    "lp.faq": ("Savollar", "Вопросы", "FAQ"),
+    "lp.contact": ("Aloqa", "Контакты", "Contact"),
+}
+
+OVERRIDE9 = {}

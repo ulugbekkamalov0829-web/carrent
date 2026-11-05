@@ -338,6 +338,14 @@ function mustChangeBanner(user) {
 // ================= Ilova qobig'i: chap panel (desktop), yuqori panel, pastki tablar (telefon) =================
 const LOGO = `<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M6 17l1.5-5.5A2 2 0 0 1 9.4 10h5.2a2 2 0 0 1 1.9 1.5L18 17"/><circle cx="8" cy="17.5" r="1.6"/><circle cx="16" cy="17.5" r="1.6"/><path d="M4 13h2M18 13h2"/></svg>`;
 const ICON_PATHS = {
+  moon: "M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z",
+  sun: "M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4",
+  chevron: "M9 6l6 6-6 6",
+  finger: "M12 11v4M8.5 7.5A5 5 0 0 1 17 11v2M7 11c0 3 .5 5.5 2 8M17 15c0 2-.4 3.8-1 5M12 19c.6-1.5 1-3 1-4.5M5 9a8 8 0 0 1 14 0M10 11a2 2 0 0 1 4 0",
+  help: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4.5M12 17.5h.01",
+  tag: "M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8zM7.5 7.5h.01",
+  image: "M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM3 16l5-5 4 4 3-3 6 6M15.5 9.5h.01",
+  drop: "M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z",
   home: "M3 11.5 12 4l9 7.5M5 10v10h5v-6h4v6h5V10",
   search: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4",
   info: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 11v6M12 7.5v.5",
@@ -440,8 +448,33 @@ function toggleSide(open) {
 }
 
 function sideLink(href, key, ico, { badge = "", cls = "" } = {}) {
-  return `<a href="${href}" class="side-link ${cls}" data-href="${href}">${icon(ico)}<span>${esc(t(key))}</span>${badge ? `<span class="cnt hidden" id="${badge}"></span>` : ""}</a>`;
+  return `<a href="${href}" class="side-link ${cls}" data-href="${href}" data-tip="${esc(t(key))}">${icon(ico)}<span>${esc(t(key))}</span>${badge ? `<span class="cnt hidden" id="${badge}"></span>` : ""}</a>`;
 }
+
+/** Ko'rinish sozlamalari (shu brauzerda): tungi rejim, chap panel yig'ilgan/ochiq, yopilgan bo'limlar */
+const Theme = {
+  get(k, d) { try { return localStorage.getItem("cr." + k) ?? d; } catch { return d; } },
+  put(k, v) { try { localStorage.setItem("cr." + k, v); } catch { /* maxfiy rejim */ } },
+  isDark() { return document.documentElement.dataset.theme === "dark"; },
+  set(mode) {
+    document.documentElement.dataset.theme = mode; this.put("theme", mode);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", mode === "dark" ? "#0b1220" : "#1e3a8a");
+  },
+  init() {
+    const saved = this.get("theme", "");
+    document.documentElement.dataset.theme = saved === "dark" ? "dark" : "light";   // standart — yorug' (foydalanuvchi o'zi yoqadi)
+    if (this.get("rail", "0") === "1") document.body.classList.add("side-rail");
+  },
+  collapse(on) { document.body.classList.toggle("side-rail", on); this.put("rail", on ? "1" : "0"); },
+  closedGroups() { return (this.get("closed", "") || "").split(",").filter(Boolean); },
+  closeGroup(id, closed) { const s = new Set(this.closedGroups()); closed ? s.add(id) : s.delete(id); this.put("closed", [...s].join(",")); },
+};
+Theme.init();
+document.addEventListener("keydown", (e) => {
+  if (e.key === "/" && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) && $("#sideSearch") && innerWidth >= 1024) {
+    e.preventDefault(); if (document.body.classList.contains("side-rail")) Theme.collapse(false); $("#sideSearch").focus();
+  }
+});
 
 function renderNavInner() {
   const u = Auth.user;
@@ -462,38 +495,73 @@ function renderNavInner() {
     $("#bellBtn")?.addEventListener("click", (e) => openMenu(e, notifMenu, true));
   }
   if (Nav.bare) return;
-  // ---- chap panel ----
+  // ---- chap panel: shishasimon, yig'iladigan (ikonka qatori <-> to'liq menyu), qidiruv, bo'limlar, tungi rejim ----
   const side = $("#side");
   side.setAttribute("aria-label", t("nav.menu"));
-  let nav = `<div class="side-label">${esc(t("nav.section_main"))}</div>`
-    + sideLink("/", "nav.home", "home") + sideLink("/cars.html", "nav.cars", "search")
-    + (admin ? "" : sideLink("/advisor.html", "nav.advisor", "spark")) + sideLink("/info.html", "nav.info", "info");
+  const group = (id, labelKey, links, { open = true } = {}) => {
+    const closed = Theme.closedGroups().includes(id);
+    return `<div class="side-group ${closed && open !== "always" ? "" : "open"}" data-g="${id}">
+      <button type="button" class="side-label" aria-expanded="${closed ? "false" : "true"}"><span>${esc(t(labelKey))}</span>${icon("chevron", 14)}</button>
+      <div class="side-sub">${links}</div></div>`;
+  };
+  let nav = group("main", "nav.section_main", sideLink("/", "nav.home", "home") + sideLink("/cars.html", "nav.cars", "search")
+    + (admin ? "" : sideLink("/advisor.html", "nav.advisor", "spark")) + sideLink("/info.html", "nav.info", "info"));
   if (u && admin) {
-    nav += ADMIN_GROUPS.map(([g, tabs]) => `<div class="side-label">${esc(t(g))}</div>`
-      + tabs.map(([k, key, ico]) => sideLink(`/admin.html#${k}`, key, ico, { badge: k === "reports" ? "repBadge" : k === "documents" ? "docBadge" : k === "contracts" ? "ctrBadge" : "" })).join("")).join("");
+    nav += ADMIN_GROUPS.map(([g, tabs]) => group(g, g,
+      tabs.map(([k, key, ico]) => sideLink(`/admin.html#${k}`, key, ico, { badge: k === "reports" ? "repBadge" : k === "documents" ? "docBadge" : k === "contracts" ? "ctrBadge" : "" })).join(""))).join("");
   } else if (u) {
-    nav += `<div class="side-label">${esc(t(mode === "owner" ? "nav.section_owner" : "nav.section_renter"))}</div>`
-      + CABINET[mode].map(([k, key, ico]) => sideLink(`/dashboard.html#${k}`, key, ico, { badge: k === "bookings" && mode === "owner" ? "reqBadge" : "" })).join("");
+    nav += group("cab-" + mode, mode === "owner" ? "nav.section_owner" : "nav.section_renter",
+      CABINET[mode].map(([k, key, ico]) => sideLink(`/dashboard.html#${k}`, key, ico, { badge: k === "bookings" && mode === "owner" ? "reqBadge" : "" })).join("")
+      + sideLink("/messages.html", "nav.messages", "chat", { badge: "msgBadge" }));
   }
-  if (u) nav += sideLink("/messages.html", "nav.messages", "chat", { badge: "msgBadge" });
-  if (u && !admin && mode === "owner") nav += `<a class="btn btn-block side-cta" href="/car-form.html">${icon("plus", 18)}${esc(t("nav.add_car"))}</a>`;
+  if (u && admin) nav += group("msg", "nav.section_comm", sideLink("/messages.html", "nav.messages", "chat", { badge: "msgBadge" }));
+  if (u && !admin && mode === "owner") nav += `<a class="btn btn-block side-cta" href="/car-form.html" data-tip="${esc(t("nav.add_car"))}">${icon("plus", 18)}<span>${esc(t("nav.add_car"))}</span></a>`;
   if (!u) nav += `<div class="side-promo"><b>${esc(t("side.promo_t"))}</b><p>${esc(t("side.promo_b"))}</p><a class="btn btn-sm btn-block" href="/auth.html#register">${esc(t("nav.register"))}</a></div>`;
 
   let bottom = "";
-  if (u && !admin) bottom += `<div class="side-mode"><div class="side-label" style="margin:0 0 8px">${esc(t("mode.label"))}</div>
-    <div class="mode-switch dark" role="group" aria-label="${esc(t("mode.label"))}"><button data-mode="renter" class="${mode === "renter" ? "on" : ""}">${esc(t("mode.renter"))}</button>
-    <button data-mode="owner" class="${mode === "owner" ? "on" : ""}">${esc(t("mode.owner"))}</button></div></div>`;
-  if (u) bottom += sideLink("/settings.html", "nav.settings", "gear")
-    + `<div class="side-user">${avatarHtml(u)}<div class="who"><b>${esc(u.full_name)}</b><span>${esc(u.email)}</span></div>
-      <button class="icon-btn ghost" id="logoutBtn" aria-label="${esc(t("nav.logout"))}" title="${esc(t("nav.logout"))}">${icon("logout")}</button></div>`;
+  if (u && !admin) bottom += `<div class="side-mode"><div class="side-mini-label">${esc(t("mode.label"))}</div>
+    <div class="mode-switch dark" role="group" aria-label="${esc(t("mode.label"))}"><button data-mode="renter" class="${mode === "renter" ? "on" : ""}" data-tip="${esc(t("mode.renter"))}">${icon("user", 16)}<span>${esc(t("mode.renter"))}</span></button>
+    <button data-mode="owner" class="${mode === "owner" ? "on" : ""}" data-tip="${esc(t("mode.owner"))}">${icon("car", 16)}<span>${esc(t("mode.owner"))}</span></button></div></div>`;
+  if (u) bottom += sideLink("/settings.html", "nav.settings", "gear");
+  bottom += `<label class="side-link side-night" data-tip="${esc(t("nav.night"))}">${icon("moon")}<span>${esc(t("nav.night"))}</span>
+    <input type="checkbox" class="switch" id="nightToggle" ${Theme.isDark() ? "checked" : ""} aria-label="${esc(t("nav.night"))}"></label>`;
+  if (u) bottom += `<div class="side-user">${avatarHtml(u)}<div class="who"><b>${esc(u.full_name)}</b><span>${esc(u.email)}</span></div>
+      <button class="icon-btn ghost" id="logoutBtn" aria-label="${esc(t("nav.logout"))}" data-tip="${esc(t("nav.logout"))}">${icon("logout")}</button></div>`;
   else bottom += sideLink("/auth.html#login", "nav.login", "user");
 
-  side.innerHTML = `<div class="side-head"><a href="/" class="logo"><span class="logo-mark">${LOGO}</span><span>Car<b>Rent</b></span></a>
+  side.innerHTML = `<div class="side-head"><a href="/" class="logo"><span class="logo-mark">${LOGO}</span><span class="logo-text"><span>Car<b>Rent</b></span><small>${esc(t(admin ? "nav.ws_admin" : u ? "mode." + mode : "nav.ws_guest"))}</small></span></a>
+      <button class="side-collapse only-desktop" id="sideCollapse" aria-label="${esc(t("nav.collapse"))}" title="${esc(t("nav.collapse"))}">${icon("chevron", 14)}</button>
       <button class="icon-btn ghost only-mobile" id="sideClose" aria-label="${esc(t("common.close"))}">${icon("close")}</button></div>
-    <nav class="side-nav">${nav}</nav><div class="side-bottom">${bottom}</div>`;
+    <label class="side-search" data-tip="${esc(t("nav.search_pages"))}">${icon("search", 17)}<input type="search" id="sideSearch" placeholder="${esc(t("nav.search_pages"))}" autocomplete="off"><kbd class="only-desktop">/</kbd></label>
+    <nav class="side-nav">${nav}<div class="side-empty hidden" id="sideEmpty">${esc(t("nav.search_none"))}</div></nav><div class="side-bottom">${bottom}</div>`;
   $("#sideClose").addEventListener("click", () => toggleSide(false));
+  $("#sideCollapse").addEventListener("click", () => Theme.collapse(!document.body.classList.contains("side-rail")));
   $("#logoutBtn")?.addEventListener("click", () => Auth.logout());
+  $("#nightToggle").addEventListener("change", (e) => Theme.set(e.target.checked ? "dark" : "light"));
   $$("[data-mode]", side).forEach((b) => b.addEventListener("click", () => switchMode(b.dataset.mode)));
+  $$(".side-group > .side-label", side).forEach((b) => b.addEventListener("click", () => {
+    if (document.body.classList.contains("side-rail")) return;
+    const g = b.parentElement, open = !g.classList.contains("open");
+    g.classList.toggle("open", open); b.setAttribute("aria-expanded", open);
+    Theme.closeGroup(g.dataset.g, !open);
+  }));
+  const search = $("#sideSearch");
+  search.addEventListener("focus", () => { if (document.body.classList.contains("side-rail")) Theme.collapse(false); });
+  search.addEventListener("input", () => {
+    const q = search.value.trim().toLowerCase();
+    let shown = 0;
+    $$(".side-group", side).forEach((g) => {
+      let any = false;
+      $$(".side-link", g).forEach((a) => { const hit = !q || a.textContent.toLowerCase().includes(q); a.classList.toggle("hidden", !hit); any ||= hit; shown += hit; });
+      g.classList.toggle("hidden", !any);
+      if (q && any) g.classList.add("searching"); else g.classList.remove("searching");
+    });
+    $("#sideEmpty").classList.toggle("hidden", !q || shown > 0);
+  });
+  search.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { const first = $$(".side-group:not(.hidden) .side-link:not(.hidden)", side)[0]; if (first) location.href = first.getAttribute("href"); else location.href = "/cars.html?q=" + encodeURIComponent(search.value.trim()); }
+    if (e.key === "Escape") { search.value = ""; search.dispatchEvent(new Event("input")); search.blur(); }
+  });
   side.addEventListener("click", (e) => { if (e.target.closest("a")) toggleSide(false); });
 
   // ---- pastki tablar (telefon) ----

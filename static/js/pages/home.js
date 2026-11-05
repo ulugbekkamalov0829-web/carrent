@@ -1,5 +1,8 @@
 "use strict";
 (async () => {
+  // Hisobga kirmagan mehmon — kinematografik kirish sahifasi (landing); kirgan foydalanuvchi — odatiy bosh sahifa
+  const guest = !(await Auth.load());
+  if (guest) { await boot("home", { bare: true }); return Landing.start(); }
   const user = await boot("home");
   const today = isoDate(new Date());
   $("#start").min = today; $("#end").min = today;

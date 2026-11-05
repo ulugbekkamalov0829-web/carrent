@@ -102,7 +102,8 @@
       try {
         const { user } = await api("/api/auth/login", { method: "POST", body: { login: loginId, password } });
         toast(t("auth.welcome", { name: user.full_name }), "ok");
-        location.href = home(user);
+        await Creds.save(loginId, password, user.full_name);
+        location.href = Passkey.offerAfterLogin(home(user));
       } catch (e) { showFieldErrors($("#loginForm"), e); toast(e.message, "error"); $(".ring-wrap").classList.add("shake"); setTimeout(() => $(".ring-wrap").classList.remove("shake"), 450); }
     });
   }
@@ -133,6 +134,8 @@
           region: $("#rRegion").value, district: $("#rDistrict").value,
           password: $("#rPassword").value, accept_terms: true, marketing_ok: false, lang: I18N.lang } });
         toast(t("auth.welcome", { name: user.full_name }), "ok");
+        // Telefon/brauzer "parolni saqlaysizmi?" deb so'raydi — keyingi safar o'zi to'ldiradi
+        await Creds.save($("#rEmail").value.trim(), $("#rPassword").value, user.full_name);
         await metaP;
         // Kod faqat email kanali haqiqatan ishlasa (yoki demo test qutisi bo'lsa) so'raladi
         if (meta.email_real || meta.dev_inbox) { startVerify(user, false); return; }
@@ -232,6 +235,7 @@
       try {
         const { user } = await api("/api/auth/reset", { method: "POST", body: { login: resetLogin, code: fOtp.value, new_password: $("#fPass").value } });
         toast(t("forgot.done"), "ok");
+        await Creds.save(user.email, $("#fPass").value, user.full_name);
         location.href = home(user);
       } catch (err) {
         showFieldErrors($("#resetForm"), err); toast(err.message, "error");
@@ -239,6 +243,20 @@
       }
     });
   });
+
+  // ---- Saqlangan parol bilan avtomatik to'ldirish va barmoq izi bilan kirish ----
+  Creds.fill($("#lLogin"), $("#lPassword"));
+  if (Passkey.supported()) {
+    $("#passkeyBtn").classList.remove("hidden");
+    $("#passkeyBtn").addEventListener("click", async (e) => {
+      await withLoading(e.currentTarget, async () => {
+        try { const { user } = await Passkey.login(); toast(t("auth.welcome", { name: user.full_name }), "ok"); location.href = home(user); }
+        catch (err) { if (err.name !== "NotAllowedError" && err.name !== "AbortError") toast(err.message, "error"); }
+      });
+    });
+    // O'rnatilgan ilova (PWA) va oldin barmoq izi yoqilgan qurilma — darhol so'raymiz (bank ilovalari kabi)
+    if (Passkey.enabledHere() && (matchMedia("(display-mode: standalone)").matches || navigator.standalone) && !location.hash.slice(1)) setTimeout(() => $("#passkeyBtn").click(), 400);
+  }
 
   // ---- Boshlang'ich panel ----
   const start = location.hash.slice(1);

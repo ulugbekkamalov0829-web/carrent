@@ -52,6 +52,8 @@
           <div class="field"><label for="op">${esc(t("sec.current"))}</label><div class="pw-wrap"><input class="input" type="password" id="op" name="old_password" autocomplete="current-password" required><button type="button" class="pw-eye" data-pw="op"></button></div></div>
           <div class="field"><label for="np">${esc(t("sec.new"))}</label><div class="pw-wrap"><input class="input" type="password" id="np" name="new_password" autocomplete="new-password" required minlength="8"><button type="button" class="pw-eye" data-pw="np"></button></div></div>
           <button class="btn">${esc(t("sec.update"))}</button><p class="small muted" style="margin-top:8px">${esc(t("set.pw_note"))}</p></form>
+        <h3 style="margin-top:22px">${icon("finger", 18)} ${esc(t("pk.title"))}</h3><p class="small muted">${esc(t("pk.sub"))}</p>
+        <div id="pkBox"><div class="skeleton" style="height:60px"></div></div>
         <h3 style="margin-top:22px">${esc(t("set.sessions"))}</h3><p class="small muted">${esc(t("set.sessions_sub"))}</p>
         <div id="sessions"><div class="skeleton" style="height:80px"></div></div>
         <button class="btn btn-outline btn-sm" id="logoutAll" style="margin-top:10px">${esc(t("set.logout_all"))}</button>`) +
@@ -74,16 +76,84 @@
     newPw = pwChecklist($("#np")); pwGenerator($("#np"));
     bind(); loadSessions(); showSection();
     if (me.role !== "admin") { loadDocs(); loadCards(); }
+    loadPasskeys();
   }
 
   // ---------------- Hujjatlar: guvohnoma, pasport/ID, selfi ----------------
   const DOCS = [["license", "idcard"], ["id_card", "user"], ["selfie", "camera"]];
   const docTag = (st) => `<span class="tag ${st === "approved" ? "tag-ok" : st === "pending" ? "tag-pending" : st === "rejected" ? "tag-bad" : "tag-hidden"}">${esc(t("docs.st_" + (st || "none")))}</span>`;
+  // ---------------- Barmoq izi / yuz bilan kirish ----------------
+  async function loadPasskeys() {
+    const box = $("#pkBox"); if (!box) return;
+    const { items } = await api("/api/passkeys");
+    const can = await Passkey.canPlatform();
+    box.innerHTML = `${items.length ? `<div class="pk-list">${items.map((p) => `<div class="pk-item">${icon("finger", 20)}<div><b>${esc(p.name || t("pk.device"))}</b>
+        <div class="small muted">${esc(t("pk.added", { d: fmtDate(p.created_at) }))}${p.last_used ? " · " + esc(t("pk.used", { d: timeAgo(p.last_used) })) : ""}</div></div>
+        <button class="linkbtn danger" data-pkdel="${p.id}">${esc(t("common.delete"))}</button></div>`).join("")}</div>` : ""}
+      ${can ? `<button class="btn btn-soft" id="pkAdd" style="margin-top:8px">${icon("finger", 16)} ${esc(t(items.length ? "pk.add_more" : "pk.enable"))}</button>`
+        : `<div class="notice small">${esc(t(Passkey.supported() ? "pk.no_sensor" : "pk.unsupported"))}</div>`}`;
+    $("#pkAdd")?.addEventListener("click", async (e) => {
+      await withLoading(e.currentTarget, async () => {
+        try { await Passkey.register(); toast(t("pk.enabled"), "ok"); loadPasskeys(); }
+        catch (err) { if (err.name !== "NotAllowedError") toast(err.message || t("pk.failed"), "error"); }
+      });
+    });
+    box.onclick = async (e) => {
+      const d = e.target.closest("[data-pkdel]");
+      if (d && await confirmBox(t("pk.del_confirm"), t("common.delete"), true)) {
+        await api(`/api/passkeys/${d.dataset.pkdel}`, { method: "DELETE" });
+        try { localStorage.removeItem("cr.passkey"); } catch { /* */ }
+        loadPasskeys();
+      }
+    };
+  }
+
+  // ---------------- JSHSHIR va pasport: avtomatik tekshiruv ----------------
+  async function identityBlock() {
+    const st = await api("/api/me/identity").catch(() => null);
+    const done = st && st.identity_status !== "none";
+    return `<div class="id-check card">
+      <div class="row" style="justify-content:space-between"><b>${icon("idcard", 18)} ${esc(t("idc.title"))}</b>${done ? `<span class="verified">${icon("check", 13)} ${esc(t("idc.checked"))}</span>` : ""}</div>
+      <p class="small muted" style="margin:6px 0 10px">${esc(t("idc.sub"))}</p>
+      ${done ? `<div class="doc-meta small"><span>${esc(t("idc.pinfl"))}: ${esc(st.pinfl_mask)}</span><span>${esc(t("idc.passport"))}: ${esc(st.passport_mask)}</span>
+        <span>${esc(t("idc.born"))}: ${fmtDate(st.birth_date)}</span><span>${esc(t(st.gender === "m" ? "idc.male" : "idc.female"))}</span></div>` : ""}
+      <form id="idForm" class="id-form ${done ? "hidden" : ""}" novalidate>
+        <div class="field"><label for="idPinfl">${esc(t("idc.pinfl"))}</label><input class="input" id="idPinfl" inputmode="numeric" maxlength="14" autocomplete="off" placeholder="31505900010012">
+          <div class="hint show small muted" id="idPinflHint">${esc(t("idc.pinfl_hint"))}</div></div>
+        <div class="field"><label for="idPass">${esc(t("idc.passport"))}</label><input class="input plate-input" id="idPass" maxlength="11" autocomplete="off" placeholder="AD 1234567"></div>
+        <button class="btn btn-sm">${icon("shield", 15)} ${esc(t("idc.check"))}</button></form>
+      ${done ? `<button class="linkbtn" id="idEdit">${esc(t("common.edit"))}</button>` : ""}
+      <p class="small muted" style="margin:10px 0 0">${icon("info", 13)} ${esc(t("idc.myid"))}</p></div>`;
+  }
+  function bindIdentity() {
+    const pin = $("#idPinfl"); if (!pin) return;
+    $("#idEdit")?.addEventListener("click", () => { $("#idForm").classList.remove("hidden"); $("#idEdit").remove(); });
+    // Yozish davomida: JSHSHIR ichidan tug'ilgan sana va jins o'qiladi
+    pin.addEventListener("input", () => {
+      pin.value = pin.value.replace(/\D/g, "").slice(0, 14);
+      const p = pin.value, c = { 3: 1900, 4: 1900, 5: 2000, 6: 2000 }[p[0]];
+      let msg = t("idc.pinfl_hint");
+      if (p.length >= 7 && c) {
+        const d = new Date(c + +p.slice(5, 7), +p.slice(3, 5) - 1, +p.slice(1, 3));
+        msg = d.getDate() === +p.slice(1, 3) && d.getMonth() === +p.slice(3, 5) - 1 ? t("idc.parsed", { d: fmtDate(isoDate(d)), g: t(+p[0] % 2 ? "idc.male" : "idc.female") }) : t("idc.bad_date");
+      } else if (p.length && !c) msg = t("idc.bad_first");
+      $("#idPinflHint").textContent = msg;
+    });
+    $("#idPass").addEventListener("input", (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9 ]/g, ""); });
+    $("#idForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      await withLoading($("#idForm .btn"), async () => {
+        try { await api("/api/me/identity", { method: "PUT", body: { pinfl: pin.value, passport: $("#idPass").value } }); toast(t("idc.ok"), "ok"); loadDocs(); }
+        catch (err) { toast(err.message, "error"); }
+      });
+    });
+  }
+
   async function loadDocs() {
     const box = $("#docsBox"); if (!box) return;
-    const d = await api("/api/me/documents");
+    const [d, idHtml] = await Promise.all([api("/api/me/documents"), identityBlock()]);
     Auth.user.docs_status = d.status;
-    box.innerHTML = `<div class="docs-banner st-${d.status}">${icon(d.status === "verified" ? "check" : d.status === "rejected" ? "flag" : "shield", 20)}
+    box.innerHTML = idHtml + `<div class="docs-banner st-${d.status}">${icon(d.status === "verified" ? "check" : d.status === "rejected" ? "flag" : "shield", 20)}
         <div><b>${esc(t("docs.overall_" + d.status))}</b><div class="small">${esc(t("docs.why"))}</div></div></div>
       <div class="docs-grid">${DOCS.map(([k, ico]) => { const x = d.docs[k];
         return `<div class="doc-card card">
@@ -101,6 +171,7 @@
             <button class="btn btn-sm">${icon("plus", 15)} ${esc(t(x ? "docs.reupload" : "docs.upload"))}</button></form>` : ""}
         </div>`; }).join("")}</div>
       <p class="small muted" style="margin-top:12px">${icon("lock", 14)} ${esc(t("docs.privacy"))}</p>`;
+    bindIdentity();
     $$(".doc-form", box).forEach((f) => f.addEventListener("submit", async (e) => {
       e.preventDefault();
       const fd = new FormData();

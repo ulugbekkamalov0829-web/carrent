@@ -49,6 +49,7 @@
                     <label for="lPassword" data-i18n="field.password"></label><button type="button" class="pw-eye" data-pw="lPassword"></button></div></div>
                   <div class="neon-options"><span></span><button type="button" class="linkbtn" data-goto="forgot" data-i18n="auth.forgot"></button></div>
                   <button class="btn btn-block neon-btn" type="submit" data-i18n="nav.login"></button>
+                  <button class="btn btn-block neon-btn ghost passkey-btn hidden" type="button" id="passkeyBtn"><span class="pk-ico" aria-hidden="true"></span><span data-i18n="pk.login"></span></button>
                 </form>
                 <p class="neon-switch"><span data-i18n="auth.no_account"></span><br><button type="button" class="linkbtn" data-goto="register" data-i18n="nav.register"></button></p>
               </div>
@@ -114,7 +115,7 @@
                 <form id="registerForm" novalidate>
                   <div class="field nf"><input class="input" id="rName" name="full_name" autocomplete="name" required minlength="3" placeholder=" " data-hint="hint.full_name">
                     <label for="rName" data-i18n="field.full_name"></label></div>
-                  <div class="field nf"><input class="input" type="email" id="rEmail" name="email" autocomplete="email" required placeholder=" " data-hint="hint.email">
+                  <div class="field nf"><input class="input" type="email" id="rEmail" name="email" autocomplete="username email" required placeholder=" " data-hint="hint.email">
                     <label for="rEmail" data-i18n="field.email"></label></div>
                   <div class="field nf"><input class="input" type="tel" id="rPhone" name="phone" autocomplete="tel" required placeholder=" " data-hint="hint.phone" inputmode="tel" maxlength="17">
                     <label for="rPhone" data-i18n="field.phone"></label></div>

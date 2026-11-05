@@ -313,6 +313,91 @@ async function guard(...roles) {
   return u;
 }
 
+/** Parolni brauzer/telefon xotirasiga saqlash (Chrome, Android: Credential Management API; Safari forma orqali o'zi taklif qiladi) */
+const Creds = {
+  async save(id, password, name) {
+    try { if (window.PasswordCredential && id && password) await navigator.credentials.store(new PasswordCredential({ id, password, name: name || id })); } catch { /* foydalanuvchi rad etdi */ }
+  },
+  async fill(loginEl, pwEl) {
+    try {
+      if (!window.PasswordCredential || loginEl.value) return;
+      const c = await navigator.credentials.get({ password: true, mediation: "optional" });
+      if (c && c.password) { loginEl.value = c.id; pwEl.value = c.password; loginEl.dispatchEvent(new Event("input")); }
+    } catch { /* qo'llab-quvvatlanmaydi */ }
+  },
+};
+
+/** Barmoq izi / yuz bilan kirish (WebAuthn passkey) */
+const Passkey = {
+  supported: () => !!(window.PublicKeyCredential && navigator.credentials?.create && isSecureContext),
+  enabledHere() { try { return localStorage.getItem("cr.passkey") === "1"; } catch { return false; } },
+  b64: (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""),
+  unb64: (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), (c) => c.charCodeAt(0)),
+  async canPlatform() { try { return this.supported() && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); } catch { return false; } },
+  async register(name = "") {
+    const o = await api("/api/passkeys/register/options", { method: "POST" });
+    const cred = await navigator.credentials.create({ publicKey: {
+      ...o, challenge: this.unb64(o.challenge), user: { ...o.user, id: this.unb64(o.user.id) },
+      excludeCredentials: o.excludeCredentials.map((c) => ({ ...c, id: this.unb64(c.id) })) } });
+    const r = cred.response;
+    const res = await api("/api/passkeys/register", { method: "POST", body: { id: cred.id, name,
+      clientDataJSON: this.b64(r.clientDataJSON), attestationObject: this.b64(r.attestationObject) } });
+    try { localStorage.setItem("cr.passkey", "1"); } catch { /* */ }
+    return res;
+  },
+  async login() {
+    const o = await api("/api/passkeys/login/options", { method: "POST" });
+    const cred = await navigator.credentials.get({ publicKey: { challenge: this.unb64(o.challenge), rpId: o.rpId, timeout: o.timeout, userVerification: "required", allowCredentials: [] } });
+    const r = cred.response;
+    const res = await api("/api/passkeys/login", { method: "POST", body: { id: cred.id, clientDataJSON: this.b64(r.clientDataJSON),
+      authenticatorData: this.b64(r.authenticatorData), signature: this.b64(r.signature) } });
+    try { localStorage.setItem("cr.passkey", "1"); } catch { /* */ }
+    return res;
+  },
+  /** Parol bilan kirgandan keyin: barmoq izini yoqishni taklif qilish (keyingi sahifada) */
+  offerAfterLogin(next) {
+    if (!this.supported() || this.enabledHere()) return next;
+    try { if (!sessionStorage.getItem("cr.pkAsked")) sessionStorage.setItem("cr.pkOffer", "1"); } catch { /* */ }
+    return next;
+  },
+  async maybeOffer() {
+    let want = false;
+    try { want = sessionStorage.getItem("cr.pkOffer") === "1"; sessionStorage.removeItem("cr.pkOffer"); } catch { return; }
+    if (!want || !Auth.user || !(await this.canPlatform())) return;
+    try { sessionStorage.setItem("cr.pkAsked", "1"); } catch { /* */ }
+    const bg = document.createElement("div"); bg.className = "modal-bg";
+    bg.innerHTML = `<div class="modal card card-pad pk-offer" role="dialog" aria-modal="true"><div class="pk-big">${icon("finger", 40)}</div>
+      <h3>${esc(t("pk.offer_t"))}</h3><p class="muted">${esc(t("pk.offer_b"))}</p>
+      <div class="row" style="justify-content:center;margin-top:10px"><button class="btn btn-outline" data-close>${esc(t("pk.later"))}</button><button class="btn" id="pkYes">${icon("finger", 16)} ${esc(t("pk.enable"))}</button></div></div>`;
+    document.body.append(bg);
+    bg.addEventListener("click", async (e) => {
+      if (e.target === bg || e.target.closest("[data-close]")) { bg.remove(); return; }
+      if (e.target.closest("#pkYes")) {
+        try { await this.register(); toast(t("pk.enabled"), "ok"); } catch (err) { if (err.name !== "NotAllowedError") toast(err.message || t("pk.failed"), "error"); }
+        bg.remove();
+      }
+    });
+  },
+};
+
+/** "Ilovani o'rnatish" (PWA): Android/Chrome — tizim oynasi; iPhone — qo'llanma */
+const Install = {
+  evt: null,
+  standalone: () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true,
+  ios: () => /iphone|ipad|ipod/i.test(navigator.userAgent),
+  available() { return !this.standalone() && (this.evt || this.ios()); },
+  async run() {
+    if (this.evt) { this.evt.prompt(); await this.evt.userChoice.catch(() => null); this.evt = null; renderNavInner(); return; }
+    const bg = document.createElement("div"); bg.className = "modal-bg";
+    bg.innerHTML = `<div class="modal card card-pad" role="dialog" aria-modal="true"><h3>${icon("download", 18)} ${esc(t("pwa.title"))}</h3>
+      <ol class="pwa-steps"><li>${esc(t("pwa.ios1"))}</li><li>${esc(t("pwa.ios2"))}</li><li>${esc(t("pwa.ios3"))}</li></ol>
+      <div class="row" style="justify-content:flex-end"><button class="btn" data-close>${esc(t("common.close"))}</button></div></div>`;
+    document.body.append(bg);
+    bg.addEventListener("click", (e) => { if (e.target === bg || e.target.closest("[data-close]")) bg.remove(); });
+  },
+};
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); Install.evt = e; if (typeof renderNavInner === "function" && $(".topbar")) renderNavInner(); });
+
 /** Har sahifa boshida: foydalanuvchi, til, header va footer */
 async function boot(active = "", { bare = false } = {}) {
   const [user] = await Promise.all([Auth.load(), I18N.load(I18N.initial(null)), Places.load().catch(() => null)]);
@@ -327,6 +412,7 @@ async function boot(active = "", { bare = false } = {}) {
   applyMasks();
   renderFooter();
   mustChangeBanner(user);
+  Passkey.maybeOffer();
   return user;
 }
 
@@ -344,7 +430,7 @@ const ICON_PATHS = {
   moon: "M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z",
   sun: "M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4",
   chevron: "M9 6l6 6-6 6",
-  finger: "M12 11v4M8.5 7.5A5 5 0 0 1 17 11v2M7 11c0 3 .5 5.5 2 8M17 15c0 2-.4 3.8-1 5M12 19c.6-1.5 1-3 1-4.5M5 9a8 8 0 0 1 14 0M10 11a2 2 0 0 1 4 0",
+  finger: "M6.8 5.2A8.5 8.5 0 0 1 20.5 12M3.6 15.5A8.5 8.5 0 0 1 4.6 8.6M8 12a4 4 0 0 1 8 0v1.5a13 13 0 0 0 .9 4.5M12 12v2a14 14 0 0 1-2.5 7.5M6.2 18.6A12 12 0 0 0 8 12M15 21.2a16 16 0 0 0 1.2-3",
   help: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4.5M12 17.5h.01",
   tag: "M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8zM7.5 7.5h.01",
   image: "M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM3 16l5-5 4 4 3-3 6 6M15.5 9.5h.01",
@@ -525,6 +611,7 @@ function renderNavInner() {
   if (u && !admin) bottom += `<div class="side-mode"><div class="side-mini-label">${esc(t("mode.label"))}</div>
     <div class="mode-switch dark" role="group" aria-label="${esc(t("mode.label"))}"><button data-mode="renter" class="${mode === "renter" ? "on" : ""}" data-tip="${esc(t("mode.renter"))}">${icon("user", 16)}<span>${esc(t("mode.renter"))}</span></button>
     <button data-mode="owner" class="${mode === "owner" ? "on" : ""}" data-tip="${esc(t("mode.owner"))}">${icon("car", 16)}<span>${esc(t("mode.owner"))}</span></button></div></div>`;
+  if (Install.available()) bottom += `<button type="button" class="side-link side-install" id="installBtn" data-tip="${esc(t("pwa.install"))}">${icon("download")}<span>${esc(t("pwa.install"))}</span></button>`;
   if (u) bottom += sideLink("/settings.html", "nav.settings", "gear");
   bottom += `<label class="side-link side-night" data-tip="${esc(t("nav.night"))}">${icon("moon")}<span>${esc(t("nav.night"))}</span>
     <input type="checkbox" class="switch" id="nightToggle" ${Theme.isDark() ? "checked" : ""} aria-label="${esc(t("nav.night"))}"></label>`;
@@ -540,6 +627,7 @@ function renderNavInner() {
   $("#sideClose").addEventListener("click", () => toggleSide(false));
   $("#sideCollapse").addEventListener("click", () => Theme.collapse(!document.body.classList.contains("side-rail")));
   $("#logoutBtn")?.addEventListener("click", () => Auth.logout());
+  $("#installBtn")?.addEventListener("click", () => Install.run());
   $("#nightToggle").addEventListener("change", (e) => Theme.set(e.target.checked ? "dark" : "light"));
   $$("[data-mode]", side).forEach((b) => b.addEventListener("click", () => switchMode(b.dataset.mode)));
   $$(".side-group > .side-label", side).forEach((b) => b.addEventListener("click", () => {

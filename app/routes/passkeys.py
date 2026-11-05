@@ -12,9 +12,13 @@ import secrets
 import struct
 import time
 
-from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
+try:   # "cryptography" o'rnatilmagan bo'lsa ham sayt ishlayveradi — faqat barmoq izi bilan kirish o'chiq bo'ladi
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
+    CRYPTO_OK = True
+except ImportError:  # pragma: no cover
+    CRYPTO_OK = False
 from pydantic import Field
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
@@ -110,6 +114,8 @@ def rp_id(request: Request) -> str:
 
 
 def _new_challenge(uid: int | None, purpose: str) -> str:
+    if not CRYPTO_OK:
+        raise HTTPException(503, tr("Barmoq izi bilan kirish serverda yoqilmagan"))
     now = time.time()
     for k in [k for k, v in _challenges.items() if v[1] < now]:
         _challenges.pop(k, None)

@@ -284,3 +284,4 @@ CATALOG.update({
         ("Сначала сверьте техпаспорт, госномер и VIN с объявлением и отметьте «проверил, принимаю»",
          "First check the registration, plate and VIN against the listing and tick \"checked, I accept\""),
 })
+CATALOG.update({"Barmoq izi bilan kirish serverda yoqilmagan": ("Вход по отпечатку на сервере не включён", "Fingerprint sign-in isn't enabled on the server")})

@@ -1,7 +1,10 @@
 "use strict";
 const FEATURES = ["ac", "climate", "bluetooth", "usb", "phone_charger", "carplay", "navigation", "wifi", "camera", "camera360", "parking_sensors", "dashcam", "cruise", "lane_assist", "keyless", "heated_seats", "ventilated_seats", "leather", "sunroof", "child_seat", "isofix", "roof_rack", "winter_tires", "pets_ok", "abs", "airbags"];
 const ANGLES = ["front", "back", "side", "interior", "dashboard", "trunk"];
-const LABELS = [...ANGLES, "other"];
+const LABELS = [...ANGLES, "other", "sample"];
+// "Mashina rasmlari" katalogi: tayyor namuna suratlar (owner o'z mashinasini suratga ololmasa — vaqtincha)
+const LIBRARY = [["camry", "Toyota Camry"], ["malibu", "Chevrolet Malibu"], ["malibu_black", "Chevrolet Malibu"], ["tracker", "Chevrolet Tracker"],
+  ["k5", "Kia K5"], ["k5_white", "Kia K5"], ["sonata", "Hyundai Sonata"]];
 
 (async () => {
   await boot("");
@@ -26,6 +29,7 @@ const LABELS = [...ANGLES, "other"];
     $("#formTitle").dataset.i18n = "form.title_edit";
     for (const el of form.elements) if (el.name && el.name in car && el.type !== "checkbox") el.value = car[el.name] ?? "";
     $("#require_docs").checked = !!car.require_docs;
+    for (const [k, p] of Object.entries(car.discounts || {})) { const el = $(`[data-disc="${k}"]`); if (el) el.value = p; }
     $("#hasDelivery").checked = car.delivery_price !== null;
     $("#delivery_price").disabled = car.delivery_price === null;
     images = car.images;
@@ -75,7 +79,7 @@ const LABELS = [...ANGLES, "other"];
   $("#hasDelivery").addEventListener("change", (e) => { $("#delivery_price").disabled = !e.target.checked; if (e.target.checked && !$("#delivery_price").value) $("#delivery_price").value = fmtMoneyInput(50000); });
 
   // ---------- Bosqichlar ----------
-  const REQUIRED = { 1: ["brand", "model", "year", "seats"], 3: ["city", "district"], 4: ["price_per_day"] };
+  const REQUIRED = { 1: ["brand", "model", "year", "seats", "plate"], 3: ["city", "district"], 4: ["price_per_day"] };
   function validStep(n) {
     let ok = true;
     for (const name of REQUIRED[n] || []) {
@@ -256,7 +260,13 @@ const LABELS = [...ANGLES, "other"];
       km_limit: num(d.km_limit), delivery_price: $("#hasDelivery").checked ? num(d.delivery_price) ?? 0 : null, is_active: active,
       lat: num(d.lat), lng: num(d.lng), address: d.address || null, plate: d.plate || null, fuel_policy: d.fuel_policy || "same",
       tank_l: num(d.tank_l), fuel_price: num(d.fuel_price), extra_km_price: num(d.extra_km_price), require_docs: $("#require_docs").checked,
+      fuel_per_100: num(d.fuel_per_100), tech_passport: d.tech_passport || null, discounts: discounts(),
     };
+  }
+  function discounts() {
+    const out = {};
+    $$("[data-disc]").forEach((el) => { const v = Math.max(0, Math.min(50, Math.round(+el.value || 0))); if (v) out[el.dataset.disc] = v; });
+    return out;
   }
   function drawPreview() {
     const b = body(true);
@@ -290,6 +300,50 @@ const LABELS = [...ANGLES, "other"];
     });
   }
   form.addEventListener("submit", (e) => { e.preventDefault(); save(true, $("#publishBtn")); });
+
+  // ---------- Uzoq muddat chegirmalari: kiritilgan foiz bo'yicha kunlik narx darhol ko'rinadi ----------
+  const drawDisc = () => {
+    const price = moneyVal(form.price_per_day.value) || 0, d = discounts();
+    $("#discPreview").innerHTML = price && Object.keys(d).length ? Object.entries(d).map(([k, p]) =>
+      `<span class="chip">${esc(t("disc.chip", { d: k, p }))} → <b>${money(Math.round(price * (100 - p) / 100))}</b>${esc(t("car.per_day"))}</span>`).join(" ")
+      : `<span class="muted">${esc(t("disc.none"))}</span>`;
+  };
+  $("#discForm").addEventListener("input", drawDisc);
+  form.price_per_day.addEventListener("input", drawDisc);
+  $("#discPreset").addEventListener("click", () => { [["3", 5], ["7", 10], ["14", 15], ["30", 20]].forEach(([k, v]) => ($(`[data-disc="${k}"]`).value = v)); drawDisc(); });
+  drawDisc();
+
+  // ---------- "Mashina rasmlari" katalogi ----------
+  $("#libIco").innerHTML = icon("image", 22);
+  $("#libBtn").addEventListener("click", () => {
+    const bg = document.createElement("div"); bg.className = "modal-bg";
+    const brand = form.brand.value.trim().toLowerCase(), model = form.model.value.trim().toLowerCase();
+    const items = [...LIBRARY].sort((a, b) => (b[1].toLowerCase().includes(model || "@") - a[1].toLowerCase().includes(model || "@")) || (b[1].toLowerCase().startsWith(brand || "@") - a[1].toLowerCase().startsWith(brand || "@")));
+    bg.innerHTML = `<div class="modal card card-pad lib-modal" role="dialog" aria-modal="true"><h3>${icon("image", 20)} ${esc(t("lib.title"))}</h3>
+      <p class="small muted">${esc(t("lib.sub"))}</p>
+      <div class="lib-grid">${items.map(([f, name]) => `<button type="button" class="lib-item" data-f="${f}"><img src="/img/demo/${f}.jpg" alt="" loading="lazy"><span>${esc(name)}</span><i>${icon("check", 16)}</i></button>`).join("")}</div>
+      <div class="notice small" style="margin-top:12px">${icon("info", 15)} ${esc(t("lib.warn"))}</div>
+      <div class="row" style="justify-content:flex-end;margin-top:12px"><button type="button" class="btn btn-outline" data-close>${esc(t("common.cancel"))}</button>
+      <button type="button" class="btn" id="libAdd" disabled>${esc(t("lib.add"))}</button></div></div>`;
+    document.body.append(bg);
+    bg.addEventListener("click", async (e) => {
+      if (e.target === bg || e.target.closest("[data-close]")) { bg.remove(); return; }
+      const it = e.target.closest(".lib-item");
+      if (it) { it.classList.toggle("on"); $("#libAdd", bg).disabled = !$$(".lib-item.on", bg).length; return; }
+      if (e.target.closest("#libAdd")) {
+        const picked = $$(".lib-item.on", bg).map((x) => x.dataset.f);
+        bg.remove();
+        for (const f of picked) {
+          if (images.length + queue.length >= MAX_IMAGES) { toast(t("form.max_images", { n: MAX_IMAGES }), "error"); break; }
+          const blob = await (await fetch(`/img/demo/${f}.jpg`)).blob();
+          const file = new File([blob], `${f}.jpg`, { type: "image/jpeg" });
+          queue.push({ file, url: URL.createObjectURL(file), progress: 0, error: false, label: "sample" });
+        }
+        drawImages(); if (id) uploadQueue(id);
+        toast(t("lib.added", { n: picked.length }), "ok");
+      }
+    });
+  });
   $("#draftBtn").addEventListener("click", () => save(false, $("#draftBtn")));
   const descCount = () => { $("#descCount").textContent = `${form.description.value.length} / 2000`; };
   form.description.addEventListener("input", descCount); descCount();

@@ -47,7 +47,7 @@ def serialize(car: dict) -> dict:
     return car
 
 
-IMAGE_LABELS = {"front", "back", "side", "interior", "dashboard", "trunk", "other"}
+IMAGE_LABELS = {"front", "back", "side", "interior", "dashboard", "trunk", "other", "sample"}
 MAX_SIDE = 1600   # px: katta rasmlar kichraytiriladi (sahifa tez ochilishi uchun)
 
 

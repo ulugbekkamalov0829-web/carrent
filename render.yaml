@@ -11,12 +11,16 @@ services:
       - key: APP_ENV
         value: production
       - key: SEED_DEMO
-        value: "true"
+        value: "false"
       - key: DEMO_MODE
-        value: "true"
-      # Bepul rejada disk vaqtinchalik: qayta ishga tushganda baza demo holatiga qaytadi.
-      # Doimiy saqlash uchun pullik rejada disk ulang:
-      # disk:
-      #   name: data
-      #   mountPath: /data
-      #   sizeGB: 1
+        value: "false"
+      # Doimiy saqlash (bepul): Supabase Storage. Render panelida qo'shing (qiymatlarni bu faylga YOZMANG):
+      #   SUPABASE_URL          = https://<loyiha>.supabase.co
+      #   SUPABASE_SERVICE_KEY  = Supabase > Project Settings > API Keys > secret (service_role) kalit
+      #   ADMIN_EMAILS          = sizning emailingiz (tasdiqlangach admin bo'ladi)
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: ADMIN_EMAILS
+        sync: false

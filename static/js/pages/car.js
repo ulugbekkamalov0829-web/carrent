@@ -29,6 +29,16 @@
         ${r.reply ? `<div class="reply"><b>${esc(t("review.owner_reply"))}:</b> ${esc(r.reply)}</div>` : ""}</div>`).join("")}</div>`;
   }
 
+  /** Uzoq muddat chegirmasi: har pog'ona uchun kunlik narx */
+  function discountBlock() {
+    const d = Object.entries(car.discounts || {}).sort((a, b) => a[0] - b[0]);
+    if (!d.length) return "";
+    const rows = [[1, 0], ...d.map(([k, p]) => [+k, p])];
+    return `<div class="card card-pad disc-card" style="margin-bottom:18px"><h3>${icon("tag", 18)} ${esc(t("disc.title"))}</h3><p class="small muted">${esc(t("disc.sub"))}</p>
+      <div class="disc-grid">${rows.map(([k, p], i) => `<div class="${p ? "on" : ""}"><small>${esc(i ? t("disc.from_days", { d: k }) : t("disc.base"))}</small>
+        <b>${money(Math.round(car.price_per_day * (100 - p) / 100))}</b><span>${p ? `−${p}%` : esc(t("car.per_day"))}</span></div>`).join("")}</div></div>`;
+  }
+
   function render() {
     // Formadagi qiymatlarni saqlab qolamiz (til almashganda yo'qolmasin)
     if ($("#bStart")) Object.assign(form, { start: $("#bStart").value, end: $("#bEnd").value, delivery: $("#bDelivery")?.checked || false, note: $("#bNote").value });
@@ -41,7 +51,7 @@
       <nav class="small muted" style="margin-bottom:10px" aria-label="breadcrumb"><a href="/cars.html">${esc(t("nav.cars"))}</a> › <a href="/cars.html?city=${encodeURIComponent(car.city)}">${esc(Places.regionName(car.city))}</a> › ${esc(car.brand)}</nav>
       <section class="car-hero" id="mainImg">${carImage(car, images[imgIndex]?.path)}
         <div class="hero-shade"></div>
-        <div class="hero-title"><h1>${esc(carName(car))} ${esc(car.year)}</h1><div>${esc(t("body." + car.body_type))} · ${esc(t("trans." + car.transmission))}${car.is_demo ? ` · <span class="tag tag-demo">${esc(t("car.demo"))}</span>` : ""}</div></div>
+        <div class="hero-title"><h1>${esc(carName(car))} ${esc(car.year)}</h1><div>${esc(t("body." + car.body_type))} · ${esc(t("trans." + car.transmission))}</div></div>
         ${car.images.length > 1 ? `<div class="hero-dots" id="thumbs">${car.images.map((im, i) => `<button class="${i === imgIndex ? "active" : ""}" data-i="${i}" aria-label="${esc(t("car.photo_n", { n: i + 1 }))}">${i + 1}</button>`).join("")}</div>` : ""}
         ${car.images.length ? `<button class="gal-zoom" id="openLb" aria-label="${esc(t("gallery.open"))}">${icon("search", 18)} ${imgIndex + 1} / ${car.images.length}</button>` : ""}
         <span class="gal-label ${images[imgIndex]?.label ? "" : "hidden"}">${images[imgIndex]?.label ? esc(t("img.label_" + images[imgIndex].label)) : ""}</span>
@@ -56,13 +66,15 @@
             <div class="owner-chip">${avatarHtml(car.owner)}<div><b>${esc(car.owner.full_name)}</b>${car.owner.phone_verified ? ` <span class="verified" title="${esc(t("verify.phone_ok"))}">${icon("check", 13)}</span>` : ""}
               <div class="small"><span class="star-y">★</span> ${car.rating ?? "—"} <span class="muted">(${esc(t("car.reviews_n", { n: car.reviews_count }))})</span></div></div></div>
           </div>
-          <div class="card card-pad"><h3>${esc(t("car.specs"))}</h3>
+          ${discountBlock()}
+          <details class="card card-pad fold" data-fold open><summary><h3>${esc(t("car.specs"))}</h3>${icon("chevron", 18)}</summary>
             <div class="spec-grid">
               ${spec("field.year", car.year, "calendar")}${spec("spec.trans", t("trans." + car.transmission), "gear")}${spec("spec.fuel", t("fuel." + car.fuel), "fuel")}${spec("spec.seats", t("car.seats_n", { n: car.seats }), "seat")}
               ${spec("spec.engine", car.engine_l ? `${car.engine_l} ${t("unit.l")}` : null, "engine")}${spec("spec.mileage", car.mileage_km !== null ? `${numFmt().format(car.mileage_km)} ${t("unit.km")}` : null, "gauge")}
               ${spec("spec.drive", car.drive ? t("drive." + car.drive) : null, "road")}${spec("spec.color", car.color, "palette")}
-            </div></div>
-          ${car.features.length ? `<div class="card card-pad" style="margin-top:18px"><h3>${esc(t("car.features"))}</h3><div class="amenities">${car.features.map((f) => `<span><i>${icon("check", 13)}</i>${esc(t("feature." + f))}</span>`).join("")}</div></div>` : ""}
+              ${spec("spec.per100", car.fuel_per_100 ? t(car.fuel === "electric" ? "spec.per100_kwh" : "spec.per100_v", { n: car.fuel_per_100 }) : null, "drop")}
+            </div></details>
+          ${car.features.length ? `<details class="card card-pad fold" data-fold open style="margin-top:18px"><summary><h3>${esc(t("car.features"))} <span class="fold-n">${car.features.length}</span></h3>${icon("chevron", 18)}</summary><div class="amenities">${car.features.map((f) => `<span><i>${icon("check", 13)}</i>${esc(t("feature." + f))}</span>`).join("")}</div></details>` : ""}
           ${car.description ? `<div class="card card-pad" style="margin-top:18px"><h3>${esc(t("car.description"))}</h3><p style="margin:0;white-space:pre-line">${esc(car.description)}</p></div>` : ""}
           <div class="two-col loc-rev" style="margin-top:18px">
             <div class="card card-pad"><h3>${icon("pin", 18)} ${esc(t("map.location"))}</h3>
@@ -77,6 +89,10 @@
               <div><span class="muted">${esc(t("field.fuel_policy"))}</span><b>${esc(t("fuel_policy." + (car.fuel_policy || "same")))}</b></div>
               <div><span class="muted">${esc(t("terms.delivery"))}</span><b>${car.delivery_price !== null ? money(car.delivery_price) : esc(t("terms.no_delivery"))}</b></div>
               <div><span class="muted">${esc(t("terms.cancel"))}</span><b>${esc(t("terms.cancel_rule"))}</b></div>
+              <div><span class="muted">${esc(t("terms.owner_cancel"))}</span><b>${esc(t("terms.owner_cancel_rule"))}</b></div>
+              <div><span class="muted">${esc(t("terms.early"))}</span><b>${esc(t("terms.early_rule"))}</b></div>
+              <div><span class="muted">${esc(t("terms.breakdown"))}</span><b>${esc(t("terms.breakdown_rule"))}</b></div>
+              <div><span class="muted">${esc(t("terms.check"))}</span><b>${esc(t("terms.check_rule"))}</b></div>
               <div><span class="muted">${esc(t("terms.payment"))}</span><b>${esc(t(prov.click || prov.payme || prov.test ? "terms.on_site_or_online" : "terms.on_site"))}</b></div>
               ${car.require_docs ? `<div><span class="muted">${esc(t("terms.docs"))}</span><b>${esc(t("terms.docs_required"))}</b></div>` : ""}
               <div><span class="muted">${esc(t("terms.contract"))}</span><b>${esc(t("terms.contract_e"))}</b></div>
@@ -88,7 +104,10 @@
         <aside class="stack book-box" id="book">
           <div class="card card-pad book-card">
             <div class="price-big">${money(car.price_per_day)} <span class="muted small">${esc(t("car.per_day"))}</span></div>
-            ${canBook ? `<h4 style="margin:14px 0 6px">${esc(t("book.pick_dates"))}</h4><div id="calendar"></div>` : ""}
+            ${Object.keys(car.discounts || {}).length ? `<div class="disc-chips">${Object.entries(car.discounts).map(([d, p]) => `<span>${icon("tag", 13)} ${esc(t("disc.chip", { d, p }))}</span>`).join("")}</div>` : ""}
+            ${canBook ? `<div class="date-guide"><div class="dg-step ${form.start ? "done" : "on"}"><b>1</b><span>${esc(t("book.step1"))}</span></div><i></i>
+              <div class="dg-step ${form.end ? "done" : form.start ? "on" : ""}"><b>2</b><span>${esc(t("book.step2"))}</span></div></div>
+              <p class="small muted dg-hint">${esc(t("book.dates_hint"))}</p><div id="calendar"></div>` : ""}
             <div id="bookArea" style="margin-top:14px"></div>
           </div>
           <div class="card card-pad">
@@ -105,6 +124,8 @@
     MapKit.show($("#carMap"), car.loc_exact ? { lat: car.lat, lng: car.lng, label: `${carName(car)} ${car.year}` }
       : { region: car.city, approx: hasLoc() ? [car.lat, car.lng] : null }).catch((e) => { $("#carMap").innerHTML = `<div class="empty small">${esc(e.message)}</div>`; });
     document.body.classList.toggle("has-mobile-book", !!canBook);
+    // Telefonda "Xususiyatlar" va "Qulayliklar" yig'ilgan holda — bosilganda ochiladi
+    if (innerWidth < 760) $$("[data-fold]").forEach((d) => d.removeAttribute("open"));
 
     const go = (i) => {
       if (!car.images.length) return;
@@ -126,7 +147,7 @@
     renderContact();
     renderBooking();
     const old = cal;
-    cal = new BookingCalendar($("#calendar"), car.id, { selectable: canBook, onSelect: (s, e) => { if ($("#bStart")) { $("#bStart").value = s; $("#bEnd").value = e; updateQuote(); } } });
+    cal = new BookingCalendar($("#calendar"), car.id, { selectable: canBook, onSelect: (s, e) => { if ($("#bStart")) { $("#bStart").value = s; $("#bEnd").value = e; updateQuote(); guide(); } } });
     if (old) { cal.ranges = old.ranges; cal.month = old.month; cal.today = old.today; cal.setRange(form.start, form.end); cal.render(); }
     else cal.load().then(() => form.start && cal.setRange(form.start, form.end));
     if (location.hash === "#book" && !old) setTimeout(() => $("#book").scrollIntoView({ behavior: "smooth" }), 50);
@@ -164,7 +185,7 @@
     DateField.enhance(f); applyHints(f);
     f.addEventListener("input", (e) => {
       if (e.target.id === "bStart") { $("#bEnd").min = $("#bStart").value; if ($("#bEnd").value < $("#bStart").value) $("#bEnd").value = $("#bStart").value; }
-      cal?.setRange($("#bStart").value, $("#bEnd").value); updateQuote();
+      cal?.setRange($("#bStart").value, $("#bEnd").value); updateQuote(); guide();
     });
     f.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -212,6 +233,17 @@
     bg.addEventListener("click", (e) => { if (e.target === bg || e.target.matches("[data-close]")) bg.remove(); });
   }
 
+  /** Keyingi chegirma pog'onasigacha necha kun qolgani — "yana 2 kun olsangiz 10% arzon" */
+  function nextTierHint(days) {
+    const next = Object.entries(car.discounts || {}).map(([k, p]) => [+k, p]).filter(([k]) => k > days).sort((a, b) => a[0] - b[0])[0];
+    return next ? `<div class="disc-next">${icon("bulb", 14)} ${esc(t("disc.next", { n: next[0] - days, p: next[1] }))}</div>` : "";
+  }
+  function guide() {
+    const s = $("#bStart")?.value, e = cal?.start ? cal.end : $("#bEnd")?.value, st = $$(".dg-step");
+    if (!st.length) return;
+    st[0].className = "dg-step " + (s ? "done" : "on"); st[1].className = "dg-step " + (e && s ? "done" : s ? "on" : "");
+  }
+
   let qTimer;
   function updateQuote() {
     clearTimeout(qTimer);
@@ -224,11 +256,13 @@
         const q = await api(`/api/cars/${car.id}/quote?start=${s}&end=${e}&delivery=${$("#bDelivery")?.checked ? 1 : 0}`);
         box.innerHTML = `${!q.available ? `<div class="notice" style="margin-bottom:8px">${esc(t("book.busy"))}</div>` : ""}
           ${!q.within_limits ? `<div class="notice" style="margin-bottom:8px">${esc(t("terms.days_range", { a: car.min_days, b: car.max_days }))}</div>` : ""}
-          <div class="sum-row"><span>${money(q.price_per_day)} × ${esc(t("car.days_n", { n: q.days }))}</span><span>${money(q.rent)}</span></div>
+          <div class="sum-row"><span>${money(q.price_per_day)} × ${esc(t("car.days_n", { n: q.days }))}</span><span>${money(q.rent_full ?? q.rent)}</span></div>
+          ${q.discount ? `<div class="sum-row disc"><span>${icon("tag", 13)} ${esc(t("disc.applied", { p: q.discount_pct, d: q.days }))}</span><span>−${money(q.discount)}</span></div>` : ""}
           ${q.delivery ? `<div class="sum-row"><span>${esc(t("book.delivery_fee"))}</span><span>${money(q.delivery)}</span></div>` : ""}
           <div class="sum-row total"><span>${esc(t("book.total"))}</span><span>${money(q.total)}</span></div>
           ${q.deposit ? `<div class="sum-row sub"><span>${esc(t("book.deposit"))}</span><span>${money(q.deposit)}</span></div>` : ""}
-          <div class="sum-row sub"><span>${esc(t("book.pay_on_site"))}</span><span>${money(q.pay_on_site)}</span></div>`;
+          <div class="sum-row sub"><span>${esc(t("book.pay_on_site"))}</span><span>${money(q.pay_on_site)}</span></div>
+          ${q.discount ? `<div class="disc-save">${esc(t("disc.you_save", { sum: money(q.discount) }))}</div>` : nextTierHint(q.days)}`;
       } catch (err) { box.innerHTML = `<div class="notice">${esc(err.message)}</div>`; }
     }, 200);
   }

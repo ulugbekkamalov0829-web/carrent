@@ -109,6 +109,7 @@ class CardIn(Base):
     number: str = Field(min_length=12, max_length=23)
     exp: str = Field(min_length=4, max_length=7)          # MM/YY
     holder: str | None = Field(default=None, max_length=60)
+    make_default: bool = False
 
 
 @require("user")
@@ -144,6 +145,8 @@ async def add_card(request: Request):
                              (uid, card_brand(num), num[:6], num[-4:], month, year, (data.holder or "").upper() or None, int(first)))
         except Exception:
             raise HTTPException(409, tr("Bu karta allaqachon qo'shilgan"))
+        if data.make_default and not first:
+            db.execute("UPDATE user_cards SET is_default = (id = ?) WHERE user_id = ?", (cur.lastrowid, uid))
         audit(db, request, "card_added", "card", cur.lastrowid, last4=num[-4:])
     return await my_cards(request)
 

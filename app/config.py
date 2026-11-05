@@ -42,7 +42,7 @@ class Settings:
     COOKIE_SECURE: bool = _bool("COOKIE_SECURE", ENV == "production")
 
     # Demo rejimi: kirish sahifasida demo hisoblarni ko'rsatadi (productionda o'chiring)
-    DEMO_MODE: bool = _bool("DEMO_MODE", True)
+    DEMO_MODE: bool = _bool("DEMO_MODE", False)
 
     # Shu emaillar (vergul bilan) tasdiqlangach admin huquqini oladi: ADMIN_EMAILS=me@gmail.com
     ADMIN_EMAILS: set = {e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()}

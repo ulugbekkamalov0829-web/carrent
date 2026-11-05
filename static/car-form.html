@@ -37,7 +37,11 @@
           <div class="field"><label for="seats" data-i18n="field.seats"></label><input class="input" type="number" id="seats" name="seats" min="1" max="20" value="5" required inputmode="numeric" data-hint="hint.seats"></div>
           <div class="field"><label for="color" data-i18n="field.color"></label><input class="input" id="color" name="color" maxlength="30" placeholder="Oq" data-hint="hint.color"></div>
         </div>
-        <div class="field" style="max-width:320px"><label for="plate" data-i18n="field.plate"></label><input class="input plate-input" id="plate" name="plate" maxlength="12" placeholder="01 A 123 BC" autocomplete="off" data-hint="hint.plate"></div>
+        <div class="grid-2">
+          <div class="field"><label for="plate"><span data-i18n="field.plate"></span> <span class="req">*</span></label><input class="input plate-input" id="plate" name="plate" maxlength="12" placeholder="01 A 123 BC" autocomplete="off" required data-hint="hint.plate"></div>
+          <div class="field"><label for="tech_passport" data-i18n="field.tech_passport"></label><input class="input plate-input" id="tech_passport" name="tech_passport" maxlength="12" placeholder="AAF 1234567" autocomplete="off" data-hint="hint.tech_passport"></div>
+        </div>
+        <div class="notice info small own-note" data-i18n="own.note"></div>
       </section>
 
       <section data-pane="2" class="hidden">
@@ -56,6 +60,7 @@
           <div class="field"><label for="engine_l" data-i18n="field.engine"></label><input class="input" type="number" id="engine_l" name="engine_l" min="0.6" max="8" step="0.1" placeholder="1.5" inputmode="decimal" data-hint="hint.engine"></div>
           <div class="field"><label for="mileage_km" data-i18n="field.mileage"></label><input class="input" type="number" id="mileage_km" name="mileage_km" min="0" step="1000" placeholder="45000" inputmode="numeric" data-hint="hint.mileage"></div>
         </div>
+        <div class="field" style="max-width:420px"><label for="fuel_per_100" data-i18n="field.per100"></label><input class="input" type="number" id="fuel_per_100" name="fuel_per_100" min="2" max="40" step="0.1" placeholder="7.5" inputmode="decimal" data-hint="hint.per100"></div>
         <div class="field"><label data-i18n="field.features"></label><div class="chips-input" id="features"></div><div class="hint" data-i18n="hint.features"></div></div>
       </section>
 
@@ -89,6 +94,16 @@
           <div class="field"><label class="check" style="margin-bottom:8px"><input type="checkbox" id="hasDelivery"><span data-i18n="field.delivery"></span></label>
             <input class="input" data-money inputmode="numeric" type="text" id="delivery_price" name="delivery_price" data-i18n-placeholder="field.delivery_price" disabled data-hint="hint.delivery"></div>
         </div>
+        <h3 style="margin-top:8px" data-i18n="disc.form_title"></h3>
+        <p class="small muted" data-i18n="disc.form_sub"></p>
+        <div class="disc-form" id="discForm">
+          <label><span data-i18n="disc.d3"></span><span class="pct"><input class="input" type="number" min="0" max="50" step="1" inputmode="numeric" data-disc="3" placeholder="0">%</span></label>
+          <label><span data-i18n="disc.d7"></span><span class="pct"><input class="input" type="number" min="0" max="50" step="1" inputmode="numeric" data-disc="7" placeholder="0">%</span></label>
+          <label><span data-i18n="disc.d14"></span><span class="pct"><input class="input" type="number" min="0" max="50" step="1" inputmode="numeric" data-disc="14" placeholder="0">%</span></label>
+          <label><span data-i18n="disc.d30"></span><span class="pct"><input class="input" type="number" min="0" max="50" step="1" inputmode="numeric" data-disc="30" placeholder="0">%</span></label>
+        </div>
+        <button type="button" class="btn btn-soft btn-sm" id="discPreset" data-i18n="disc.preset"></button>
+        <div class="small" id="discPreview" style="margin:8px 0 14px"></div>
         <h3 style="margin-top:8px" data-i18n="form.fuel_rules"></h3>
         <div class="grid-2">
           <div class="field"><label for="fuel_policy" data-i18n="field.fuel_policy"></label>
@@ -108,6 +123,7 @@
         <p class="muted" data-i18n="form.photo_tips"></p>
         <div class="angle-list" id="angles" aria-live="polite"></div>
         <div class="photo-actions">
+          <button type="button" class="btn btn-soft btn-lg lib-btn" id="libBtn"><span id="libIco"></span><span data-i18n="lib.open"></span></button>
           <label class="dropzone" id="dropzone" for="images"><span id="dzIco"></span><b data-i18n="form.drop"></b><span class="small muted" id="dzHint"></span></label>
           <label class="btn btn-outline btn-lg camera-btn" for="cameraInput"><span id="camIco"></span><span data-i18n="form.camera"></span></label>
         </div>

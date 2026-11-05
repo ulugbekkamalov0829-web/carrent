@@ -206,12 +206,15 @@ const HEART = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5
 const HEART_O = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.1 3.3 4.5 7 4.5c2 0 3.6 1.1 5 2.8 1.4-1.7 3-2.8 5-2.8 3.7 0 6.1 3.6 4.6 7.2C19.5 16.4 12 21 12 21z"/></svg>`;
 
 /** Avtomobil kartochkasi — bosh sahifa, qidiruv, sevimlilar va tavsiyalarda bir xil */
+/** Uzoq muddat chegirmasi (server bilan bir xil qoida): kunlar soniga mos eng katta pog'ona */
+const discPct = (c, days) => Object.entries(c.discounts || {}).reduce((best, [k, p]) => (days >= +k ? Math.max(best, +p) : best), 0);
+const maxDisc = (c) => Math.max(0, ...Object.values(c.discounts || {}).map(Number));
 function carCard(c, { days = 0, qs = "", reason = false } = {}) {
   const href = `/car.html?id=${c.id}${qs}`;
   const own = Auth.user && Auth.user.id === c.owner_id;
   return `<article class="card car-card">
     <a class="car-thumb cover-link" href="${href}" tabindex="-1" aria-hidden="true">${carImage(c)}
-      <span class="tags">${c.is_demo ? `<span class="tag tag-demo">${esc(t("car.demo"))}</span>` : ""}${c.fuel === "electric" ? `<span class="tag tag-electric">⚡ ${esc(t("fuel.electric"))}</span>` : ""}</span></a>
+      <span class="tags">${maxDisc(c) ? `<span class="tag tag-disc">${icon("tag", 12)} −${maxDisc(c)}%</span>` : ""}${c.fuel === "electric" ? `<span class="tag tag-electric">⚡ ${esc(t("fuel.electric"))}</span>` : ""}</span></a>
     ${own ? "" : `<button class="fav-btn ${c.is_favorite ? "on" : ""}" data-fav="${c.id}" aria-pressed="${!!c.is_favorite}" aria-label="${esc(t(c.is_favorite ? "fav.remove" : "fav.add"))}">${c.is_favorite ? HEART : HEART_O}</button>`}
     <div class="car-body">
       <a class="car-title" href="${href}">${esc(carName(c))} <span class="muted small">${esc(c.year)}</span></a>
@@ -220,7 +223,7 @@ function carCard(c, { days = 0, qs = "", reason = false } = {}) {
         <span class="chip">${esc(t("fuel." + c.fuel))}</span><span class="chip">${esc(t("car.seats_n", { n: c.seats }))}</span></div>
       <div class="car-foot">
         <div class="price">${money(c.price_per_day)} <small>${esc(t("car.per_day"))}</small>
-          ${days ? `<div class="small muted">${esc(t("car.for_days", { n: days }))}: ${money(days * c.price_per_day)}</div>` : ""}</div>
+          ${days ? `<div class="small muted">${esc(t("car.for_days", { n: days }))}: ${money(days * c.price_per_day * (100 - discPct(c, days)) / 100)}${discPct(c, days) ? ` <b class="disc-ink">−${discPct(c, days)}%</b>` : ""}</div>` : ""}</div>
         <div class="small">${c.rating ? `<span class="stars">★</span> <b>${c.rating}</b> <span class="muted">(${c.reviews_count})</span>` : `<span class="muted">${esc(t("car.new"))}</span>`}</div>
       </div>
       <div class="car-actions"><a class="btn btn-outline btn-sm" href="${href}">${esc(t("car.details"))}</a>

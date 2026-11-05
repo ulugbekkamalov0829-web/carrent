@@ -126,19 +126,70 @@
         <div class="bc-num">${esc(c.first6.slice(0, 4))} ${esc(c.first6.slice(4))}•• •••• ${esc(c.last4)}</div>
         <div class="bc-bot"><span>${esc(c.holder || "")}</span><span>${String(c.exp_month).padStart(2, "0")}/${String(c.exp_year).slice(2)}</span></div>
         <div class="bc-acts">${c.is_default ? "" : `<button class="linkbtn" data-cdef="${c.id}">${esc(t("cards.make_default"))}</button>`}<button class="linkbtn danger" data-cdel="${c.id}">${esc(t("common.delete"))}</button></div></div>`).join("")}
-      ${items.length < 5 ? `<form class="bank-card add" id="cardForm" novalidate>
-        <div class="field"><label for="cNum">${esc(t("cards.number"))}</label><input class="input" id="cNum" name="number" inputmode="numeric" autocomplete="cc-number" placeholder="8600 1234 5678 9012" maxlength="23" required></div>
-        <div class="grid-2"><div class="field"><label for="cExp">${esc(t("cards.exp"))}</label><input class="input" id="cExp" name="exp" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/YY" maxlength="5" required></div>
-          <div class="field"><label for="cHold">${esc(t("cards.holder"))}</label><input class="input" id="cHold" name="holder" autocomplete="cc-name" maxlength="60" placeholder="ALISHER KARIMOV"></div></div>
-        <button class="btn btn-sm">${icon("plus", 15)} ${esc(t("cards.add"))}</button></form>` : ""}</div>
+      </div>
+      ${items.length < 5 ? `<div class="pay-add card" id="payAdd">
+        <div class="pay-stage">
+          <div class="cc3d" id="cc3d"><div class="cc-glow"></div><div class="cc-inner">
+            <div class="cc-face cc-front"><div class="cc-row"><span class="cc-chip"></span><span class="cc-nfc">)))</span><b class="cc-brand" id="ccBrand">CARD</b></div>
+              <div class="cc-num" id="ccNum">•••• •••• •••• ••••</div>
+              <div class="cc-row cc-meta"><div><small>${esc(t("cards.holder"))}</small><span id="ccHold">${esc(t("cards.holder_ph"))}</span></div><div><small>${esc(t("cards.exp_short"))}</small><span id="ccExp">••/••</span></div></div></div>
+            <div class="cc-face cc-back"><div class="cc-strip"></div><div class="cc-back-body" id="ccBack">${icon("lock", 18)}<span>${esc(t("cards.back_note"))}</span></div></div>
+          </div></div>
+          <div class="pay-auth hidden" id="payAuth"><span class="spin"></span><b>${esc(t("cards.checking"))}</b><small id="payAuthSub"></small></div>
+          <ul class="pay-trust"><li>${icon("shield", 15)} ${esc(t("cards.trust1"))}</li><li>${icon("lock", 15)} ${esc(t("cards.trust2"))}</li></ul>
+        </div>
+        <form class="pay-form" id="cardForm" novalidate>
+          <h3>${esc(t("cards.add_title"))}</h3><p class="small muted">${esc(t("cards.add_sub"))}</p>
+          <div class="field"><label for="cHold">${esc(t("cards.holder"))}</label><div class="in-ico">${icon("user", 17)}<input class="input" id="cHold" name="holder" autocomplete="cc-name" maxlength="60" placeholder="ALISHER KARIMOV"></div></div>
+          <div class="field"><label for="cNum">${esc(t("cards.number"))}</label><div class="in-ico">${icon("card", 17)}<input class="input" id="cNum" name="number" inputmode="numeric" autocomplete="cc-number" placeholder="8600 1234 5678 9012" maxlength="23" required><b class="in-brand" id="cBrand"></b></div></div>
+          <div class="field"><label for="cExp">${esc(t("cards.exp"))}</label><div class="in-ico">${icon("calendar", 17)}<input class="input" id="cExp" name="exp" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/YY" maxlength="5" required></div></div>
+          ${items.length ? `<label class="check pay-save"><input type="checkbox" name="make_default" value="1"><span><b>${esc(t("cards.make_default_new"))}</b><small>${esc(t("cards.make_default_hint"))}</small></span></label>` : ""}
+          <button class="btn btn-block pay-btn" id="cardSave">${icon("lock", 16)} <span>${esc(t("cards.add"))}</span> →</button>
+          <p class="small muted pay-note">${icon("shield", 13)} ${esc(t("cards.no_cvv"))}</p>
+        </form></div>` : ""}
       <p class="small muted" style="margin-top:12px">${icon("lock", 14)} ${esc(t("cards.safe"))}</p>`;
-    const num = $("#cNum"), exp = $("#cExp");
-    num?.addEventListener("input", () => { const d = num.value.replace(/\D/g, "").slice(0, 19); num.value = d.replace(/(\d{4})(?=\d)/g, "$1 "); });
-    exp?.addEventListener("input", () => { const d = exp.value.replace(/\D/g, "").slice(0, 4); exp.value = d.length > 2 ? d.slice(0, 2) + "/" + d.slice(2) : d; });
+    const num = $("#cNum"), exp = $("#cExp"), hold = $("#cHold"), cc = $("#cc3d");
+    const brandOf = (d) => /^(8600|5614)/.test(d) ? "uzcard" : /^9860/.test(d) ? "humo" : /^4/.test(d) ? "visa" : /^(5[1-5]|2[2-7])/.test(d) ? "mastercard" : "";
+    const paint = () => {
+      if (!cc) return;
+      const d = num.value.replace(/\D/g, "");
+      const b = brandOf(d);
+      cc.className = "cc3d" + (b ? " b-" + b : "");
+      $("#ccBrand").textContent = BRAND[b] || "CARD";
+      $("#cBrand").textContent = BRAND[b] || "";
+      const shown = (d + "•".repeat(Math.max(0, 16 - d.length))).slice(0, Math.max(16, d.length));
+      $("#ccNum").innerHTML = shown.replace(/(.{4})(?=.)/g, "$1 ").split("").map((ch) => ch === " " ? `<i class="sp"></i>` : `<i class="${/\d/.test(ch) ? "on" : ""}">${ch}</i>`).join("");
+      $("#ccHold").textContent = hold.value.trim().toUpperCase() || t("cards.holder_ph");
+      $("#ccExp").textContent = exp.value || "••/••";
+    };
+    num?.addEventListener("input", () => { const d = num.value.replace(/\D/g, "").slice(0, 19); num.value = d.replace(/(\d{4})(?=\d)/g, "$1 "); paint(); });
+    exp?.addEventListener("input", () => { const d = exp.value.replace(/\D/g, "").slice(0, 4); exp.value = d.length > 2 ? d.slice(0, 2) + "/" + d.slice(2) : d; paint(); });
+    hold?.addEventListener("input", paint);
+    // Karta egasi va raqam yozilganda — old tomoni; xavfsizlik eslatmasiga bosilganda — orqa tomoni
+    [num, exp, hold].forEach((el) => el?.addEventListener("focus", () => cc.classList.remove("flip")));
+    $(".pay-note")?.addEventListener("click", () => cc.classList.toggle("flip"));
+    // Kursor bilan biroz egiladi (jonli effekt), telefonda o'chiq
+    $(".pay-stage")?.addEventListener("pointermove", (e) => {
+      if (e.pointerType !== "mouse") return;
+      const r = cc.getBoundingClientRect();
+      cc.style.setProperty("--rx", `${((e.clientY - r.top) / r.height - .5) * -10}deg`);
+      cc.style.setProperty("--ry", `${((e.clientX - r.left) / r.width - .5) * 14}deg`);
+    });
+    $(".pay-stage")?.addEventListener("pointerleave", () => { cc.style.setProperty("--rx", "0deg"); cc.style.setProperty("--ry", "0deg"); });
+    paint();
     $("#cardForm")?.addEventListener("submit", async (e) => {
       e.preventDefault();
-      try { await api("/api/me/cards", { method: "POST", body: formData(e.target) }); toast(t("cards.added"), "ok"); loadCards(); }
-      catch (err) { toast(err.message, "error"); }
+      const body = formData(e.target); body.make_default = !!e.target.make_default?.checked;
+      const d = num.value.replace(/\D/g, "");
+      $("#payAuthSub").textContent = `${BRAND[brandOf(d)] || ""} •••• ${d.slice(-4)}`;
+      $("#payAdd").classList.add("authing"); $("#payAuth").classList.remove("hidden");
+      const wait = new Promise((r) => setTimeout(r, 900));
+      try {
+        await api("/api/me/cards", { method: "POST", body }); await wait;
+        $("#payAdd").classList.replace("authing", "paid");
+        $("#payAuth").innerHTML = `<span class="pay-ok">${icon("check", 30)}</span><b>${esc(t("cards.added"))}</b>`;
+        setTimeout(loadCards, 1400);
+      } catch (err) { await wait; $("#payAdd").classList.remove("authing"); $("#payAuth").classList.add("hidden"); toast(err.message, "error"); }
     });
     box.onclick = async (e) => {
       const d = e.target.closest("[data-cdel]"), f = e.target.closest("[data-cdef]");

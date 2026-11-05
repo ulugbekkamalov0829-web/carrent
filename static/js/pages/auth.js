@@ -74,7 +74,6 @@
   });
   metaP.then(() => {
     if (meta.dev_inbox) $$("#fInbox, #vInbox").forEach((a) => a.classList.remove("hidden"));
-    $("#demoBox").classList.toggle("hidden", !meta.demo);
     // Haqiqiy rejimda ulanmagan kanal tanlanmaydi (kod hech qayerga bormaydi)
     for (const [ch, okv] of [["email", meta.email_real || meta.dev_inbox], ["sms", meta.sms_real || meta.dev_inbox]]) {
       const b = $(`#fChannel [data-ch="${ch}"]`); b.disabled = !okv; b.title = okv ? "" : t("chan.unavailable");
@@ -113,9 +112,6 @@
     if (!id || !pw) { toast(t("val.fill_login"), "error"); return; }
     login(id, pw, $("#loginForm button[type=submit]"));
   });
-  $$("[data-demo]").forEach((b) => b.addEventListener("click", () => {
-    show("login"); $("#lLogin").value = b.dataset.demo; $("#lPassword").value = "CarRent-2026"; login(b.dataset.demo, "CarRent-2026", b);
-  }));
 
   // ---- Ro'yxatdan o'tish ----
   const reg = $("#registerForm");

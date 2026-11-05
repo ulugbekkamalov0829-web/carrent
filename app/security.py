@@ -69,6 +69,14 @@ def _jti_hash(jti: str) -> str:
     return hashlib.sha256(jti.encode()).hexdigest()
 
 
+WEB_SESSION_HOURS = 12   # brauzer (sayt) orqali: qisqa sessiya, brauzer yopilsa — qayta email va parol
+
+
+def is_app_client(request: Request | None) -> bool:
+    """O'rnatilgan ilova (PWA) so'rovi: sessiya uzoq saqlanadi, ekran PIN kod bilan himoyalanadi."""
+    return bool(request) and request.headers.get("x-app-mode") == "app"
+
+
 def create_session(db, user_id: int, role: str, request: Request | None = None) -> str:
     jti = secrets.token_urlsafe(24)
     ua = (request.headers.get("user-agent", "") if request else "")[:200]
@@ -76,7 +84,7 @@ def create_session(db, user_id: int, role: str, request: Request | None = None) 
                (_jti_hash(jti), user_id, client_ip(request) if request else None, ua))
     now = datetime.now(timezone.utc)
     payload = {"sub": str(user_id), "role": role, "jti": jti, "iat": now,
-               "exp": now + timedelta(hours=settings.TOKEN_TTL_HOURS)}
+               "exp": now + timedelta(hours=settings.TOKEN_TTL_HOURS if is_app_client(request) or request is None else WEB_SESSION_HOURS)}
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
@@ -94,8 +102,9 @@ def revoke_user_sessions(db, user_id: int, except_sid: str | None = None) -> int
     return db.execute(sql, params).rowcount
 
 
-def set_auth_cookie(response, token: str) -> None:
-    response.set_cookie(settings.COOKIE_NAME, token, max_age=settings.TOKEN_TTL_HOURS * 3600, httponly=True,
+def set_auth_cookie(response, token: str, persistent: bool = True) -> None:
+    """Ilovada — 7 kunlik cookie; saytda (brauzerda) — sessiya cookie: brauzer yopilishi bilan o'chadi."""
+    response.set_cookie(settings.COOKIE_NAME, token, max_age=settings.TOKEN_TTL_HOURS * 3600 if persistent else None, httponly=True,
                         secure=settings.COOKIE_SECURE, samesite="lax", path="/")
 
 

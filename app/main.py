@@ -16,7 +16,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from .config import settings
 from .db import init_db
 from .i18n import current_lang, detect_lang, tr
-from .routes import passkeys, admin_users, advisor, analytics, auth, bookings, cars, dashboard, drill, rental, trust, ops, payments, smart, social
+from .routes import applock, passkeys, admin_users, advisor, analytics, auth, bookings, cars, dashboard, drill, rental, trust, ops, payments, smart, social
 from .utils import ApiValidationError
 
 log = logging.getLogger("carrent")
@@ -170,7 +170,7 @@ def create_app() -> Starlette:
     routes = [
         Route("/api/health", health),
         Route("/about.html", moved),
-        *auth.routes, *passkeys.routes, *cars.routes, *bookings.routes, *social.routes, *dashboard.routes, *smart.routes, *payments.routes, *analytics.routes, *advisor.routes, *ops.routes, *drill.routes, *admin_users.routes, *trust.routes, *rental.routes,
+        *auth.routes, *passkeys.routes, *applock.routes, *cars.routes, *bookings.routes, *social.routes, *dashboard.routes, *smart.routes, *payments.routes, *analytics.routes, *advisor.routes, *ops.routes, *drill.routes, *admin_users.routes, *trust.routes, *rental.routes,
         Route("/api/{rest:path}", api_not_found, methods=["GET", "POST", "PUT", "PATCH", "DELETE"]),
         Mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads"),
         Mount("/", StaticFiles(directory=settings.STATIC_DIR, html=True), name="static"),

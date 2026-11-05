@@ -441,6 +441,16 @@ CREATE TABLE IF NOT EXISTS passkeys (
     last_used   TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_passkeys_user ON passkeys(user_id);
+
+-- v9: ilova ekran qulfi (PIN kod) — har qurilma uchun alohida, bank ilovalaridagidek
+CREATE TABLE IF NOT EXISTS app_pins (
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    device_id  TEXT    NOT NULL,
+    pin_hash   TEXT    NOT NULL,
+    fails      INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, device_id)
+);
 """
 
 

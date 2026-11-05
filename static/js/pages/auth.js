@@ -247,7 +247,9 @@
 
   // ---- Saqlangan parol bilan avtomatik to'ldirish va barmoq izi bilan kirish ----
   Creds.fill($("#lLogin"), $("#lPassword"));
-  if (Passkey.supported()) {
+  // Barmoq izi bilan kirish — faqat o'rnatilgan ilovada; saytda har safar email va parol
+  if (new URLSearchParams(location.search).get("again")) toast(t("visit.again"), "");
+  if (IS_APP && Passkey.supported()) {
     $("#passkeyBtn").classList.remove("hidden");
     $("#passkeyBtn").addEventListener("click", async (e) => {
       await withLoading(e.currentTarget, async () => {

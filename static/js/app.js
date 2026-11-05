@@ -61,8 +61,11 @@ async function setLang(lang) {
 }
 
 // ================= API =================
+/** O'rnatilgan ilova (telefon yoki kompyuterdagi PWA) — saytdan farqli: uzoq sessiya + ekran PIN kodi */
+const IS_APP = matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: window-controls-overlay)").matches || navigator.standalone === true;
+
 async function api(path, { method = "GET", body, form } = {}) {
-  const opts = { method, headers: { "X-Requested-With": "fetch" }, credentials: "same-origin" };
+  const opts = { method, headers: { "X-Requested-With": "fetch", ...(IS_APP ? { "X-App-Mode": "app" } : {}) }, credentials: "same-origin" };
   if (form) opts.body = form;
   else if (body !== undefined) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
   let res;
@@ -398,7 +401,7 @@ const Passkey = {
     return next;
   },
   async maybeOffer() {
-    if (!Auth.user || this.enabledHere() || !this.supported()) return;
+    if (!IS_APP || !Auth.user || this.enabledHere() || !this.supported()) return;
     let want = false;
     try {
       want = sessionStorage.getItem("cr.pkOffer") === "1";
@@ -501,6 +504,128 @@ const Help = {
 };
 document.addEventListener("click", (e) => { const b = e.target.closest("[data-help]"); if (b) { e.preventDefault(); Help.open(b.dataset.help || undefined); } });
 
+/** Sayt (brauzer) orqali: har yangi tashrifda email va parol qayta so'raladi.
+    Tashrif = shu brauzer oynasidagi sessiya; boshqa joydagi havoladan (Telegram, qidiruv...) kelinsa — yangi tashrif. */
+const Visit = {
+  mark() { try { sessionStorage.setItem("cr.visit", "1"); } catch { /* */ } },
+  mustRelogin() {
+    if (location.pathname.startsWith("/auth")) return false;
+    let inVisit = false;
+    try { inVisit = sessionStorage.getItem("cr.visit") === "1"; } catch { return false; }
+    const fromHere = document.referrer && new URL(document.referrer).origin === location.origin;
+    return !inVisit && !fromHere;
+  },
+  async relogin() {
+    await api("/api/auth/logout", { method: "POST" }).catch(() => {});
+    location.replace("/auth.html?next=" + encodeURIComponent(location.pathname + location.search + location.hash) + "&again=1#login");
+  },
+};
+
+/** Ilova ekran qulfi: bank ilovalaridagidek PIN kod (4 raqam) va barmoq izi.
+    Ro'yxatdan o'tgan/kirgan zahoti PIN o'rnatish majburiy; ilova har ochilganda va 1 daqiqadan ko'p fonda turgach — qulf. */
+const AppLock = {
+  LOCK_AFTER_MS: 60 * 1000,
+  device() {
+    try {
+      let d = localStorage.getItem("cr.dev");
+      if (!d) { const a = new Uint8Array(18); crypto.getRandomValues(a); d = "d" + [...a].map((x) => x.toString(16).padStart(2, "0")).join(""); localStorage.setItem("cr.dev", d); }
+      return d;
+    } catch { return "dnostorage00000000000"; }
+  },
+  async check(user) {
+    let st;
+    try { st = await api("/api/me/pin?device_id=" + this.device()); } catch { document.documentElement.classList.remove("app-locked"); return; }
+    try { st.set ? localStorage.setItem("cr.pinUser", String(user.id)) : localStorage.removeItem("cr.pinUser"); } catch { /* */ }
+    if (!st.set) { await this.setup(true); Passkey.maybeOffer(); return; }
+    let unlocked = false;
+    try { unlocked = sessionStorage.getItem("cr.unlocked") === String(user.id) && Date.now() - +(sessionStorage.getItem("cr.hiddenAt") || 0) < this.LOCK_AFTER_MS; } catch { /* */ }
+    if (!unlocked) await this.lock(user);
+    document.documentElement.classList.remove("app-locked");
+    this.watch(user);
+  },
+  watch(user) {
+    if (this._w) return; this._w = true;
+    document.addEventListener("visibilitychange", () => {
+      try {
+        if (document.hidden) sessionStorage.setItem("cr.hiddenAt", String(Date.now()));
+        else if (Date.now() - +(sessionStorage.getItem("cr.hiddenAt") || Date.now()) > this.LOCK_AFTER_MS) { sessionStorage.removeItem("cr.unlocked"); this.lock(user); }
+      } catch { /* */ }
+    });
+  },
+  pad(title, sub, { bio = false, footer = "" } = {}) {
+    const el = document.createElement("div"); el.className = "lock-screen";
+    el.innerHTML = `<div class="lock-box"><div class="lock-logo"><span class="logo-mark">${LOGO}</span></div>
+      <h2>${esc(title)}</h2><p class="lock-sub">${esc(sub)}</p>
+      <div class="lock-dots"><i></i><i></i><i></i><i></i></div><p class="lock-err" aria-live="assertive"></p>
+      <div class="lock-keys">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<button type="button" data-k="${n}">${n}</button>`).join("")}
+        ${bio ? `<button type="button" class="lk-bio" data-bio aria-label="${esc(t("pk.login"))}">${icon("finger", 28)}</button>` : "<span></span>"}
+        <button type="button" data-k="0">0</button><button type="button" class="lk-del" data-del aria-label="${esc(t("common.delete"))}">⌫</button></div>
+      ${footer}</div>`;
+    document.body.append(el);
+    requestAnimationFrame(() => el.classList.add("in"));
+    return el;
+  },
+  /** 4 xonali kod kiritish: ekrandagi tugmalar yoki klaviatura */
+  input(el, onDone) {
+    let v = "";
+    const dots = $$(".lock-dots i", el);
+    const paint = () => dots.forEach((d, i) => d.classList.toggle("on", i < v.length));
+    const push = (k) => { if (v.length >= 4) return; v += k; paint(); if (v.length === 4) setTimeout(() => { const x = v; v = ""; onDone(x, () => { paint(); }); paint(); }, 120); };
+    el.addEventListener("click", (e) => { const b = e.target.closest("[data-k]"); if (b) { navigator.vibrate?.(8); push(b.dataset.k); } if (e.target.closest("[data-del]")) { v = v.slice(0, -1); paint(); } });
+    const key = (e) => { if (/^\d$/.test(e.key)) push(e.key); else if (e.key === "Backspace") { v = v.slice(0, -1); paint(); } };
+    document.addEventListener("keydown", key);
+    return () => document.removeEventListener("keydown", key);
+  },
+  shake(el, msg) {
+    $(".lock-err", el).textContent = msg || "";
+    const d = $(".lock-dots", el); d.classList.remove("bad"); void d.offsetWidth; d.classList.add("bad"); navigator.vibrate?.([40, 40, 40]);
+  },
+  close(el) { el.classList.remove("in"); setTimeout(() => el.remove(), 250); },
+  /** PIN o'rnatish (majburiy): ikki marta kiritiladi */
+  setup(mandatory) {
+    return new Promise((resolve) => {
+      document.documentElement.classList.remove("app-locked");
+      const el = this.pad(t("lock.set_t"), t("lock.set_sub"), { footer: mandatory ? `<p class="lock-note">${icon("shield", 14)} ${esc(t("lock.why"))}</p>` : `<button type="button" class="linkbtn lock-link" data-cancel>${esc(t("common.cancel"))}</button>` });
+      let first = null;
+      const off = this.input(el, async (pin) => {
+        if (!first) {
+          if (/^(\d)\1{3}$/.test(pin) || "0123456789".includes(pin) || "9876543210".includes(pin)) { this.shake(el, t("lock.weak")); return; }
+          first = pin; $("h2", el).textContent = t("lock.repeat_t"); $(".lock-sub", el).textContent = t("lock.repeat_sub"); $(".lock-err", el).textContent = ""; return;
+        }
+        if (pin !== first) { first = null; $("h2", el).textContent = t("lock.set_t"); $(".lock-sub", el).textContent = t("lock.set_sub"); this.shake(el, t("lock.mismatch")); return; }
+        try {
+          await api("/api/me/pin", { method: "PUT", body: { device_id: this.device(), pin } });
+          try { localStorage.setItem("cr.pinUser", String(Auth.user.id)); sessionStorage.setItem("cr.unlocked", String(Auth.user.id)); } catch { /* */ }
+          off(); this.close(el); toast(t("lock.saved"), "ok"); resolve(true);
+        } catch (err) { first = null; $("h2", el).textContent = t("lock.set_t"); this.shake(el, err.message); }
+      });
+      el.querySelector("[data-cancel]")?.addEventListener("click", () => { off(); this.close(el); resolve(false); });
+    });
+  },
+  /** Qulf ekrani: PIN yoki barmoq izi */
+  lock(user) {
+    if ($(".lock-screen.unlock")) return Promise.resolve();
+    return new Promise((resolve) => {
+      const bio = Passkey.enabledHere() && Passkey.supported();
+      const el = this.pad(t("lock.hello", { name: (user.full_name || "").split(" ")[0] }), t(bio ? "lock.enter_or_bio" : "lock.enter"),
+        { bio, footer: `<button type="button" class="linkbtn lock-link" data-other>${esc(t("lock.other"))}</button>` });
+      el.classList.add("unlock");
+      const done = () => { try { sessionStorage.setItem("cr.unlocked", String(user.id)); sessionStorage.removeItem("cr.hiddenAt"); } catch { /* */ } off(); this.close(el); document.documentElement.classList.remove("app-locked"); resolve(); };
+      const off = this.input(el, async (pin) => {
+        try { await api("/api/me/pin/verify", { method: "POST", body: { device_id: this.device(), pin } }); done(); }
+        catch (err) {
+          if (err.status === 403) { toast(err.message, "error"); try { localStorage.removeItem("cr.pinUser"); } catch { /* */ } location.href = "/auth.html#login"; return; }
+          this.shake(el, err.message);
+        }
+      });
+      const tryBio = async () => { try { await Passkey.login(); done(); } catch (err) { if (err.name !== "NotAllowedError" && err.name !== "AbortError") this.shake(el, err.message); } };
+      el.querySelector("[data-bio]")?.addEventListener("click", tryBio);
+      el.querySelector("[data-other]").addEventListener("click", () => Auth.logout());
+      if (bio) setTimeout(tryBio, 350);
+    });
+  },
+};
+
 /** Har sahifa boshida: foydalanuvchi, til, header va footer */
 async function boot(active = "", { bare = false } = {}) {
   const [user] = await Promise.all([Auth.load(), I18N.load(I18N.initial(null)), Places.load().catch(() => null)]);
@@ -515,7 +640,9 @@ async function boot(active = "", { bare = false } = {}) {
   applyMasks();
   renderFooter();
   mustChangeBanner(user);
-  Passkey.maybeOffer();
+  if (user && !IS_APP && Visit.mustRelogin()) { await Visit.relogin(); throw new Error("relogin"); }
+  if (user) Visit.mark();
+  if (user && IS_APP) await AppLock.check(user);
   return user;
 }
 
@@ -1283,10 +1410,12 @@ function pwChecklist(input, { compact = false } = {}) {
 
 /** Ishonchli parol: 14 belgi, katta/kichik harf, raqam va belgi albatta bor; o'xshash belgilar (0/O, l/1) ishlatilmaydi */
 function strongPassword(len = 14) {
-  const sets = ["ABCDEFGHJKLMNPQRSTUVWXYZ", "abcdefghijkmnpqrstuvwxyz", "23456789", "!@#-_.?"];
+  const sets = ["ABCDEFGHJKLMNPQRSTUVWXYZ", "abcdefghijkmnpqrstuvwxyz", "23456789", "!@#$%&*?+=-_"];
   const rnd = (n) => { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] % n; };
   const all = sets.join("");
+  // Har turdan kamida bittadan, belgilardan esa kamida 2–3 ta (masalan: Kp7#vR2!mQ9@xT)
   const chars = sets.map((x) => x[rnd(x.length)]);
+  for (let k = 0; k < 2; k++) chars.push(sets[3][rnd(sets[3].length)]);
   while (chars.length < len) chars.push(all[rnd(all.length)]);
   for (let i = chars.length - 1; i > 0; i--) { const j = rnd(i + 1); [chars[i], chars[j]] = [chars[j], chars[i]]; }
   return chars.join("");

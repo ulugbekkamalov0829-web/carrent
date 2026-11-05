@@ -289,3 +289,11 @@ CATALOG.update({
     "JSHSHIR yoki pasport/ID seriya-raqamini kiriting": ("Укажите ПИНФЛ или серию и номер паспорта/ID", "Enter your PINFL or passport/ID number"),
     "Bu pasport boshqa akkauntga bog'langan. Muammo bo'lsa admin bilan bog'laning": ("Этот паспорт привязан к другому аккаунту. Если это ошибка — свяжитесь с админом", "This passport is linked to another account. Contact the admin if this is a mistake"),
 })
+CATALOG.update({
+    "Qurilma aniqlanmadi": ("Устройство не определено", "Device not recognised"),
+    "PIN kod 4 ta raqamdan iborat bo'lishi kerak": ("PIN-код должен состоять из 4 цифр", "The PIN must be 4 digits"),
+    "Bu PIN kodni topish oson (1111, 1234 kabi). Boshqasini tanlang": ("Такой PIN легко угадать (1111, 1234). Выберите другой", "That PIN is easy to guess (1111, 1234). Choose another"),
+    "Bu qurilmada PIN kod o'rnatilmagan": ("На этом устройстве PIN-код не установлен", "No PIN is set on this device"),
+    "PIN kod 5 marta noto'g'ri kiritildi. Email va parol bilan qayta kiring": ("PIN-код неверно введён 5 раз. Войдите заново по email и паролю", "Wrong PIN 5 times. Sign in again with your email and password"),
+    "PIN kod noto'g'ri. Yana {n} ta urinish qoldi": ("Неверный PIN-код. Осталось попыток: {n}", "Wrong PIN. {n} attempts left"),
+})

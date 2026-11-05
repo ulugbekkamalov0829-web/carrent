@@ -123,3 +123,31 @@ def test_admin_emails_promote_after_verification():
         assert r.status_code == 200 and r.json()["user"]["role"] == "admin"
     finally:
         settings.ADMIN_EMAILS = set()
+
+
+def test_app_pin_lock_and_lockout():
+    c, u = make_user()
+    dev = "dev_" + "a" * 20
+    assert c.get("/api/me/pin", params={"device_id": dev}).json()["set"] is False
+    assert c.put("/api/me/pin", headers=H, json={"device_id": dev, "pin": "1111"}).status_code == 400   # oson
+    assert c.put("/api/me/pin", headers=H, json={"device_id": dev, "pin": "1234"}).status_code == 400
+    assert c.put("/api/me/pin", headers=H, json={"device_id": dev, "pin": "4827"}).status_code == 200
+    assert c.post("/api/me/pin/verify", headers=H, json={"device_id": dev, "pin": "4827"}).json()["unlocked"] is True
+    for i in range(4):
+        r = c.post("/api/me/pin/verify", headers=H, json={"device_id": dev, "pin": "0000"})
+        assert r.status_code == 401
+    r = c.post("/api/me/pin/verify", headers=H, json={"device_id": dev, "pin": "0000"})
+    assert r.status_code == 403 and r.json()["locked_out"] is True
+    assert c.get("/api/auth/me").json()["user"] is None          # sessiya yopildi
+
+
+def test_web_login_is_session_cookie_app_login_persistent():
+    from starlette.testclient import TestClient
+    from app.main import app
+    _, u = make_user()
+    web = TestClient(app)
+    r = web.post("/api/auth/login", headers=H, json={"login": u["email"], "password": "Uzun-parol-2026"})
+    assert "Max-Age" not in r.headers["set-cookie"]
+    appc = TestClient(app)
+    r = appc.post("/api/auth/login", headers={**H, "X-App-Mode": "app"}, json={"login": u["email"], "password": "Uzun-parol-2026"})
+    assert "Max-Age" in r.headers["set-cookie"]

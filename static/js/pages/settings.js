@@ -52,8 +52,11 @@
           <div class="field"><label for="op">${esc(t("sec.current"))}</label><div class="pw-wrap"><input class="input" type="password" id="op" name="old_password" autocomplete="current-password" required><button type="button" class="pw-eye" data-pw="op"></button></div></div>
           <div class="field"><label for="np">${esc(t("sec.new"))}</label><div class="pw-wrap"><input class="input" type="password" id="np" name="new_password" autocomplete="new-password" required minlength="8"><button type="button" class="pw-eye" data-pw="np"></button></div></div>
           <button class="btn">${esc(t("sec.update"))}</button><p class="small muted" style="margin-top:8px">${esc(t("set.pw_note"))}</p></form>
-        <h3 style="margin-top:22px">${icon("finger", 18)} ${esc(t("pk.title"))}</h3><p class="small muted">${esc(t("pk.sub"))}</p>
-        <div id="pkBox"><div class="skeleton" style="height:60px"></div></div>
+        <h3 style="margin-top:22px">${icon("lock", 18)} ${esc(t("lock.title"))}</h3>
+        <div id="pinBox" class="pin-box">${IS_APP ? `<div class="skeleton" style="height:50px"></div>` : `<div class="notice small">${icon("info", 15)} ${esc(t("lock.web_note"))}
+          ${Install.available() ? ` <button type="button" class="linkbtn" id="pinInstall">${esc(t("pwa.install"))}</button>` : ""}</div>`}</div>
+        ${IS_APP ? `<h3 style="margin-top:22px">${icon("finger", 18)} ${esc(t("pk.title"))}</h3><p class="small muted">${esc(t("pk.sub"))}</p>
+        <div id="pkBox"><div class="skeleton" style="height:60px"></div></div>` : ""}
         <h3 style="margin-top:22px">${esc(t("set.sessions"))}</h3><p class="small muted">${esc(t("set.sessions_sub"))}</p>
         <div id="sessions"><div class="skeleton" style="height:80px"></div></div>
         <button class="btn btn-outline btn-sm" id="logoutAll" style="margin-top:10px">${esc(t("set.logout_all"))}</button>`) +
@@ -76,13 +79,23 @@
     newPw = pwChecklist($("#np")); pwGenerator($("#np"));
     bind(); loadSessions(); showSection();
     if (me.role !== "admin") { loadDocs(); loadCards(); }
-    loadPasskeys();
+    loadPasskeys(); loadPin();
   }
 
   // ---------------- Hujjatlar: guvohnoma, pasport/ID, selfi ----------------
   const DOCS = [["license", "idcard"], ["id_card", "user"], ["selfie", "camera"]];
   const docTag = (st) => `<span class="tag ${st === "approved" ? "tag-ok" : st === "pending" ? "tag-pending" : st === "rejected" ? "tag-bad" : "tag-hidden"}">${esc(t("docs.st_" + (st || "none")))}</span>`;
   // ---------------- Barmoq izi / yuz bilan kirish ----------------
+  async function loadPin() {
+    $("#pinInstall")?.addEventListener("click", () => Install.run());
+    const box = $("#pinBox"); if (!box || !IS_APP) return;
+    const st = await api("/api/me/pin?device_id=" + AppLock.device()).catch(() => ({ set: false }));
+    box.innerHTML = `<div class="pk-item">${icon("lock", 20)}<div><b>${esc(t(st.set ? "lock.on" : "lock.off"))}</b>
+      <div class="small muted">${esc(t("lock.desc"))}</div></div>
+      <button class="btn btn-sm btn-soft" id="pinChange">${esc(t(st.set ? "lock.change" : "lock.set_btn"))}</button></div>`;
+    $("#pinChange").addEventListener("click", async () => { if (await AppLock.setup(false)) loadPin(); });
+  }
+
   async function loadPasskeys() {
     const box = $("#pkBox"); if (!box) return;
     const { items } = await api("/api/passkeys");
@@ -103,7 +116,7 @@
       if (d && await confirmBox(t("pk.del_confirm"), t("common.delete"), true)) {
         await api(`/api/passkeys/${d.dataset.pkdel}`, { method: "DELETE" });
         try { localStorage.removeItem("cr.passkey"); } catch { /* */ }
-        loadPasskeys();
+        loadPasskeys(); loadPin();
       }
     };
   }

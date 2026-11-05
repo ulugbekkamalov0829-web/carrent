@@ -2536,3 +2536,30 @@ html[data-theme="dark"] .side-search input { color: #e2e8f0; }
 @media (min-width: 761px) { .pk-sheet { align-items: center; justify-content: center; } .pk-sheet .sheet { border-radius: 22px; } }
 .pk-sheet h3 { margin: 4px 0 0; } .pk-sheet p { margin: 0 0 6px; }
 .pk-big.ok { color: #fff; background: var(--success); box-shadow: 0 0 0 8px rgba(16, 185, 129, .2); animation: popIn .5s cubic-bezier(.3, 1.6, .5, 1) both; }
+
+/* v9: ilova ekran qulfi (PIN kod) — bank ilovalaridagidek */
+html.app-locked body > *:not(.lock-screen) { visibility: hidden; }
+html.app-locked body { background: #07111d; }
+.lock-screen { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 20px; visibility: visible;
+  background: radial-gradient(500px 360px at 50% 0%, rgba(59, 130, 246, .35), transparent 70%), linear-gradient(180deg, #0b1630, #050912);
+  color: #e2e8f0; opacity: 0; transition: opacity .25s; }
+.lock-screen.in { opacity: 1; }
+.lock-box { width: min(340px, 100%); text-align: center; display: grid; justify-items: center; gap: 6px; }
+.lock-logo .logo-mark { width: 58px; height: 58px; border-radius: 18px; background: linear-gradient(135deg, #3b82f6, #1e3a8a); box-shadow: 0 0 30px rgba(59, 130, 246, .5); }
+.lock-logo .logo-mark svg { width: 32px; height: 32px; }
+.lock-box h2 { color: #fff; margin: 12px 0 0; font-size: 1.35rem; }
+.lock-sub { color: #94a3b8; margin: 0; font-size: .92rem; }
+.lock-dots { display: flex; gap: 16px; margin: 18px 0 4px; }
+.lock-dots i { width: 15px; height: 15px; border-radius: 50%; border: 2px solid #60a5fa; transition: background .15s, transform .15s; }
+.lock-dots i.on { background: #60a5fa; transform: scale(1.1); box-shadow: 0 0 12px rgba(96, 165, 250, .8); }
+.lock-dots.bad { animation: shake .4s; } .lock-dots.bad i { border-color: #f87171; }
+.lock-err { min-height: 1.3em; color: #fca5a5; font-size: .85rem; margin: 0; }
+.lock-keys { display: grid; grid-template-columns: repeat(3, 72px); gap: 14px 22px; margin-top: 6px; }
+.lock-keys button { width: 72px; height: 72px; border-radius: 50%; border: 1px solid rgba(148, 163, 184, .25); background: rgba(255, 255, 255, .06); color: #fff;
+  font: 600 1.6rem var(--font); cursor: pointer; display: grid; place-items: center; transition: background .12s, transform .12s; }
+.lock-keys button:active { background: rgba(96, 165, 250, .35); transform: scale(.94); }
+.lock-keys .lk-del, .lock-keys .lk-bio { border-color: transparent; background: none; font-size: 1.4rem; color: #93c5fd; }
+.lock-link { color: #93c5fd; margin-top: 14px; }
+.lock-note { color: #94a3b8; font-size: .8rem; margin-top: 14px; display: flex; gap: 6px; align-items: flex-start; text-align: left; }
+@media (max-height: 640px) { .lock-keys { grid-template-columns: repeat(3, 60px); gap: 10px 18px; } .lock-keys button { width: 60px; height: 60px; font-size: 1.35rem; } }
+.pin-box { margin-bottom: 6px; }

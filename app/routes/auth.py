@@ -14,7 +14,7 @@ from ..db import get_db, one, rows, transaction
 from ..i18n import tr
 from ..schemas import (ResetCheckIn, CodeIn, EmailChangeIn, ForgotIn, LangIn, LoginIn, ModeIn, PasswordChangeIn, PasswordConfirmIn,
                        PrefsIn, ProfileIn, RegisterIn, ResetIn, VerifyConfirmIn, VerifyStartIn)
-from ..security import (PUBLIC_USER_FIELDS, account_limiter, burn_time, clear_auth_cookie, client_ip, code_limiter,
+from ..security import (is_app_client, PUBLIC_USER_FIELDS, account_limiter, burn_time, clear_auth_cookie, client_ip, code_limiter,
                         create_session, current_user_or_none, forgot_limiter, hash_code, hash_password, login_limiter,
                         new_code, normalize_phone, register_limiter, require, revoke_user_sessions, set_auth_cookie,
                         verify_password)
@@ -48,7 +48,7 @@ def _find_by_login(db, login: str) -> dict | None:
 def _login_response(db, user_id: int, role: str, request: Request, status: int = 200):
     token = create_session(db, user_id, role, request)
     resp = ok({"user": user_payload(db, user_id)}, status)
-    set_auth_cookie(resp, token)
+    set_auth_cookie(resp, token, persistent=is_app_client(request))
     return resp
 
 

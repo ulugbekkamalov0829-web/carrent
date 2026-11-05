@@ -164,7 +164,7 @@ async def register_options(request: Request):
         "timeout": CHALLENGE_TTL * 1000,
         "attestation": "none",
         "authenticatorSelection": {"authenticatorAttachment": "platform", "userVerification": "required",
-                                   "residentKey": "preferred", "requireResidentKey": False},
+                                   "residentKey": "required", "requireResidentKey": True},
         "excludeCredentials": [{"type": "public-key", "id": r["cred_id"]} for r in mine],
     })
 

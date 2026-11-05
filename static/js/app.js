@@ -391,27 +391,45 @@ const Passkey = {
     try { localStorage.setItem("cr.passkey", "1"); } catch { /* */ }
     return res;
   },
-  /** Parol bilan kirgandan keyin: barmoq izini yoqishni taklif qilish (keyingi sahifada) */
+  /** Parol bilan kirgandan yoki ro'yxatdan o'tgandan keyin: keyingi sahifada bank ilovalaridagidek "Barmoq izini ulaysizmi?" */
   offerAfterLogin(next) {
     if (!this.supported() || this.enabledHere()) return next;
-    try { if (!sessionStorage.getItem("cr.pkAsked")) sessionStorage.setItem("cr.pkOffer", "1"); } catch { /* */ }
+    try { sessionStorage.setItem("cr.pkOffer", "1"); localStorage.removeItem("cr.pkLater"); } catch { /* */ }
     return next;
   },
   async maybeOffer() {
+    if (!Auth.user || this.enabledHere() || !this.supported()) return;
     let want = false;
-    try { want = sessionStorage.getItem("cr.pkOffer") === "1"; sessionStorage.removeItem("cr.pkOffer"); } catch { return; }
-    if (!want || !Auth.user || !(await this.canPlatform())) return;
+    try {
+      want = sessionStorage.getItem("cr.pkOffer") === "1";
+      sessionStorage.removeItem("cr.pkOffer");
+      // Telefonda: kirgan foydalanuvchiga ham vaqti-vaqti bilan (rad etgan bo'lsa — 3 kundan keyin) eslatamiz
+      const later = +(localStorage.getItem("cr.pkLater") || 0);
+      if (!want && matchMedia("(pointer: coarse)").matches && Date.now() - later > 3 * 864e5 && !sessionStorage.getItem("cr.pkAsked")) want = true;
+    } catch { return; }
+    if (!want || !(await this.canPlatform())) return;
     try { sessionStorage.setItem("cr.pkAsked", "1"); } catch { /* */ }
-    const bg = document.createElement("div"); bg.className = "modal-bg";
-    bg.innerHTML = `<div class="modal card card-pad pk-offer" role="dialog" aria-modal="true"><div class="pk-big">${icon("finger", 40)}</div>
+    // Serverda shu akkauntga allaqachon barmoq izi ulangan bo'lsa (masalan, boshqa brauzerdan) — so'ramaymiz
+    try { const { items } = await api("/api/passkeys"); if (items.length && /(iPhone|Android)/.test(navigator.userAgent) && items.some((p) => navigator.userAgent.includes(p.name))) return; } catch { /* */ }
+    const bg = document.createElement("div"); bg.className = "sheet-bg pk-sheet";
+    bg.innerHTML = `<div class="sheet pk-offer" role="dialog" aria-modal="true"><div class="sheet-grab"></div>
+      <div class="pk-big">${icon("finger", 44)}</div>
       <h3>${esc(t("pk.offer_t"))}</h3><p class="muted">${esc(t("pk.offer_b"))}</p>
-      <div class="row" style="justify-content:center;margin-top:10px"><button class="btn btn-outline" data-close>${esc(t("pk.later"))}</button><button class="btn" id="pkYes">${icon("finger", 16)} ${esc(t("pk.enable"))}</button></div></div>`;
+      <button class="btn btn-block btn-lg" id="pkYes">${icon("finger", 18)} ${esc(t("pk.enable_now"))}</button>
+      <button class="btn btn-block btn-outline" data-close>${esc(t("pk.later"))}</button></div>`;
     document.body.append(bg);
+    requestAnimationFrame(() => bg.classList.add("in"));
+    const close = () => { bg.classList.remove("in"); setTimeout(() => bg.remove(), 220); };
     bg.addEventListener("click", async (e) => {
-      if (e.target === bg || e.target.closest("[data-close]")) { bg.remove(); return; }
-      if (e.target.closest("#pkYes")) {
-        try { await this.register(); toast(t("pk.enabled"), "ok"); } catch (err) { if (err.name !== "NotAllowedError") toast(err.message || t("pk.failed"), "error"); }
-        bg.remove();
+      if (e.target === bg || e.target.closest("[data-close]")) { try { localStorage.setItem("cr.pkLater", String(Date.now())); } catch { /* */ } close(); return; }
+      const yes = e.target.closest("#pkYes");
+      if (yes) {
+        yes.disabled = true;
+        try {
+          await this.register();   // telefonning o'z barmoq izi / Face ID oynasi chiqadi
+          bg.querySelector(".sheet").innerHTML = `<div class="pk-big ok">${icon("check", 44)}</div><h3>${esc(t("pk.enabled"))}</h3><p class="muted">${esc(t("pk.enabled_b"))}</p>
+            <button class="btn btn-block" data-close>${esc(t("common.done"))}</button>`;
+        } catch (err) { yes.disabled = false; if (err.name !== "NotAllowedError") toast(err.message || t("pk.failed"), "error"); }
       }
     });
   },

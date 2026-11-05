@@ -2521,3 +2521,18 @@ html.lp-snapping { scroll-snap-type: y proximity; }
 .lp-hero { overflow: hidden; }
 .lp { overflow-x: clip; }
 .lp-final-car.lit > img:first-child { filter: drop-shadow(0 30px 30px rgba(0, 0, 0, .75)) brightness(.95) contrast(1.1); }
+.caps, .plate-input { text-transform: uppercase; }
+.caps::placeholder, .plate-input::placeholder { text-transform: none; }
+.id-form { grid-template-columns: 1.3fr auto 1fr auto; }
+.id-or { align-self: center; margin-top: 18px; font-size: .78rem; font-weight: 800; text-transform: uppercase; color: var(--muted); letter-spacing: .08em; }
+@media (max-width: 700px) { .id-form { grid-template-columns: 1fr; } .id-or { margin: -4px 0; text-align: center; } }
+/* Tungi rejim: telefondagi menyu ham qorong'i (oq fon + oq yozuv bo'lmasin) */
+@media (max-width: 1023px) {
+  html[data-theme="dark"] .side { background: rgba(14, 22, 39, .97); border-color: rgba(148, 163, 184, .16); }
+  html[data-theme="dark"] .side-link.active { background: rgba(255, 255, 255, .1); }
+}
+html[data-theme="dark"] .side-search input { color: #e2e8f0; }
+.pk-sheet .sheet { padding: 8px 20px calc(20px + env(safe-area-inset-bottom)); text-align: center; gap: 10px; max-width: 520px; margin: 0 auto; }
+@media (min-width: 761px) { .pk-sheet { align-items: center; justify-content: center; } .pk-sheet .sheet { border-radius: 22px; } }
+.pk-sheet h3 { margin: 4px 0 0; } .pk-sheet p { margin: 0 0 6px; }
+.pk-big.ok { color: #fff; background: var(--success); box-shadow: 0 0 0 8px rgba(16, 185, 129, .2); animation: popIn .5s cubic-bezier(.3, 1.6, .5, 1) both; }

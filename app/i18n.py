@@ -285,3 +285,7 @@ CATALOG.update({
          "First check the registration, plate and VIN against the listing and tick \"checked, I accept\""),
 })
 CATALOG.update({"Barmoq izi bilan kirish serverda yoqilmagan": ("Вход по отпечатку на сервере не включён", "Fingerprint sign-in isn't enabled on the server")})
+CATALOG.update({
+    "JSHSHIR yoki pasport/ID seriya-raqamini kiriting": ("Укажите ПИНФЛ или серию и номер паспорта/ID", "Enter your PINFL or passport/ID number"),
+    "Bu pasport boshqa akkauntga bog'langan. Muammo bo'lsa admin bilan bog'laning": ("Этот паспорт привязан к другому аккаунту. Если это ошибка — свяжитесь с админом", "This passport is linked to another account. Contact the admin if this is a mistake"),
+})

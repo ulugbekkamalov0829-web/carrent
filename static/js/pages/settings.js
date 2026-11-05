@@ -115,12 +115,13 @@
     return `<div class="id-check card">
       <div class="row" style="justify-content:space-between"><b>${icon("idcard", 18)} ${esc(t("idc.title"))}</b>${done ? `<span class="verified">${icon("check", 13)} ${esc(t("idc.checked"))}</span>` : ""}</div>
       <p class="small muted" style="margin:6px 0 10px">${esc(t("idc.sub"))}</p>
-      ${done ? `<div class="doc-meta small"><span>${esc(t("idc.pinfl"))}: ${esc(st.pinfl_mask)}</span><span>${esc(t("idc.passport"))}: ${esc(st.passport_mask)}</span>
-        <span>${esc(t("idc.born"))}: ${fmtDate(st.birth_date)}</span><span>${esc(t(st.gender === "m" ? "idc.male" : "idc.female"))}</span></div>` : ""}
+      ${done ? `<div class="doc-meta small">${st.pinfl_mask ? `<span>${esc(t("idc.pinfl"))}: ${esc(st.pinfl_mask)}</span>` : ""}${st.passport_mask ? `<span>${esc(t("idc.passport"))}: ${esc(st.passport_mask)}</span>` : ""}
+        ${st.birth_date ? `<span>${esc(t("idc.born"))}: ${fmtDate(st.birth_date)}</span><span>${esc(t(st.gender === "m" ? "idc.male" : "idc.female"))}</span>` : ""}</div>` : ""}
       <form id="idForm" class="id-form ${done ? "hidden" : ""}" novalidate>
-        <div class="field"><label for="idPinfl">${esc(t("idc.pinfl"))}</label><input class="input" id="idPinfl" inputmode="numeric" maxlength="14" autocomplete="off" placeholder="31505900010012">
+        <div class="field"><label for="idPinfl">${esc(t("idc.pinfl"))}</label><input class="input" id="idPinfl" inputmode="numeric" maxlength="14" autocomplete="off" placeholder="31505900010012" value="">
           <div class="hint show small muted" id="idPinflHint">${esc(t("idc.pinfl_hint"))}</div></div>
-        <div class="field"><label for="idPass">${esc(t("idc.passport"))}</label><input class="input plate-input" id="idPass" maxlength="11" autocomplete="off" placeholder="AD 1234567"></div>
+        <div class="id-or">${esc(t("idc.or"))}</div>
+        <div class="field"><label for="idPass">${esc(t("idc.passport"))}</label><input class="input caps" id="idPass" maxlength="11" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="AD 1234567"></div>
         <button class="btn btn-sm">${icon("shield", 15)} ${esc(t("idc.check"))}</button></form>
       ${done ? `<button class="linkbtn" id="idEdit">${esc(t("common.edit"))}</button>` : ""}
       <p class="small muted" style="margin:10px 0 0">${icon("info", 13)} ${esc(t("idc.myid"))}</p></div>`;
@@ -139,11 +140,14 @@
       } else if (p.length && !c) msg = t("idc.bad_first");
       $("#idPinflHint").textContent = msg;
     });
-    $("#idPass").addEventListener("input", (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9 ]/g, ""); });
+    // Telefon klaviaturasi so'zni "yig'ib" turganda (IME) qiymatni qayta yozmaymiz — aks holda harflar yo'qolardi
+    $("#idPass").addEventListener("blur", (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9 ]/g, ""); });
     $("#idForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       await withLoading($("#idForm .btn"), async () => {
-        try { await api("/api/me/identity", { method: "PUT", body: { pinfl: pin.value, passport: $("#idPass").value } }); toast(t("idc.ok"), "ok"); loadDocs(); }
+        const pv = $("#idPass").value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+        if (!pin.value && !pv) { toast(t("idc.need_one"), "error"); return; }
+        try { await api("/api/me/identity", { method: "PUT", body: { pinfl: pin.value || null, passport: pv || null } }); toast(t("idc.ok"), "ok"); loadDocs(); }
         catch (err) { toast(err.message, "error"); }
       });
     });

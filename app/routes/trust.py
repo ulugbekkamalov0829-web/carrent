@@ -9,6 +9,7 @@ faqat hujjat egasi va admin ko'radi. Raqamning faqat qisqa ko'rinishi saqlanadi 
 Admin tekshirib tasdiqlaydi yoki sababini yozib rad etadi. Guvohnoma + pasport/ID tasdiqlansa — "hujjatlari tasdiqlangan".
 """
 import json
+from typing import Optional
 import re
 import secrets
 from datetime import date
@@ -239,29 +240,40 @@ PASSPORT_RE = re.compile(r"^[A-Z]{2}\d{7}$")
 
 
 class IdentityIn(Base):
-    pinfl: str = Field(min_length=14, max_length=20)
-    passport: str = Field(min_length=9, max_length=12)
+    pinfl: Optional[str] = Field(default=None, max_length=20)
+    passport: Optional[str] = Field(default=None, max_length=14)
 
 
 @require("user")
 async def save_identity(request: Request):
-    """Foydalanuvchi JSHSHIR va pasport/ID seriya-raqamini kiritadi: tizim formatni, tug'ilgan sanani, yoshni
+    """JSHSHIR yoki pasport/ID seriya-raqamidan biri yetarli (ikkalasi ham yagona). Tizim formatni, tug'ilgan sanani, yoshni
     va boshqa akkauntda ishlatilmaganini tekshiradi. To'liq raqamlar saqlanmaydi (faqat xesh va niqob)."""
     import hashlib
     data = await parse_body(request, IdentityIn)
-    info = parse_pinfl(data.pinfl)
-    passport = re.sub(r"[^A-Za-z0-9]", "", data.passport).upper()
-    if not PASSPORT_RE.match(passport):
+    pin_raw = re.sub(r"\D", "", data.pinfl or "")
+    passport = re.sub(r"[^A-Za-z0-9]", "", data.passport or "").upper()
+    if not pin_raw and not passport:
+        raise HTTPException(400, tr("JSHSHIR yoki pasport/ID seriya-raqamini kiriting"))
+    info = parse_pinfl(pin_raw) if pin_raw else None
+    if passport and not PASSPORT_RE.match(passport):
         raise HTTPException(400, tr("Pasport yoki ID kartani AA1234567 ko'rinishida yozing"))
     uid = request.state.user["id"]
-    h = hashlib.sha256((settings.SECRET_KEY[:16] + info["pinfl"]).encode()).hexdigest()
+    salt = settings.SECRET_KEY[:16]
+    ph = hashlib.sha256((salt + info["pinfl"]).encode()).hexdigest() if info else None
+    pp = hashlib.sha256((salt + "P" + passport).encode()).hexdigest() if passport else None
     with get_db() as db:
-        other = db.execute("SELECT id FROM users WHERE pinfl_hash = ? AND id != ? AND deleted_at IS NULL", (h, uid)).fetchone()
-        if other:
+        if ph and db.execute("SELECT 1 FROM users WHERE pinfl_hash = ? AND id != ? AND deleted_at IS NULL", (ph, uid)).fetchone():
             raise HTTPException(409, tr("Bu JSHSHIR boshqa akkauntga bog'langan. Muammo bo'lsa admin bilan bog'laning"))
-        mask = info["pinfl"][:1] + "*" * 9 + info["pinfl"][-4:]
-        db.execute("UPDATE users SET pinfl_hash = ?, pinfl_mask = ?, birth_date = ?, gender = ?, passport_mask = ?, "
-                   "identity_status = 'checked' WHERE id = ?", (h, mask, info["birth_date"], info["gender"], _mask(passport), uid))
+        if pp and db.execute("SELECT 1 FROM users WHERE passport_hash = ? AND id != ? AND deleted_at IS NULL", (pp, uid)).fetchone():
+            raise HTTPException(409, tr("Bu pasport boshqa akkauntga bog'langan. Muammo bo'lsa admin bilan bog'laning"))
+        sets, vals = ["identity_status = 'checked'"], []
+        if info:
+            sets += ["pinfl_hash = ?", "pinfl_mask = ?", "birth_date = ?", "gender = ?"]
+            vals += [ph, info["pinfl"][:1] + "*" * 9 + info["pinfl"][-4:], info["birth_date"], info["gender"]]
+        if passport:
+            sets += ["passport_hash = ?", "passport_mask = ?"]
+            vals += [pp, _mask(passport)]
+        db.execute(f"UPDATE users SET {', '.join(sets)} WHERE id = ?", (*vals, uid))
         return ok(identity_state(db, uid))
 
 

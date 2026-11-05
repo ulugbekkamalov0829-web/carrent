@@ -460,7 +460,7 @@ MIGRATIONS = {
         "deleted_at": "TEXT", "district": "TEXT", "must_change_pw": "INTEGER NOT NULL DEFAULT 0",
         # v9: JSHSHIR (PINFL) — to'liq raqam saqlanmaydi: xesh (bitta odam bir nechta akkaunt ochmasligi uchun) va niqob
         "pinfl_hash": "TEXT", "pinfl_mask": "TEXT", "birth_date": "TEXT", "gender": "TEXT", "passport_mask": "TEXT",
-        "identity_status": "TEXT NOT NULL DEFAULT 'none'",
+        "identity_status": "TEXT NOT NULL DEFAULT 'none'", "passport_hash": "TEXT",
     },
     "car_images": {"label": "TEXT NOT NULL DEFAULT 'other'"},
     "cars": {"district": "TEXT", "lat": "REAL", "lng": "REAL", "address": "TEXT",

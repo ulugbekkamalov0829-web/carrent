@@ -86,11 +86,26 @@ def seed(reset: bool = False) -> None:
         if db.execute("SELECT COUNT(*) FROM users").fetchone()[0]:
             print("Bazada ma'lumot bor. Qaytadan to'ldirish uchun:  python -m scripts.seed --reset")
             return
-        pw = hash_password(DEMO_PASSWORD)
+        # Sinov uchun shaxsiy emaillar (repozitoriyda emas — Render muhit o'zgaruvchilarida):
+        #   ADMIN_EMAILS -> administrator; DEMO_EMAILS=owner,ijarachi,owner2 -> Jasur, Aziz, Nodira akkauntlari shu emaillarga beriladi.
+        #   SEED_PASSWORD — ularning paroli. Berilmasa: lokalda CarRent-2026, serverda tasodifiy (keyin "Parolni unutdingizmi" orqali o'rnatiladi).
+        import os
+        admins = [e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()]
+        demos = [e.strip().lower() for e in os.getenv("DEMO_EMAILS", "").split(",") if e.strip()]
+        swap = {}
+        if admins:
+            swap[0] = admins[0]
+        for idx, em in zip((1, 4, 2), [d for d in dict.fromkeys(demos) if d not in admins[:1]]):
+            swap[idx] = em
+        prod = settings.ENV == "production"
+        pw = hash_password(os.getenv("SEED_PASSWORD") or (secrets.token_urlsafe(24) if prod else DEMO_PASSWORD))
         today = date.today()
         with transaction(db):
             uids = []
             for i, (name, email, phone, role, _region, lang) in enumerate(USERS):
+                email = swap.get(i, email)
+                if i == 0 and admins:
+                    name = "Bosh administrator"
                 region, district = USER_PLACES[i]
                 created = (today - timedelta(days=200 - i * 20)).isoformat()
                 mode = "owner" if i in (1, 2, 3) else "renter"
@@ -194,9 +209,9 @@ def seed(reset: bool = False) -> None:
                        (jasur, json.dumps({"name": "Bekzod Olimov", "car": "Toyota Camry 2021", "start": (today + timedelta(days=15)).isoformat(),
                                            "end": (today + timedelta(days=17)).isoformat(), "days": 3, "total": 2_700_000}, ensure_ascii=False),
                         "/dashboard.html?mode=owner#bookings"))
-    print("Demo ma'lumotlar qo'shildi. Barcha demo hisoblar paroli:", DEMO_PASSWORD)
-    for name, email, _, role, _, _ in USERS:
-        print(f"  {role:<6} {email:<22} {name}")
+    print("Demo ma'lumotlar qo'shildi.")
+    for i, (name, email, _, role, _, _) in enumerate(USERS):
+        print(f"  {role:<6} {swap.get(i, email):<30} {name}")
 
 
 if __name__ == "__main__":

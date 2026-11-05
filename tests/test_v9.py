@@ -58,6 +58,12 @@ def test_pinfl_identity_check():
     other, _ = make_user()
     dup = other.put("/api/me/identity", headers=H, json={"pinfl": "31505900010012", "passport": "AB7654321"})
     assert dup.status_code == 409
+    # bittasi yetarli: faqat pasport
+    third, _ = make_user()
+    r = third.put("/api/me/identity", headers=H, json={"passport": "ae 7654321"})
+    assert r.status_code == 200 and r.json()["passport_mask"].startswith("AE")
+    assert other.put("/api/me/identity", headers=H, json={"passport": "AE7654321"}).status_code == 409
+    assert other.put("/api/me/identity", headers=H, json={}).status_code == 400
 
 
 def _b64(b: bytes) -> str:

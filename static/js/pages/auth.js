@@ -138,6 +138,7 @@
         await Creds.save($("#rEmail").value.trim(), $("#rPassword").value, user.full_name);
         await metaP;
         // Kod faqat email kanali haqiqatan ishlasa (yoki demo test qutisi bo'lsa) so'raladi
+        Passkey.offerAfterLogin("");
         if (meta.email_real || meta.dev_inbox) { startVerify(user, false); return; }
         location.href = safeNext || "/dashboard.html";
       } catch (err) { showFieldErrors(reg, err); toast(err.message, "error"); }
@@ -255,7 +256,8 @@
       });
     });
     // O'rnatilgan ilova (PWA) va oldin barmoq izi yoqilgan qurilma — darhol so'raymiz (bank ilovalari kabi)
-    if (Passkey.enabledHere() && (matchMedia("(display-mode: standalone)").matches || navigator.standalone) && !location.hash.slice(1)) setTimeout(() => $("#passkeyBtn").click(), 400);
+    // Shu telefonda barmoq izi yoqilgan bo'lsa — kirish oynasi ochilishi bilan telefonning barmoq izi oynasi chiqadi (bank ilovalari kabi)
+    if (Passkey.enabledHere() && ["", "login"].includes(location.hash.slice(1))) setTimeout(() => $("#passkeyBtn").click(), 450);
   }
 
   // ---- Boshlang'ich panel ----

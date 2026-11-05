@@ -33,7 +33,11 @@ def enabled() -> bool:
 def _req(method: str, path: str, data: bytes | None = None, ctype: str = "application/json", extra: dict | None = None,
          timeout: int = 60) -> bytes:
     url = f"{settings.SUPABASE_URL}/storage/v1/{path}"
-    headers = {"Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}", "apikey": settings.SUPABASE_SERVICE_KEY}
+    key = settings.SUPABASE_SERVICE_KEY
+    headers = {"apikey": key}
+    # Eski (JWT) service_role kalit — Authorization sarlavhasida ham; yangi "sb_secret_..." kalit faqat apikey'da yuboriladi
+    if key.startswith("eyJ"):
+        headers["Authorization"] = f"Bearer {key}"
     if data is not None:
         headers["Content-Type"] = ctype
     headers.update(extra or {})

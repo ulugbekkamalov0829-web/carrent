@@ -168,10 +168,21 @@ def ensure_personal_accounts() -> None:
     import os
     from .db import get_db
     from .security import hash_password, normalize_phone  # noqa: F401
-    pw = os.getenv("SEED_PASSWORD", "").strip()
+    from scripts.seed import DEMO_PASSWORD, USERS
+    pw = os.getenv("SEED_PASSWORD", "").strip() or DEMO_PASSWORD
     admins = [e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()][:1]
     demos = [e.strip().lower() for e in os.getenv("DEMO_EMAILS", "").split(",") if e.strip() and e.strip().lower() not in admins]
-    if not pw or not (admins or demos):
+    # Bir martalik: barcha demo/sinov akkauntlari paroli asl holiga (SEED_PASSWORD yoki CarRent-2026) qaytariladi.
+    # Belgi bazada saqlanadi — keyin foydalanuvchi parolni o'zi o'zgartirsa, qayta tiklanmaydi.
+    with get_db() as db:
+        if not db.execute("SELECT 1 FROM settings WHERE key = 'demo_pw_restored_v1'").fetchone():
+            hh = hash_password(pw)
+            emails = {u[1] for u in USERS} | set(admins) | set(demos)
+            for em in emails:
+                db.execute("UPDATE users SET password_hash = ?, is_active = 1, must_change_pw = 0 WHERE lower(email) = ?", (hh, em))
+            db.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('demo_pw_restored_v1', datetime('now'))")
+            log.info("Demo akkauntlar paroli asl holiga qaytarildi")
+    if not (admins or demos):
         return
     force = os.getenv("SEED_PASSWORD_RESET", "").lower() == "true"
     h = hash_password(pw)

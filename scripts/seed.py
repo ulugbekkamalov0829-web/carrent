@@ -88,7 +88,7 @@ def seed(reset: bool = False) -> None:
             return
         # Sinov uchun shaxsiy emaillar (repozitoriyda emas — Render muhit o'zgaruvchilarida):
         #   ADMIN_EMAILS -> administrator; DEMO_EMAILS=owner,ijarachi,owner2 -> Jasur, Aziz, Nodira akkauntlari shu emaillarga beriladi.
-        #   SEED_PASSWORD — ularning paroli. Berilmasa: CarRent-2026 (demo akkauntlarning asl paroli).
+        #   SEED_PASSWORD — ularning paroli. Berilmasa: lokalda CarRent-2026, serverda tasodifiy (keyin "Parolni unutdingizmi" orqali o'rnatiladi).
         import os
         admins = [e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()]
         demos = [e.strip().lower() for e in os.getenv("DEMO_EMAILS", "").split(",") if e.strip()]
@@ -97,7 +97,8 @@ def seed(reset: bool = False) -> None:
             swap[0] = admins[0]
         for idx, em in zip((1, 4, 2), [d for d in dict.fromkeys(demos) if d not in admins[:1]]):
             swap[idx] = em
-        pw = hash_password(os.getenv("SEED_PASSWORD") or DEMO_PASSWORD)
+        prod = settings.ENV == "production"
+        pw = hash_password(os.getenv("SEED_PASSWORD") or (secrets.token_urlsafe(24) if prod else DEMO_PASSWORD))
         today = date.today()
         with transaction(db):
             uids = []

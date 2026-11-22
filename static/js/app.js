@@ -692,6 +692,9 @@ async function boot(active = "", { bare = false } = {}) {
   if (user && !IS_APP && Visit.mustRelogin()) { await Visit.relogin(); throw new Error("relogin"); }
   if (user) Visit.mark();
   if (user && IS_APP) await AppLock.check(user);
+  // Qulf faqat kirgan foydalanuvchi uchun: sessiya muddati o'tgan bo'lsa (uzoq kirilmaganda) yoki saytda — ekranni ochamiz.
+  // Aks holda theme.js qo'ygan "app-locked" qolib, ekran qora bo'lib turardi.
+  else document.documentElement.classList.remove("app-locked");
   return user;
 }
 

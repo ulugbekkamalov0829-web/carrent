@@ -2,6 +2,8 @@
 (async () => {
   // Hisobga kirmagan mehmon — kinematografik kirish sahifasi (landing); kirgan foydalanuvchi — odatiy bosh sahifa
   const guest = !(await Auth.load());
+  // O'rnatilgan ilovada kirilmagan bo'lsa (masalan, uzoq vaqt ochilmagani uchun sessiya tugagan) — darhol kirish oynasi
+  if (guest && IS_APP) { location.replace("/auth.html#login"); return; }
   if (guest) { await boot("home", { bare: true }); return Landing.start(); }
   const user = await boot("home");
   const today = isoDate(new Date());

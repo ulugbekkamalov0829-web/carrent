@@ -157,7 +157,7 @@ async def lifespan(app):
     persist.stop()
 
 
-APP_VERSION = "v9.6 (2026-11-06)"
+APP_VERSION = "v9.7 (2026-11-22)"
 
 
 def ensure_personal_accounts() -> None:

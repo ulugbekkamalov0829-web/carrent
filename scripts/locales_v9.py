@@ -2,6 +2,7 @@
 chegirmalar, yoqilg'i sarfi, JSHSHIR, mashina rasmlari katalogi, yo'riqnoma. Format: kalit -> (uz, ru, en)."""
 
 T9 = {
+    "net.waking": ("Server uyg'onmoqda — bir daqiqagacha kuting…", "Сервер просыпается — подождите до минуты…", "The server is waking up — please wait up to a minute…"),
     # ---- menyu ----
     "nav.night": ("Tungi rejim", "Ночной режим", "Night mode"),
     "nav.collapse": ("Menyuni yig'ish / ochish", "Свернуть / развернуть меню", "Collapse / expand menu"),

@@ -321,7 +321,7 @@ const LIBRARY = [["camry", "Toyota Camry"], ["malibu", "Chevrolet Malibu"], ["ma
     const items = [...LIBRARY].sort((a, b) => (b[1].toLowerCase().includes(model || "@") - a[1].toLowerCase().includes(model || "@")) || (b[1].toLowerCase().startsWith(brand || "@") - a[1].toLowerCase().startsWith(brand || "@")));
     bg.innerHTML = `<div class="modal card card-pad lib-modal" role="dialog" aria-modal="true"><h3>${icon("image", 20)} ${esc(t("lib.title"))}</h3>
       <p class="small muted">${esc(t("lib.sub"))}</p>
-      <div class="lib-grid">${items.map(([f, name]) => `<button type="button" class="lib-item" data-f="${f}"><img src="/img/demo/${f}.jpg" alt="" loading="lazy"><span>${esc(name)}</span><i>${icon("check", 16)}</i></button>`).join("")}</div>
+      <div class="lib-grid">${items.map(([f, name]) => `<button type="button" class="lib-item" data-f="${f}"><img src="/img/demo/${f}.jpg" alt="" loading="lazy" decoding="async"><span>${esc(name)}</span><i>${icon("check", 16)}</i></button>`).join("")}</div>
       <div class="notice small" style="margin-top:12px">${icon("info", 15)} ${esc(t("lib.warn"))}</div>
       <div class="row" style="justify-content:flex-end;margin-top:12px"><button type="button" class="btn btn-outline" data-close>${esc(t("common.cancel"))}</button>
       <button type="button" class="btn" id="libAdd" disabled>${esc(t("lib.add"))}</button></div></div>`;

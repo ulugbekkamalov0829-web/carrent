@@ -23,7 +23,7 @@
   const PHOTOS = Object.fromEntries(meta.adv_photos || []);
   const photoOf = (emoji) => { const k = emoji.split("/").pop().replace(/\.png$/, ""); return PHOTOS[k] ? `/img/adv/photo/${PHOTOS[k]}` : null; };
   const tile = (group, value, emoji, on, sub = "") => `<button type="button" class="adv-tile ${on ? "on" : ""} ${photoOf(emoji) ? "has-photo" : ""}" data-g="${group}" data-v="${value}" aria-pressed="${on}">
-    ${photoOf(emoji) ? `<span class="adv-photo"><img src="${photoOf(emoji)}" alt="" loading="lazy"></span>` : `<img class="em" src="${emoji}" alt="" width="56" height="56" loading="lazy">`}<b>${esc(t(`adv.${group}_${value}`))}</b>${sub ? `<span class="small muted">${esc(sub)}</span>` : ""}</button>`;
+    ${photoOf(emoji) ? `<span class="adv-photo"><img src="${photoOf(emoji)}" alt="" loading="lazy" decoding="async"></span>` : `<img class="em" src="${emoji}" alt="" width="56" height="56" loading="lazy" decoding="async">`}<b>${esc(t(`adv.${group}_${value}`))}</b>${sub ? `<span class="small muted">${esc(sub)}</span>` : ""}</button>`;
   const chip = (group, value, label, on) => `<button type="button" class="chip-btn ${on ? "on" : ""}" data-g="${group}" data-v="${value}" aria-pressed="${on}">${esc(label)}</button>`;
 
   function stepHtml() {

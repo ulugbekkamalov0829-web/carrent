@@ -1396,6 +1396,7 @@
  "nav.tab_requests": "Запросы",
  "nav.ws_admin": "Панель управления",
  "nav.ws_guest": "Аренда автомобилей",
+ "net.waking": "Сервер просыпается — подождите до минуты…",
  "notfound.home": "На главную",
  "notfound.text": "Такой страницы нет или она удалена.",
  "notif.admin_warning.b": "{text} {reason}",

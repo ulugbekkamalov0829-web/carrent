@@ -1396,6 +1396,7 @@
  "nav.tab_requests": "Requests",
  "nav.ws_admin": "Control panel",
  "nav.ws_guest": "Car rental",
+ "net.waking": "The server is waking up — please wait up to a minute…",
  "notfound.home": "Back to home",
  "notfound.text": "This page doesn't exist or was removed.",
  "notif.admin_warning.b": "{text} {reason}",

@@ -179,7 +179,7 @@
           <div class="row" style="justify-content:space-between"><b>${icon(ico, 18)} ${esc(t("docs.k_" + k))}</b>${docTag(x?.expired ? "rejected" : x?.status)}</div>
           <p class="small muted" style="margin:6px 0">${esc(t("docs.h_" + k))}</p>
           ${x ? `<div class="doc-meta small">${x.number_mask ? `<span>№ ${esc(x.number_mask)}</span>` : ""}${x.categories ? `<span>${esc(t("docs.cat"))}: ${esc(x.categories)}</span>` : ""}${x.expires_on ? `<span>${esc(t("docs.until"))}: ${fmtDate(x.expires_on)}</span>` : ""}</div>
-            <div class="doc-thumbs">${x.files.map((f) => `<a href="/api/files/${esc(f)}" target="_blank" rel="noopener"><img src="/api/files/${esc(f)}" alt="" loading="lazy"></a>`).join("")}</div>
+            <div class="doc-thumbs">${x.files.map((f) => `<a href="/api/files/${esc(f)}" target="_blank" rel="noopener"><img src="/api/files/${esc(f)}" alt="" loading="lazy" decoding="async"></a>`).join("")}</div>
             ${x.status === "rejected" || x.expired ? `<div class="notice small" style="margin-top:8px">${esc(x.expired ? t("docs.expired") : t("docs.rejected", { r: x.reject_reason || "" }))}</div>` : ""}` : ""}
           ${!x || x.status !== "approved" || x.expired ? `<form class="doc-form" data-kind="${k}" novalidate>
             ${k !== "selfie" ? `<div class="field"><label>${esc(t(k === "license" ? "docs.lic_no" : "docs.id_no"))}</label><input class="input" name="number" maxlength="30" required placeholder="${k === "license" ? "AF 1234567" : "AD 1234567"}" autocomplete="off"></div>` : ""}

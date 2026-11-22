@@ -64,13 +64,27 @@ async function setLang(lang) {
 /** O'rnatilgan ilova (telefon yoki kompyuterdagi PWA) — saytdan farqli: uzoq sessiya + ekran PIN kodi */
 const IS_APP = matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: window-controls-overlay)").matches || navigator.standalone === true;
 
+const Waking = {
+  el: null,
+  show() {
+    if (this.el) return;
+    this.el = document.createElement("div");
+    this.el.className = "waking"; this.el.setAttribute("role", "status");
+    this.el.innerHTML = `<span class="spin"></span><span>${esc(t("net.waking"))}</span>`;
+    document.body.appendChild(this.el);
+  },
+  hide() { this.el?.remove(); this.el = null; },
+};
 async function api(path, { method = "GET", body, form } = {}) {
   const opts = { method, headers: { "X-Requested-With": "fetch", ...(IS_APP ? { "X-App-Mode": "app" } : {}) }, credentials: "same-origin" };
   if (form) opts.body = form;
   else if (body !== undefined) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
   let res;
+  // Bepul serverda (Render) 15 daqiqa jimlikdan so'ng birinchi so'rov ~1 daqiqa kechikadi — foydalanuvchiga aytamiz
+  const slow = setTimeout(() => Waking.show(), 3500);
   try { res = await fetch(path, opts); }
   catch { throw new Error(t("err.network")); }
+  finally { clearTimeout(slow); Waking.hide(); }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const err = new Error(data.detail || t("err.generic", { code: res.status }));
@@ -241,7 +255,7 @@ function carArt(car) {
     <text x="16" y="30" font-family="Segoe UI, sans-serif" font-size="17" font-weight="700" fill="#1f2937">${esc(car.brand || "")}</text>
     <text x="16" y="50" font-family="Segoe UI, sans-serif" font-size="13" fill="#4b5563">${esc(car.model || "")}</text></svg>`;
 }
-const carImage = (car, path) => (path || car.cover) ? `<img src="${esc(path || car.cover)}" alt="${esc(carName(car))}" loading="lazy">` : carArt(car);
+const carImage = (car, path) => (path || car.cover) ? `<img src="${esc(path || car.cover)}" alt="${esc(carName(car))}" loading="lazy" decoding="async">` : carArt(car);
 const HEART = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.1 3.3 4.5 7 4.5c2 0 3.6 1.1 5 2.8 1.4-1.7 3-2.8 5-2.8 3.7 0 6.1 3.6 4.6 7.2C19.5 16.4 12 21 12 21z"/></svg>`;
 const HEART_O = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.1 3.3 4.5 7 4.5c2 0 3.6 1.1 5 2.8 1.4-1.7 3-2.8 5-2.8 3.7 0 6.1 3.6 4.6 7.2C19.5 16.4 12 21 12 21z"/></svg>`;
 

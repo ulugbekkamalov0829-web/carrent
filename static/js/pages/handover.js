@@ -33,7 +33,7 @@
           <div><span class="muted small">${esc(t("ho.clean"))}</span><b>${esc(t(h.clean ? "common.yes" : "common.no"))}</b></div>
           <div><span class="muted small">${esc(t("ho.damage"))}</span><b class="${h.damage ? "bad-ink" : ""}">${esc(t(h.damage ? "ho.has_damage" : "ho.no_damage"))}</b></div></div>
         ${h.notes ? `<p class="small" style="margin:8px 0">“${esc(h.notes)}”</p>` : ""}
-        <div class="ho-photos">${h.photos.map((p, i) => `<button type="button" data-ph="${kind}" data-i="${i}"><img src="${esc(p)}" alt="" loading="lazy"></button>`).join("")}</div>
+        <div class="ho-photos">${h.photos.map((p, i) => `<button type="button" data-ph="${kind}" data-i="${i}"><img src="${esc(p)}" alt="" loading="lazy" decoding="async"></button>`).join("")}</div>
         <div class="small muted">${esc(t("ho.filled_by", { name: h.created_by_name, d: h.created_at }))}</div>
         ${h.confirmed_at ? `<div class="small ${h.objection ? "bad-ink" : "ok-ink"}">${icon(h.objection ? "flag" : "check", 14)} ${esc(h.objection ? t("ho.objected", { name: h.confirmed_by_name, text: h.objection }) : t("ho.confirmed_by", { name: h.confirmed_by_name, d: h.confirmed_at }))}</div>`
           : `<div class="small muted">${esc(t("ho.wait_confirm"))}</div>`}

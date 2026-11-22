@@ -16,7 +16,7 @@
         <div><span class="eyebrow">${esc(t("nav.info"))}</span><h1>${esc(t("info.title"))}</h1><p class="lead">${esc(t("info.lead"))}</p>
           <div class="info-stats"><span><b>${meta.cars_total}</b>${esc(t("home.stat_cars"))}</span><span><b>${meta.owners_total}</b>${esc(t("info.owners"))}</span>
           <span><b>${meta.cities.length}</b>${esc(t("home.stat_cities"))}</span><span><b>${pct}%</b>${esc(t("info.commission"))}</span></div></div>
-        <img src="/img/hero-street.jpg" alt="" loading="lazy"></div>
+        <img src="/img/hero-street.jpg" alt="" loading="lazy" decoding="async"></div>
       <nav class="info-tabs" id="infoTabs">${SECTIONS.map(([k, key, ico]) => `<a href="#${k}" data-sec="${k}">${icon(ico, 16)}${esc(t(key))}</a>`).join("")}</nav>
       <div class="info-body">
         <section id="about" class="card card-pad"><h2>${esc(t("about.title"))}</h2><p>${esc(t("about.p1"))}</p><p>${esc(t("about.p2"))}</p>

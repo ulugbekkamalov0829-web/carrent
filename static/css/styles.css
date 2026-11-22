@@ -2228,7 +2228,7 @@ details.fold[open] > summary { margin-bottom: 14px; }
   .disc-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .date-guide .dg-step span { font-size: .78rem; }
   /* Shartnoma matni: so'zlar orasida katta bo'shliq bo'lmasin */
-  .contract-paper { padding: 16px 14px; font-size: .9rem; hyphens: auto; -webkit-hyphens: auto; }
+  .contract-paper { padding: 16px 14px; font-size: .9rem; }
   .contract-paper p, .contract-paper li { text-align: left !important; word-spacing: normal; }
 }
 @media (max-width: 600px) {
@@ -2581,3 +2581,55 @@ html.app-locked body { background: #07111d; }
 .lock-box[hidden], .lf-opts[hidden] { display: none; }
 .lock-screen { overflow-y: auto; }
 .lock-forgot .lock-link { justify-self: center; }
+
+/* =====================================================================================
+   v9.8: TIPOGRAFIYA VA TELEFON SIFATI (Chrome/WebKit va WCAG 2.2 tavsiyalari asosida)
+   - so'zlar bo'g'inga bo'linmaydi (o'zbek tili uchun brauzerda tire bilan ko'chirish lug'ati yo'q — "hyphens: auto"
+     noto'g'ri bo'linadi); uzun so'z/email/raqam faqat maydondan chiqib ketadigan bo'lsa bo'linadi;
+   - sarlavhalar "balance", matn paragraflari "pretty" (oxirgi qatorda yolg'iz so'z qolmaydi);
+   - telefonda maydonlar 16px (iPhone kattalashtirib yubormasligi uchun), bosiladigan joylar kamida 44px.
+   ===================================================================================== */
+html { hyphens: manual; -webkit-hyphens: manual; }
+h1, h2, h3, h4, .card-title, .car-title, .lp h1, .lp h2, .section-title { text-wrap: balance; overflow-wrap: break-word; }
+p, li, .muted, .hint, .notice, .small, dd, blockquote { text-wrap: pretty; }
+.card, .list-item, td, th, .field, label, .notice, .chip, .tag, .btn, .sum-row, .doc-meta, .pk-item, .terms-list > div, .kpi, .stat { overflow-wrap: anywhere; min-width: 0; }
+.btn { white-space: normal; text-align: center; line-height: 1.25; }
+.btn.btn-sm, .chip, .tag, .lang-code, .price, .plate-chip, .tabbar span { white-space: nowrap; }
+a[href^="mailto:"], .email, .mono { overflow-wrap: anywhere; word-break: break-word; }
+h1 { font-size: clamp(1.4rem, 1.1rem + 1.6vw, 2.1rem); }
+h2 { font-size: clamp(1.2rem, 1.02rem + .9vw, 1.6rem); }
+:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; border-radius: 6px; }
+:where(input[type="checkbox"]:not(.switch), input[type="radio"]) { width: 20px; height: 20px; accent-color: var(--primary); flex: none; }
+img { max-width: 100%; height: auto; }
+
+@media (max-width: 760px) {
+  /* iPhone Safari 16px dan kichik maydonga bosilganda sahifani kattalashtirib yuboradi */
+  .input, select.input, textarea.input, input[type="text"], input[type="email"], input[type="tel"], input[type="password"],
+  input[type="number"], input[type="search"], input[type="date"], select, textarea, .date-text, #landing select { font-size: 16px !important; }
+  .side .side-label { min-height: 40px; }
+  .linkbtn { min-height: 40px; display: inline-flex; align-items: center; padding: 6px 2px; }
+  .icon-btn.ghost { min-width: 44px; height: 44px; }
+  .btn { min-height: 44px; }
+  .btn.btn-sm { min-height: 38px; }
+  .check { min-height: 40px; align-items: center; }
+  .tabbar { padding-bottom: env(safe-area-inset-bottom); }
+  .toasts { bottom: calc(74px + env(safe-area-inset-bottom)); }
+}
+/* Kichik telefonlar (320–380 px): yuqori panel sig'ishi uchun */
+@media (max-width: 380px) {
+  .topbar { padding: 0 8px; gap: 2px; }
+  .topbar .logo > span:not(.logo-mark) { display: none; }
+  .topbar .btn.btn-sm { padding: 6px 10px; }
+  .topbar .lang-code { display: none; }
+  .tabbar span { font-size: .66rem; }
+  .container { padding: 0 10px; }
+}
+.car-foot { flex-wrap: wrap; gap: 4px 10px; }
+.car-foot .small { white-space: nowrap; }
+.pw-rules.compact { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.pw-rules li { min-width: 0; }
+@media (max-width: 380px) { .pw-rules { font-size: .76rem; } .neon .pw-rules { margin: 8px 4px 0; } }
+.waking { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); z-index: 9999; display: flex; align-items: center; gap: 10px;
+  max-width: calc(100vw - 24px); padding: 10px 16px; border-radius: 12px; background: #0f1b3d; color: #fff; font-size: .9rem; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+.waking .spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; animation: wk 0.8s linear infinite; flex: none; }
+@keyframes wk { to { transform: rotate(360deg); } }

@@ -133,7 +133,7 @@
         <div class="adm-doc-head">${avatarHtml(x)}<div><a href="#user/${x.user_id}"><b>${esc(x.full_name)}</b></a><div class="small muted">${esc(x.email)}${x.phone ? ` · ${esc(fmtPhone(x.phone))}` : ""} · ${esc(t("docs.bookings_n", { n: x.bookings }))}</div></div>
           <span class="tag tag-info">${esc(t("docs.k_" + x.kind))}</span></div>
         <div class="doc-meta small">${x.number_mask ? `<span>№ ${esc(x.number_mask)}</span>` : ""}${x.categories ? `<span>${esc(t("docs.cat"))}: ${esc(x.categories)}</span>` : ""}${x.expires_on ? `<span>${esc(t("docs.until"))}: ${fmtDate(x.expires_on)}</span>` : ""}<span>${esc(fmtDate(x.created_at))}</span></div>
-        <div class="doc-thumbs big">${x.files.map((f, i) => `<button type="button" data-lb="${x.id}" data-i="${i}"><img src="/api/files/${esc(f)}" alt="" loading="lazy"></button>`).join("")}</div>
+        <div class="doc-thumbs big">${x.files.map((f, i) => `<button type="button" data-lb="${x.id}" data-i="${i}"><img src="/api/files/${esc(f)}" alt="" loading="lazy" decoding="async"></button>`).join("")}</div>
         ${x.reject_reason ? `<div class="notice small">${esc(x.reject_reason)}</div>` : ""}
         ${status === "pending" ? `<div class="row" style="gap:8px;margin-top:10px"><button class="btn btn-sm btn-ok" data-dok="${x.id}">${icon("check", 15)} ${esc(t("docs.approve"))}</button>
           <button class="btn btn-sm btn-danger" data-dno="${x.id}">${esc(t("docs.reject"))}</button></div>` : ""}</article>`).join("")}</div>`
@@ -333,7 +333,7 @@
             <div class="row" style="justify-content:space-between"><b>${icon(ico, 18)} ${esc(t("docs.k_" + k))}</b>
               ${x ? `<span class="tag ${x.status === "approved" ? "tag-ok" : x.status === "pending" ? "tag-pending" : "tag-bad"}">${esc(t(x.expired ? "docs.expired" : "docs.st_" + x.status))}</span>` : `<span class="tag tag-hidden">${esc(t("uadm.no_doc"))}</span>`}</div>
             ${x ? `<div class="doc-meta small">${x.number_mask ? `<span>№ ${esc(x.number_mask)}</span>` : ""}${x.categories ? `<span>${esc(t("docs.cat"))}: ${esc(x.categories)}</span>` : ""}${x.expires_on ? `<span>${esc(t("docs.until"))}: ${fmtDate(x.expires_on)}</span>` : ""}<span>${esc(fmtDate(x.created_at))}</span></div>
-              <div class="doc-thumbs big">${x.files.map((f, i) => `<button type="button" data-ulb="${k}" data-i="${i}"><img src="/api/files/${esc(f)}" alt="" loading="lazy"></button>`).join("")}</div>
+              <div class="doc-thumbs big">${x.files.map((f, i) => `<button type="button" data-ulb="${k}" data-i="${i}"><img src="/api/files/${esc(f)}" alt="" loading="lazy" decoding="async"></button>`).join("")}</div>
               ${x.reject_reason ? `<div class="notice small">${esc(x.reject_reason)}</div>` : ""}
               <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
                 ${x.status !== "approved" ? `<button type="button" class="btn btn-sm btn-ok" data-dok="${x.id}">${icon("check", 15)} ${esc(t("docs.approve"))}</button>` : ""}

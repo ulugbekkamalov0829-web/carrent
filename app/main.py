@@ -151,6 +151,12 @@ async def lifespan(app):
     init_db()
     seed_if_requested()
     ensure_personal_accounts()
+    try:   # kurs ishi uchun: sinov akkauntlari bo'limlari ma'lumot bilan to'ladi (bir martalik)
+        from scripts.enrich_demo import enrich
+        if enrich():
+            log.info("Sinov akkauntlari namunaviy ma'lumotlar bilan to'ldirildi")
+    except Exception:
+        log.exception("Namunaviy ma'lumotlarni qo'shib bo'lmadi")
     log.info("Ma'lumotlar bazasi tayyor: %s", settings.DB_PATH)
     persist.start()
     yield

@@ -514,7 +514,8 @@ def build() -> None:
     from scripts.locales_v7 import OVERRIDE7, T7
     from scripts.locales_v8 import OVERRIDE8, T8
     from scripts.locales_v9 import OVERRIDE9, T9
-    parts = [T, T2, T3, T4, T5, T6, T7, T8, T9]
+    from scripts.locales_v10 import T10
+    parts = [T, T2, T3, T4, T5, T6, T7, T8, T9, T10]
     dup = {k for i, a in enumerate(parts) for b in parts[i + 1:] for k in set(a) & set(b)}
     assert not dup, f"takroriy kalitlar: {sorted(dup)}"
     for extra in parts[1:]:

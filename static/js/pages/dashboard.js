@@ -30,7 +30,7 @@
     view.innerHTML = `<div class="skeleton" style="height:240px"></div>`;
     const fn = { overview: mode() === "owner" ? ownerOverview : renterOverview, bookings: mode() === "owner" ? ownerBookings : renterBookings,
       favorites, cars: ownerCars, calendar: ownerCalendar, reviews: ownerReviews, earnings: ownerEarnings, notifications,
-      payments: renterPayments, disputes: myDisputes, analytics: () => { head("rep.title", mode() === "owner" ? "rep.sub_owner" : "rep.sub_renter"); return Reports.render(view, mode()); } }[tab];
+      payments: renterPayments, disputes: myDisputes, fines: myFines, analytics: () => { head("rep.title", mode() === "owner" ? "rep.sub_owner" : "rep.sub_renter"); return Reports.render(view, mode()); } }[tab];
     fn().catch((e) => (view.innerHTML = `<div class="empty card">${esc(e.message)}</div>`));
   }
   window.addEventListener("hashchange", route);
@@ -411,6 +411,8 @@
       actions += `<button class="btn btn-sm btn-soft" data-review="${b.id}" data-title="${esc(owner ? b.renter_name : `${b.brand} ${b.model}`)}" data-owner="${owner ? 1 : 0}">★ ${esc(t(owner ? "review.rate_renter" : "review.leave"))}</button>`;
     if (!owner && ["completed", "cancelled", "rejected"].includes(b.status))
       actions += `<a class="btn btn-sm btn-outline" href="/car.html?id=${b.car_id}#book">${esc(t("booking.rebook"))}</a>`;
+    if (owner && ["approved", "completed"].includes(b.status) && b.start_date <= today && daysBetween(b.end_date, today) <= 60)
+      actions += `<button class="btn btn-sm btn-outline" data-fine="${b.id}" data-s="${b.start_date}" data-e="${b.end_date}">${icon("receipt", 16)} ${esc(t("fine.add_btn"))}</button>`;
     if (["approved", "completed", "cancelled"].includes(b.status) && daysBetween(b.end_date, today) <= 31)
       actions += `<button class="btn btn-sm btn-outline" data-dispute="${b.id}" title="${esc(t("disp.title"))}">${icon("shield", 16)} ${esc(t("disp.open_btn"))}</button>`;
     const partnerId = owner ? b.renter_id : b.owner_id, partner = owner ? b.renter_name : b.owner_name;
@@ -432,15 +434,81 @@
         <div class="small muted">${esc(t(owner ? "booking.renter" : "booking.owner"))}: ${esc(partner)}${verified}
           ${owner && b.renter_rating ? ` · ★ ${b.renter_rating} (${b.renter_reviews})` : owner ? ` · ${esc(t("booking.new_renter"))}` : ""}
           ${phone ? ` · <a href="tel:${esc(phone.replace(/[^+\d]/g, ""))}">${esc(fmtPhone(phone))}</a>` : ""}</div>
+        ${bookingExtras(b)}
         ${b.note ? `<div class="small muted">${esc(t("booking.note"))}: “${esc(b.note)}”</div>` : ""}
       </div>
       <div class="actions">${actions}</div></div>`;
   }
 
+  function bookingExtras(b) {
+    let ex = [];
+    try { ex = JSON.parse(b.extras || "[]"); } catch { /* eski bron */ }
+    const chips = [];
+    if (b.instant) chips.push(`<span class="mini-chip">${icon("bolt", 12)} ${esc(t("instant.badge"))}</span>`);
+    if (b.protection && b.protection !== "none") chips.push(`<span class="mini-chip">${icon("shield", 12)} ${esc(t("plan." + b.protection))}${b.liability_cap ? ` · ${esc(t("plan.cap_short", { sum: money(b.liability_cap) }))}` : ""}</span>`);
+    ex.forEach((x) => chips.push(`<span class="mini-chip">${esc(t("extra." + x.code))} · ${money(x.amount)}</span>`));
+    if (b.promo_code) chips.push(`<span class="mini-chip">${icon("tag", 12)} ${esc(b.promo_code)} −${money(b.promo_discount)}</span>`);
+    return chips.length ? `<div class="mini-chips">${chips.join("")}</div>` : "";
+  }
+
+  function fineModal(bookingId, s, e) {
+    const bg = document.createElement("div"); bg.className = "modal-bg";
+    bg.innerHTML = `<form class="modal card card-pad" role="dialog" aria-modal="true"><h3>${icon("receipt", 18)} ${esc(t("fine.add_title"))}</h3>
+      <p class="small muted">${esc(t("fine.add_sub", { s: fmtDate(s), e: fmtDate(e) }))}</p>
+      <div class="grid-2"><div class="field"><label for="fnD">${esc(t("fine.date"))}</label><input class="input" type="date" id="fnD" name="d" min="${s}" max="${e}" value="${s}" required></div>
+        <div class="field"><label for="fnT">${esc(t("fine.time"))}</label><input class="input" type="time" id="fnT" name="tm" value="12:00"></div></div>
+      <div class="grid-2"><div class="field"><label for="fnA">${esc(t("fine.amount"))}</label><input class="input" data-money id="fnA" name="amount" required placeholder="375 000"></div>
+        <div class="field"><label for="fnP">${esc(t("fine.protocol"))}</label><input class="input" id="fnP" name="protocol" maxlength="40" placeholder="${esc(t("fine.protocol_ph"))}"></div></div>
+      <div class="field"><label for="fnN">${esc(t("fine.desc"))}</label><input class="input" id="fnN" name="description" maxlength="500" placeholder="${esc(t("fine.desc_ph"))}"></div>
+      <div class="row" style="justify-content:flex-end"><button type="button" class="btn btn-outline" data-close>${esc(t("common.cancel"))}</button><button class="btn">${esc(t("common.send"))}</button></div></form>`;
+    document.body.append(bg);
+    applyMasks(bg);
+    bg.addEventListener("click", (ev) => { if (ev.target === bg || ev.target.matches("[data-close]")) bg.remove(); });
+    $("form", bg).addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const f = ev.target;
+      try {
+        await api(`/api/bookings/${bookingId}/fines`, { method: "POST", body: { happened_at: `${f.d.value} ${f.tm.value || "12:00"}`,
+          amount: moneyVal(f.amount.value) || 0, protocol: f.protocol.value.trim() || null, description: f.description.value.trim() || null } });
+        bg.remove(); toast(t("fine.added"), "ok");
+      } catch (err) { toast(err.message, "error"); }
+    });
+  }
+
+  async function myFines() {
+    head("fine.tab", mode() === "owner" ? "fine.sub_owner" : "fine.sub_renter");
+    const { items, me } = await api("/api/my/fines");
+    const list = items.filter((f) => (mode() === "owner" ? f.owner_id : f.renter_id) === me);
+    const card = (f) => {
+      const iAmRenter = f.renter_id === me;
+      let acts = "";
+      if (["open", "disputed"].includes(f.status)) {
+        acts += `<button class="btn btn-sm btn-ok" data-fa="paid" data-id="${f.id}">${esc(t(iAmRenter ? "fine.i_paid" : "fine.got_paid"))}</button>`;
+        if (iAmRenter && f.status === "open") acts += `<button class="btn btn-sm btn-outline" data-fa="dispute" data-id="${f.id}">${esc(t("fine.dispute"))}</button>`;
+        if (!iAmRenter) acts += `<button class="btn btn-sm btn-outline danger-outline" data-fa="cancel" data-id="${f.id}">${esc(t("fine.cancel"))}</button>`;
+      }
+      return `<div class="list-item"><div class="fine-ico">${icon("receipt", 22)}</div>
+        <div><div class="row" style="gap:8px"><b>${money(f.amount)}</b><span class="tag tag-${f.status === "paid" ? "approved" : f.status === "cancelled" ? "rejected" : "pending"}">${esc(t("fine.st_" + f.status))}</span></div>
+          <div class="small">${esc(f.brand)} ${esc(f.model)} ${f.year} · ${esc(t("fine.when", { at: f.happened_at.replace(/^(\d{4})-(\d{2})-(\d{2})/, "$3.$2.$1") }))}</div>
+          <div class="small muted">${f.protocol ? `${esc(t("fine.protocol"))}: ${esc(f.protocol)} · ` : ""}${esc(iAmRenter ? f.owner_name : f.renter_name)}</div>
+          ${f.description ? `<div class="small muted">“${esc(f.description)}”</div>` : ""}</div>
+        <div class="actions">${acts}</div></div>`;
+    };
+    view.innerHTML = `<div class="notice info small" style="margin-bottom:12px">${icon("info", 15)} ${esc(t(mode() === "owner" ? "fine.howto_owner" : "fine.howto_renter"))}</div>`
+      + (list.length ? `<div class="card list">${list.map(card).join("")}</div>` : `<div class="empty card"><h3>${esc(t("fine.none"))}</h3></div>`);
+    view.onclick = async (e) => {
+      const b = e.target.closest("[data-fa]"); if (!b) return;
+      if (!(await confirmBox(t("fine.confirm_" + b.dataset.fa), t("common.yes")))) return;
+      try { await api(`/api/fines/${b.dataset.id}`, { method: "POST", body: { action: b.dataset.fa } }); toast(t("common.done"), "ok"); myFines(); }
+      catch (err) { toast(err.message, "error"); }
+    };
+  }
+
   function bindBookingActions(reload) {
     view.onclick = async (e) => {
       const act = e.target.closest("[data-act]"), rev = e.target.closest("[data-review]"), pay = e.target.closest("[data-pay]");
-      const dsp = e.target.closest("[data-dispute]");
+      const dsp = e.target.closest("[data-dispute]"), fin = e.target.closest("[data-fine]");
+      if (fin) fineModal(+fin.dataset.fine, fin.dataset.s, fin.dataset.e);
       if (dsp) disputeModal(+dsp.dataset.dispute);
       if (act) {
         let text = t("booking.confirm_" + act.dataset.act);

@@ -18,7 +18,7 @@ CAR_COLUMNS = """
     c.id, c.owner_id, c.brand, c.model, c.year, c.color, c.body_type, c.seats, c.transmission, c.fuel, c.engine_l,
     c.mileage_km, c.drive, c.features, c.city, c.district, c.description, c.price_per_day, c.deposit, c.min_days, c.max_days,
     c.km_limit, c.delivery_price, c.is_active, c.is_approved, c.views, c.is_demo, c.created_at, c.updated_at,
-    c.lat, c.lng, c.address, c.fuel_policy, c.tank_l, c.fuel_price, c.extra_km_price, c.require_docs, c.fuel_per_100, c.discounts, c.ownership_status,
+    c.lat, c.lng, c.address, c.fuel_policy, c.tank_l, c.fuel_price, c.extra_km_price, c.require_docs, c.fuel_per_100, c.discounts, c.ownership_status, c.instant_book, c.extras,
     (SELECT path FROM car_images i WHERE i.car_id = c.id ORDER BY position, id LIMIT 1) AS cover,
     (SELECT ROUND(AVG(rating), 1) FROM reviews r WHERE r.car_id = c.id AND r.kind = 'car') AS rating,
     (SELECT COUNT(*) FROM reviews r WHERE r.car_id = c.id AND r.kind = 'car') AS reviews_count
@@ -41,6 +41,10 @@ def serialize(car: dict) -> dict:
     car["features"] = json.loads(car.get("features") or "[]")
     if "discounts" in car:
         car["discounts"] = json.loads(car.get("discounts") or "{}")
+    if "extras" in car:
+        car["extras"] = json.loads(car.get("extras") or "{}")
+    if "instant_book" in car:
+        car["instant_book"] = bool(car["instant_book"])
     car["title"] = f"{car['brand']} {car['model']}"
     if "is_favorite" in car:
         car["is_favorite"] = bool(car["is_favorite"])
@@ -222,6 +226,10 @@ async def get_car(request: Request):
     if not owner.pop("show_phone", 1) and not is_owner:
         owner["phone"] = None  # owner sozlamalarda telefonni yashirgan
     owner.pop("is_active", None)
+    with get_db() as db:
+        from ..market import owner_stats, plans
+        owner.update(owner_stats(db, owner["id"]))
+        car["plans"] = plans(db)
     car["owner"] = owner
     car["is_mine"] = is_owner
     car["can_edit"] = bool(is_owner or (user and user["role"] == "admin"))
@@ -338,12 +346,13 @@ def _values(d: CarIn) -> tuple:
     return (d.brand, d.model, d.year, d.color, d.body_type, d.seats, d.transmission, d.fuel, d.engine_l, d.mileage_km,
             d.drive, json.dumps(d.features), d.city, d.district, d.description, d.price_per_day, d.deposit, d.min_days, d.max_days,
             d.km_limit, d.delivery_price, int(d.is_active), d.lat, d.lng, d.address, d.plate, d.fuel_policy, d.tank_l,
-            d.fuel_price, d.extra_km_price, int(d.require_docs), d.fuel_per_100, json.dumps(d.discounts), d.tech_passport)
+            d.fuel_price, d.extra_km_price, int(d.require_docs), d.fuel_per_100, json.dumps(d.discounts), d.tech_passport,
+            int(d.instant_book), json.dumps(d.extras))
 
 
 FIELDS = ("brand, model, year, color, body_type, seats, transmission, fuel, engine_l, mileage_km, drive, features, city, district, "
           "description, price_per_day, deposit, min_days, max_days, km_limit, delivery_price, is_active, lat, lng, address, plate, "
-          "fuel_policy, tank_l, fuel_price, extra_km_price, require_docs, fuel_per_100, discounts, tech_passport")
+          "fuel_policy, tank_l, fuel_price, extra_km_price, require_docs, fuel_per_100, discounts, tech_passport, instant_book, extras")
 
 
 @require("user")

@@ -30,6 +30,8 @@ const LIBRARY = [["camry", "Toyota Camry"], ["malibu", "Chevrolet Malibu"], ["ma
     for (const el of form.elements) if (el.name && el.name in car && el.type !== "checkbox") el.value = car[el.name] ?? "";
     $("#require_docs").checked = !!car.require_docs;
     for (const [k, p] of Object.entries(car.discounts || {})) { const el = $(`[data-disc="${k}"]`); if (el) el.value = p; }
+    $("#instant_book").checked = !!car.instant_book;
+    for (const [k, p] of Object.entries(car.extras || {})) { const el = $(`[data-extra="${k}"]`); if (el) el.value = fmtMoneyInput(String(p)); }
     $("#hasDelivery").checked = car.delivery_price !== null;
     $("#delivery_price").disabled = car.delivery_price === null;
     images = car.images;
@@ -261,7 +263,13 @@ const LIBRARY = [["camry", "Toyota Camry"], ["malibu", "Chevrolet Malibu"], ["ma
       lat: num(d.lat), lng: num(d.lng), address: d.address || null, plate: d.plate || null, fuel_policy: d.fuel_policy || "same",
       tank_l: num(d.tank_l), fuel_price: num(d.fuel_price), extra_km_price: num(d.extra_km_price), require_docs: $("#require_docs").checked,
       fuel_per_100: num(d.fuel_per_100), tech_passport: d.tech_passport || null, discounts: discounts(),
+      instant_book: $("#instant_book").checked, extras: extrasVal(),
     };
+  }
+  function extrasVal() {
+    const out = {};
+    $$("[data-extra]").forEach((el) => { const v = moneyVal(el.value); if (v) out[el.dataset.extra] = v; });
+    return out;
   }
   function discounts() {
     const out = {};

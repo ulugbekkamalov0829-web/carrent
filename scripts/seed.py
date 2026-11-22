@@ -131,6 +131,9 @@ def seed(reset: bool = False) -> None:
                 per100 = {"electric": 16.0, "hybrid": 5.2, "diesel": 7.5, "gas": 9.0}.get(fuel, round(6.5 + (eng or 1.5) * 1.3, 1))
                 db.execute("UPDATE cars SET plate = ?, fuel_per_100 = ?, discounts = ? WHERE id = ?",
                            (plate, per100, json.dumps({"3": 5, "7": 10, "30": 20} if i % 3 else {"7": 8}), cid))
+                # v10: qo'shimcha xizmatlar va darhol bron (namuna uchun har xil)
+                extras = {"child_seat": 30000, "cleaning": 60000} if i % 2 == 0 else {"prepaid_fuel": 250000, "driver": 250000}
+                db.execute("UPDATE cars SET extras = ?, instant_book = ? WHERE id = ?", (json.dumps(extras), int(i % 3 == 0), cid))
                 for pos, fname in enumerate(photos):
                     src = PHOTO_DIR / fname
                     if src.exists():

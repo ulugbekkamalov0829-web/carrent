@@ -115,6 +115,16 @@
           <div class="field"><label for="fuel_price" data-i18n="field.fuel_price"></label><input class="input" data-money inputmode="numeric" type="text" id="fuel_price" name="fuel_price" placeholder="12 000" data-hint="hint.fuel_price"></div>
         </div>
         <label class="check field"><input type="checkbox" id="require_docs" name="require_docs"><span data-i18n="field.require_docs"></span></label>
+        <label class="check field instant-check"><input type="checkbox" id="instant_book"><span><b data-i18n="instant.label"></b><br><span class="small muted" data-i18n="instant.hint"></span></span></label>
+        <h3 style="margin-top:8px" data-i18n="extras.form_title"></h3>
+        <p class="small muted" data-i18n="extras.form_sub"></p>
+        <div class="extras-form" id="extrasForm">
+          <label><span data-i18n="extra.child_seat"></span><input class="input" data-money data-extra="child_seat" placeholder="0"><small data-i18n="extras.per_day"></small></label>
+          <label><span data-i18n="extra.prepaid_fuel"></span><input class="input" data-money data-extra="prepaid_fuel" placeholder="0"><small data-i18n="extras.per_trip"></small></label>
+          <label><span data-i18n="extra.cleaning"></span><input class="input" data-money data-extra="cleaning" placeholder="0"><small data-i18n="extras.per_trip"></small></label>
+          <label><span data-i18n="extra.unlimited_km"></span><input class="input" data-money data-extra="unlimited_km" placeholder="0"><small data-i18n="extras.per_day"></small></label>
+          <label><span data-i18n="extra.driver"></span><input class="input" data-money data-extra="driver" placeholder="0"><small data-i18n="extras.per_day"></small></label>
+        </div>
         <div class="notice info" id="commissionNote"></div>
       </section>
 

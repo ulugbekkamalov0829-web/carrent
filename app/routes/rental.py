@@ -57,11 +57,14 @@ Bir tomondan, avtomobil egasi {owner_name} (keyingi o'rinlarda — «Ijaraga ber
 3.1. Kunlik ijara haqi: {price_per_day}. Ijara haqi jami (uzoq muddat chegirmasi hisobga olingan): {rent}. Yetkazib berish: {delivery}. Umumiy summa: {total}.
 3.2. To'lov platforma orqali onlayn (Click, Payme) yoki avtomobil topshirilayotganda joyida amalga oshiriladi.
 3.3. Platforma xizmat haqi ({commission_pct}%) Ijaraga beruvchi oladigan summadan ushlanadi va Ijarachi uchun qo'shimcha to'lov emas.
+3.4. Qo'shimcha xizmatlar: {extras_text}.
 
 ## 4. Garov puli (depozit)
 4.1. Ijarachi avtomobilni olishda {deposit} miqdorida qaytariladigan garov puli qoldiradi.
 4.2. Garov puli avtomobil shikastsiz, kelishilgan yoqilg'i darajasida va o'z vaqtida qaytarilganda to'liq qaytariladi.
 4.3. Garovdan faqat qabul-topshirish dalolatnomasi bilan tasdiqlangan zarar, yoqilg'i kamomadi, ortiqcha probeg yoki jarimalar ushlab qolinishi mumkin; ushlangan summa asoslanishi shart.
+4.4. Kafolat rejasi: {protection_text}.
+4.5. Ijara davrida sodir etilgan yo'l harakati qoidabuzarliklari uchun jarimalarni (radar, kamera) Ijarachi to'laydi. Ijaraga beruvchi jarimani qaror raqami va vaqti bilan platformaga ijara tugaganidan keyin 60 kun ichida kiritadi.
 
 ## 5. Ijaraga beruvchining majburiyatlari
 5.1. Avtomobilni texnik soz, toza, hujjatlari (texnik pasport, amaldagi OSAGO sug'urtasi) bilan topshirish.
@@ -115,7 +118,20 @@ Ijarachi: {renter_name}, tel.: {renter_phone}, email: {renter_email}, shaxsni ta
 PLACEHOLDERS = ("number", "date", "city", "address", "platform", "owner_name", "owner_phone", "owner_email", "renter_name", "renter_phone",
                 "renter_email", "renter_license", "renter_license_cat", "renter_id", "car", "car_year", "car_color", "plate", "body",
                 "fuel", "start", "end", "days", "price_per_day", "rent", "delivery", "total", "deposit", "commission_pct",
-                "fuel_policy_text", "fuel_price", "km_limit", "extra_km_price")
+                "fuel_policy_text", "fuel_price", "km_limit", "extra_km_price", "extras_text", "protection_text")
+
+EXTRAS_UZ = {"child_seat": "bolalar o'rindig'i", "prepaid_fuel": "oldindan to'langan yoqilg'i (to'la bak)",
+             "cleaning": "qaytarishdan keyingi tozalash", "unlimited_km": "cheksiz probeg", "driver": "haydovchi bilan"}
+
+
+def protection_text(b: dict) -> str:
+    plan = b.get("protection") or "none"
+    if plan == "none":
+        return ("tanlanmagan — Ijarachi aybi bilan yetkazilgan zararni to'liq hajmda (garov puli va undan ortig'ini) qoplaydi")
+    name = {"standard": "Standart", "premium": "Premium"}.get(plan, plan)
+    return (f"{name} ({som(b.get('protection_fee'))} to'langan) — Ijarachining aybi bilan yetkazilgan zarar uchun javobgarligi "
+            f"{som(b.get('liability_cap'))} bilan cheklanadi; undan ortig'ini platforma kafolat jamg'armasi qoplaydi "
+            "(qasddan zarar, mast holda haydash, boshqa shaxsga topshirish va ijara shartlari buzilgan hollar bundan mustasno)")
 
 BODY_UZ = {"sedan": "sedan", "hatchback": "xetchbek", "crossover": "krossover", "suv": "yo'ltanlamas", "minivan": "miniven",
            "pickup": "pikap", "coupe": "kupe"}
@@ -153,7 +169,8 @@ def render_contract(db, b: dict, number: str) -> str:
         "car": f"{car['brand']} {car['model']}", "car_year": car["year"], "car_color": car["color"] or dash, "plate": car["plate"] or dash,
         "body": BODY_UZ.get(car["body_type"], car["body_type"]), "fuel": FUEL_UZ.get(car["fuel"], car["fuel"]),
         "start": dmy(b["start_date"]), "end": dmy(b["end_date"]), "days": b["days"], "price_per_day": som(b["price_per_day"]),
-        "rent": som(b["total_price"] - (b["delivery"] or 0)), "delivery": som(b["delivery"]) if b["delivery"] else "yo'q",
+        "rent": som(b["total_price"] - (b["delivery"] or 0) - (b.get("extras_total") or 0) - (b.get("protection_fee") or 0)
+                    + (b.get("promo_discount") or 0)), "delivery": som(b["delivery"]) if b["delivery"] else "yo'q",
         "total": som(b["total_price"]), "deposit": som(b["deposit"]) if b["deposit"] else "olinmaydi (0 so'm)",
         "commission_pct": f"{b['commission_bps'] / 100:g}",
         "fuel_policy_text": "to'la bak bilan olinadi va to'la bak bilan qaytariladi" if car["fuel_policy"] == "full"
@@ -161,8 +178,16 @@ def render_contract(db, b: dict, number: str) -> str:
         "fuel_price": som(car["fuel_price"]) if car["fuel_price"] else "yoqilg'ining shu kundagi bozor narxi",
         "km_limit": f"{car['km_limit']} km/kun" if car["km_limit"] else "cheklanmagan",
         "extra_km_price": som(car["extra_km_price"]) if car["extra_km_price"] else "kelishilgan narx",
+        "extras_text": "; ".join(f"{EXTRAS_UZ.get(x['code'], x['code'])} — {som(x['amount'])}"
+                                 for x in json.loads(b.get("extras") or "[]")) or "yo'q",
+        "protection_text": protection_text(b),
     }
     text = get_setting(db, "contract_template", "") or DEFAULT_TEMPLATE
+    # Admin eski shablonni tahrirlagan bo'lsa ham kafolat va xizmatlar shartnomada bo'lsin
+    if "{protection_text}" not in text and (b.get("protection") or "none") != "none":
+        text += "\n\n## Qo'shimcha shartlar\nKafolat rejasi: {protection_text}."
+    if "{extras_text}" not in text and b.get("extras_total"):
+        text += "\nQo'shimcha xizmatlar: {extras_text}."
     for k, v in values.items():
         text = text.replace("{" + k + "}", str(v))
     return text

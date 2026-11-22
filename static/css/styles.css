@@ -2633,3 +2633,41 @@ img { max-width: 100%; height: auto; }
   max-width: calc(100vw - 24px); padding: 10px 16px; border-radius: 12px; background: #0f1b3d; color: #fff; font-size: .9rem; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
 .waking .spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; animation: wk 0.8s linear infinite; flex: none; }
 @keyframes wk { to { transform: rotate(360deg); } }
+
+/* ================= v10: kafolat rejasi, qo'shimcha xizmatlar, promokod, darhol bron, jarimalar ================= */
+.instant-badge { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 4px 10px; border-radius: 99px;
+  background: linear-gradient(90deg, #fff4d6, #ffe7a3); color: #7a4a00; font-weight: 700; font-size: .8rem; }
+.instant-badge .ico { color: #d18a00; }
+.owner-stats { margin-top: 4px; color: var(--muted); }
+.trusted-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 99px; background: var(--primary-soft, #e8eeff);
+  color: var(--primary); font-weight: 700; font-size: .75rem; }
+.extras-pick, .plans-pick { border: 0; padding: 0; margin: 12px 0; min-width: 0; }
+.extras-pick legend, .plans-pick legend { font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; padding: 0; }
+.extras-pick .check { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--line); margin: 0; }
+.extras-pick .check:first-of-type { border-top: 0; }
+.plan-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.plan-opt { display: grid; gap: 4px; padding: 10px; border: 1.5px solid var(--line); border-radius: 12px; cursor: pointer; margin: 0;
+  transition: border-color .15s, background .15s; min-width: 0; }
+.plan-opt input { position: absolute; opacity: 0; pointer-events: none; }
+.plan-opt b { font-size: .88rem; line-height: 1.2; }
+.plan-opt .small { color: var(--muted); line-height: 1.3; overflow-wrap: normal; }
+.plan-opt.on { border-color: var(--primary); background: var(--primary-soft, #eef2ff); }
+.plan-opt:focus-within { outline: 3px solid var(--primary-ring, rgba(37,99,235,.3)); outline-offset: 1px; }
+.promo-box { margin: 8px 0 12px; }
+.promo-box summary { cursor: pointer; color: var(--primary); font-weight: 600; display: inline-flex; gap: 6px; align-items: center; min-height: 40px; }
+.err-text { color: var(--danger, #c62828); }
+.ok-text { color: var(--success-ink, #15803d); display: inline-flex; align-items: center; gap: 4px; }
+.liab-note { display: flex; gap: 6px; align-items: flex-start; margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: var(--soft); font-size: .82rem; line-height: 1.35; }
+.liab-note .ico { flex: none; margin-top: 1px; color: var(--primary); }
+.mini-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.mini-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 99px; background: var(--soft); font-size: .76rem; }
+.extras-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.extras-form label { display: grid; grid-template-columns: 1fr; gap: 4px; margin: 0; font-weight: 500; }
+.extras-form small { color: var(--muted); }
+.instant-check { align-items: flex-start; }
+.fine-ico { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: #fff1e6; color: #b45309; flex: none; }
+.promo-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; align-items: end; }
+.promo-form .btn { height: 46px; }
+html[data-theme="dark"] .instant-badge { background: #3a2c08; color: #ffd27a; }
+html[data-theme="dark"] .fine-ico { background: #3a2410; color: #fdba74; }
+html[data-theme="dark"] .plan-opt.on { background: rgba(99, 132, 255, .14); }

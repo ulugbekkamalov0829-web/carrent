@@ -103,8 +103,8 @@ def today() -> date:
     return date.today()
 
 
-RENTER_TYPES = {"booking_approved", "booking_rejected", "booking_expired", "payment_paid", "payment_refunded", "payment_refund_pending"}
-OWNER_TYPES = {"booking_new", "booking_cancelled", "payment_paid_owner", "payout_sent", "payout_rejected", "fee_settled",
+RENTER_TYPES = {"fine_new", "fine_cancelled", "booking_approved", "booking_rejected", "booking_expired", "payment_paid", "payment_refunded", "payment_refund_pending"}
+OWNER_TYPES = {"booking_instant", "fine_disputed", "booking_new", "booking_cancelled", "payment_paid_owner", "payout_sent", "payout_rejected", "fee_settled",
                "cancel_compensation", "car_approved", "car_hidden"}
 
 

@@ -472,9 +472,9 @@ window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); Inst
 
 /** Foydalanish yo'riqnomasi: har bo'limda "?" — o'sha bo'limga tegishli qism ochiladi (kompyuter va telefonda) */
 const Help = {
-  TOPICS: ["start", "search", "book", "dates", "bookings", "contract", "handover", "pay", "cards", "docs", "add_car", "discounts", "owner", "reports", "messages", "advisor", "security", "admin"],
+  TOPICS: ["start", "search", "book", "dates", "bookings", "contract", "handover", "pay", "cards", "docs", "add_car", "discounts", "guarantee", "fines", "owner", "reports", "messages", "advisor", "security", "admin"],
   ICONS: { start: "home", search: "search", book: "calendar", dates: "calendar", bookings: "list", contract: "doc", handover: "key", pay: "card", cards: "card",
-    docs: "idcard", add_car: "plus", discounts: "tag", owner: "car", reports: "chart", messages: "chat", advisor: "spark", security: "finger", admin: "shield" },
+    docs: "idcard", add_car: "plus", discounts: "tag", guarantee: "shield", fines: "receipt", owner: "car", reports: "chart", messages: "chat", advisor: "spark", security: "finger", admin: "shield" },
   /** Joriy sahifaga mos bo'lim */
   context() {
     const p = location.pathname, h = location.hash.slice(1).split("/")[0];
@@ -757,6 +757,7 @@ const ICON_PATHS = {
   user: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0",
   swap: "M7 7h12l-3-3M17 17H5l3 3",
   shield: "M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z",
+  bolt: "M13 2 4 14h7l-1 8 9-12h-7z",
   camera: "M4 8h3l2-3h6l2 3h3v11H4zM12 10a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z",
   check: "M5 12.5 10 17l9-10",
   phone: "M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 5a2 2 0 0 1 2-2z",
@@ -792,17 +793,17 @@ const icon = (name, size = 20) => `<svg class="ico" width="${size}" height="${si
 /** Kabinet bo'limlari — chap panel va kabinet sahifasi bitta ro'yxatdan foydalanadi */
 const CABINET = {
   renter: [["overview", "nav.tab_overview", "grid"], ["bookings", "dash.my_bookings", "list"], ["payments", "dash.my_payments", "card"],
-           ["favorites", "dash.favorites", "heart"], ["analytics", "rep.title", "chart"], ["disputes", "nav.disputes", "flag"]],
+           ["favorites", "dash.favorites", "heart"], ["analytics", "rep.title", "chart"], ["disputes", "nav.disputes", "flag"], ["fines", "fine.tab", "receipt"]],
   owner: [["overview", "dash.owner_overview", "grid"], ["cars", "dash.my_cars", "car"], ["bookings", "dash.requests", "list"],
           ["calendar", "dash.calendar", "calendar"], ["earnings", "dash.earnings", "wallet"], ["analytics", "rep.title", "chart"],
-          ["reviews", "dash.reviews", "star"], ["disputes", "nav.disputes", "flag"]],
+          ["reviews", "dash.reviews", "star"], ["disputes", "nav.disputes", "flag"], ["fines", "fine.tab", "receipt"]],
 };
 // Admin menyusi guruhlarga bo'lingan: kamroq ko'z yugurtirib kerakli bo'limni topish oson
 const ADMIN_GROUPS = [
   ["admin.g_main", [["stats", "admin.dashboard", "grid"], ["analytics", "rep.title", "chart"]]],
   ["admin.g_people", [["users", "admin.users", "users"], ["documents", "docs.admin_tab", "idcard"]]],
   ["admin.g_rentals", [["cars", "admin.cars", "car"], ["bookings", "admin.bookings", "list"], ["contracts", "ctr.admin_tab", "doc"]]],
-  ["admin.g_money", [["payments", "admin.payments", "card"], ["finance", "admin.finance", "wallet"]]],
+  ["admin.g_money", [["payments", "admin.payments", "card"], ["finance", "admin.finance", "wallet"], ["promos", "promo.admin_tab", "tag"]]],
   ["admin.g_issues", [["disputes", "admin.disputes", "shield"], ["reports", "admin.reports", "flag"], ["reviews", "admin.reviews", "star"]]],
   ["admin.g_system", [["channels", "admin.channels", "mail"], ["audit", "admin.audit", "log"]]],
 ];

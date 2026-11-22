@@ -16,7 +16,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from .config import settings
 from .db import init_db
 from .i18n import current_lang, detect_lang, tr
-from .routes import applock, passkeys, admin_users, advisor, analytics, auth, bookings, cars, dashboard, drill, rental, trust, ops, payments, smart, social
+from .routes import applock, growth, passkeys, admin_users, advisor, analytics, auth, bookings, cars, dashboard, drill, rental, trust, ops, payments, smart, social
 from .utils import ApiValidationError
 
 log = logging.getLogger("carrent")
@@ -157,7 +157,7 @@ async def lifespan(app):
     persist.stop()
 
 
-APP_VERSION = "v9.8 (2026-11-22)"
+APP_VERSION = "v10.0 (2026-11-22)"
 
 
 def ensure_personal_accounts() -> None:
@@ -212,7 +212,7 @@ def create_app() -> Starlette:
     routes = [
         Route("/api/health", health),
         Route("/about.html", moved),
-        *auth.routes, *passkeys.routes, *applock.routes, *cars.routes, *bookings.routes, *social.routes, *dashboard.routes, *smart.routes, *payments.routes, *analytics.routes, *advisor.routes, *ops.routes, *drill.routes, *admin_users.routes, *trust.routes, *rental.routes,
+        *auth.routes, *passkeys.routes, *applock.routes, *cars.routes, *bookings.routes, *social.routes, *dashboard.routes, *smart.routes, *payments.routes, *analytics.routes, *advisor.routes, *ops.routes, *drill.routes, *admin_users.routes, *trust.routes, *rental.routes, *growth.routes,
         Route("/api/{rest:path}", api_not_found, methods=["GET", "POST", "PUT", "PATCH", "DELETE"]),
         Mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads"),
         Mount("/", StaticFiles(directory=settings.STATIC_DIR, html=True), name="static"),

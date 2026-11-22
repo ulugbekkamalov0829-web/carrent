@@ -9,7 +9,7 @@
   catch (e) { root.innerHTML = `<div class="empty card"><h2>${esc(t("car.not_found"))}</h2><p>${esc(e.message)}</p><a class="btn" href="/cars.html">${esc(t("nav.cars"))}</a></div>`; return; }
 
   const canBook = user && user.role !== "admin" && !car.is_mine;
-  const form = { start: params.get("start") || "", end: params.get("end") || "", delivery: false, note: "" };
+  const form = { start: params.get("start") || "", end: params.get("end") || "", delivery: false, note: "", extras: [], protection: "standard", promo: "" };
   let imgIndex = 0;
 
   function spec(k, v, ico) {
@@ -41,7 +41,8 @@
 
   function render() {
     // Formadagi qiymatlarni saqlab qolamiz (til almashganda yo'qolmasin)
-    if ($("#bStart")) Object.assign(form, { start: $("#bStart").value, end: $("#bEnd").value, delivery: $("#bDelivery")?.checked || false, note: $("#bNote").value });
+    if ($("#bStart")) Object.assign(form, { start: $("#bStart").value, end: $("#bEnd").value, delivery: $("#bDelivery")?.checked || false, note: $("#bNote").value,
+      extras: pickedExtras(), protection: pickedPlan(), promo: $("#bPromo")?.value || "" });
     document.title = `${carName(car)} ${car.year} — CarRent`;
     const hidden = !car.is_active || !car.is_approved;
     const images = car.images.length ? car.images : [null];
@@ -105,6 +106,7 @@
         <aside class="stack book-box" id="book">
           <div class="card card-pad book-card">
             <div class="price-big">${money(car.price_per_day)} <span class="muted small">${esc(t("car.per_day"))}</span></div>
+            ${car.instant_book ? `<div class="instant-badge" title="${esc(t("instant.renter_hint"))}">${icon("bolt", 14)} ${esc(t("instant.badge"))}</div>` : ""}
             ${Object.keys(car.discounts || {}).length ? `<div class="disc-chips">${Object.entries(car.discounts).map(([d, p]) => `<span>${icon("tag", 13)} ${esc(t("disc.chip", { d, p }))}</span>`).join("")}</div>` : ""}
             ${canBook ? `<div class="date-guide"><div class="dg-step ${form.start ? "done" : "on"}"><b>1</b><span>${esc(t("book.step1"))}</span></div><i></i>
               <div class="dg-step ${form.end ? "done" : form.start ? "on" : ""}"><b>2</b><span>${esc(t("book.step2"))}</span></div></div>
@@ -114,7 +116,8 @@
           <div class="card card-pad">
             <div class="owner-box">${avatarHtml(car.owner)}
               <div><b>${esc(car.owner.full_name)}</b>${car.owner.phone_verified ? ` <span class="verified" title="${esc(t("verify.phone_ok"))}">${icon("check", 13)} ${esc(t("verify.badge"))}</span>` : ""}<div class="small muted">${esc(t("owner.cars_n", { n: car.owner.cars_count }))} · ${esc(t("owner.trips_n", { n: car.owner.trips }))}</div>
-              <div class="small muted">${car.owner.rating ? `★ ${car.owner.rating} · ` : ""}${esc(t("owner.since", { d: fmtDate(car.owner.created_at) }))}</div></div></div>
+              <div class="small muted">${car.owner.rating ? `★ ${car.owner.rating} · ` : ""}${esc(t("owner.since", { d: fmtDate(car.owner.created_at) }))}</div>
+              ${ownerStats(car.owner)}</div></div>
             <div class="stack" style="margin-top:14px" id="contactArea"></div>
           </div>
           ${user && !car.is_mine && user.role !== "admin" ? `<button class="linkbtn muted report-link" id="reportBtn">${icon("flag", 16)} ${esc(t("report.car"))}</button>` : ""}
@@ -164,6 +167,31 @@
       <a class="btn btn-soft btn-block" href="/messages.html?user=${car.owner_id}&car=${car.id}">💬 ${esc(t("owner.message"))}</a>`;
   }
 
+  function ownerStats(o) {
+    if (!o.requests) return "";
+    const parts = [];
+    if (o.response_rate !== null) parts.push(t("owner.resp_rate", { p: o.response_rate }));
+    if (o.response_hours !== null) parts.push(o.response_hours < 1 ? t("owner.resp_fast") : t("owner.resp_hours", { h: Math.round(o.response_hours) }));
+    return `<div class="small owner-stats">${o.trusted ? `<span class="trusted-badge">${icon("star", 12)} ${esc(t("owner.trusted"))}</span> ` : ""}${esc(parts.join(" · "))}</div>`;
+  }
+  const EXTRA_UNITS = { child_seat: "day", prepaid_fuel: "trip", cleaning: "trip", unlimited_km: "day", driver: "day" };
+  function extrasField() {
+    const ex = Object.entries(car.extras || {}).filter(([k]) => k !== "unlimited_km" || car.km_limit);
+    if (!ex.length) return "";
+    return `<fieldset class="extras-pick"><legend>${esc(t("extras.title"))}</legend>${ex.map(([k, p]) => `<label class="check">
+      <input type="checkbox" data-x="${esc(k)}" ${form.extras.includes(k) ? "checked" : ""}><span>${esc(t("extra." + k))}
+      <b>${money(p)}</b> <span class="muted small">${esc(t(EXTRA_UNITS[k] === "day" ? "extras.per_day" : "extras.per_trip"))}</span></span></label>`).join("")}</fieldset>`;
+  }
+  function plansField() {
+    const P = car.plans || {};
+    const card = (code) => `<label class="plan-opt ${form.protection === code ? "on" : ""}"><input type="radio" name="plan" value="${code}" ${form.protection === code ? "checked" : ""}>
+      <b>${esc(t("plan." + code))}</b><span class="small">${esc(code === "none" ? t("plan.none_sub") : t("plan.sub", { p: P[code]?.pct ?? 0, sum: money(P[code]?.cap || 0) }))}</span></label>`;
+    return `<fieldset class="plans-pick"><legend>${icon("shield", 15)} ${esc(t("plan.title"))} ${Help.button?.("guarantee") || ""}</legend>
+      <div class="plan-grid">${["none", "standard", "premium"].map(card).join("")}</div></fieldset>`;
+  }
+  const pickedExtras = () => $$("[data-x]:checked").map((i) => i.dataset.x);
+  const pickedPlan = () => $("input[name=plan]:checked")?.value || "none";
+
   function renderBooking() {
     const area = $("#bookArea");
     const next = encodeURIComponent(location.pathname + location.search);
@@ -178,6 +206,11 @@
       <div class="grid-2"><div class="field"><label for="bStart">${esc(t("book.start"))}</label><input class="input" type="date" id="bStart" min="${today}" value="${esc(form.start)}" required></div>
       <div class="field"><label for="bEnd">${esc(t("book.end"))}</label><input class="input" type="date" id="bEnd" min="${esc(form.start || today)}" value="${esc(form.end)}" required></div></div>
       ${car.delivery_price !== null ? `<label class="check field"><input type="checkbox" id="bDelivery" ${form.delivery ? "checked" : ""}><span>${esc(t("book.delivery", { price: money(car.delivery_price) }))}</span></label>` : ""}
+      ${extrasField()}
+      ${plansField()}
+      <details class="promo-box" ${form.promo ? "open" : ""}><summary>${icon("tag", 14)} ${esc(t("promo.have"))}</summary>
+        <div class="row" style="gap:8px;margin-top:8px"><input class="input" id="bPromo" maxlength="30" autocapitalize="characters" value="${esc(form.promo)}" placeholder="${esc(t("promo.ph"))}" style="flex:1;text-transform:uppercase"></div>
+        <div class="small" id="promoMsg" aria-live="polite"></div></details>
       <div class="field"><label for="bNote">${esc(t("book.note"))}</label><input class="input" id="bNote" maxlength="500" value="${esc(form.note)}" placeholder="${esc(t("book.note_ph"))}" data-hint="hint.book_note"></div>
       <div id="quote" class="small" aria-live="polite"></div>
       <button class="btn btn-block btn-lg" type="submit" style="margin-top:10px">${esc(t("book.submit"))}</button>
@@ -186,6 +219,7 @@
     DateField.enhance(f); applyHints(f);
     f.addEventListener("input", (e) => {
       if (e.target.id === "bStart") { $("#bEnd").min = $("#bStart").value; if ($("#bEnd").value < $("#bStart").value) $("#bEnd").value = $("#bStart").value; }
+      if (e.target.name === "plan") $$(".plan-opt", f).forEach((l) => l.classList.toggle("on", l.querySelector("input").checked));
       cal?.setRange($("#bStart").value, $("#bEnd").value); updateQuote(); guide();
     });
     f.addEventListener("submit", async (e) => {
@@ -195,9 +229,10 @@
       if (!$("#bStart").value || !$("#bEnd").value) { toast(t("book.pick_dates"), "error"); return; }
       await withLoading(btn, async () => {
         try {
-          await api("/api/bookings", { method: "POST", body: { car_id: car.id, start_date: $("#bStart").value, end_date: $("#bEnd").value,
-            delivery: !!$("#bDelivery")?.checked, note: $("#bNote").value || null } });
-          toast(t("book.sent"), "ok");
+          const res = await api("/api/bookings", { method: "POST", body: { car_id: car.id, start_date: $("#bStart").value, end_date: $("#bEnd").value,
+            delivery: !!$("#bDelivery")?.checked, note: $("#bNote").value || null, extras: pickedExtras(), protection: pickedPlan(),
+            promo: $("#bPromo")?.value.trim() || null } });
+          toast(t(res.status === "approved" ? "instant.done" : "book.sent"), "ok");
           setTimeout(() => (location.href = "/dashboard.html?mode=renter#bookings"), 900);
         } catch (err) { toast(err.message, "error"); await cal.load(); updateQuote(); }
       });
@@ -254,15 +289,23 @@
       if (!s || !e || e < s) { box.innerHTML = ""; return; }
       try {
         // Narx serverda hisoblanadi — frontend faqat ko'rsatadi
-        const q = await api(`/api/cars/${car.id}/quote?start=${s}&end=${e}&delivery=${$("#bDelivery")?.checked ? 1 : 0}`);
+        const qs = new URLSearchParams({ start: s, end: e, delivery: $("#bDelivery")?.checked ? 1 : 0, extras: pickedExtras().join(","),
+          protection: pickedPlan(), promo: $("#bPromo")?.value.trim() || "" });
+        const q = await api(`/api/cars/${car.id}/quote?${qs}`);
+        const pm = $("#promoMsg");
+        if (pm) pm.innerHTML = q.promo_error ? `<span class="err-text">${esc(q.promo_error)}</span>` : q.promo_discount ? `<span class="ok-text">${icon("check", 13)} ${esc(t("promo.ok", { sum: money(q.promo_discount) }))}</span>` : "";
         box.innerHTML = `${!q.available ? `<div class="notice" style="margin-bottom:8px">${esc(t("book.busy"))}</div>` : ""}
           ${!q.within_limits ? `<div class="notice" style="margin-bottom:8px">${esc(t("terms.days_range", { a: car.min_days, b: car.max_days }))}</div>` : ""}
           <div class="sum-row"><span>${money(q.price_per_day)} × ${esc(t("car.days_n", { n: q.days }))}</span><span>${money(q.rent_full ?? q.rent)}</span></div>
           ${q.discount ? `<div class="sum-row disc"><span>${icon("tag", 13)} ${esc(t("disc.applied", { p: q.discount_pct, d: q.days }))}</span><span>−${money(q.discount)}</span></div>` : ""}
           ${q.delivery ? `<div class="sum-row"><span>${esc(t("book.delivery_fee"))}</span><span>${money(q.delivery)}</span></div>` : ""}
+          ${(q.extras || []).map((x) => `<div class="sum-row"><span>${esc(t("extra." + x.code))}${x.unit === "day" ? ` × ${q.days}` : ""}</span><span>${money(x.amount)}</span></div>`).join("")}
+          ${q.protection_fee ? `<div class="sum-row"><span>${icon("shield", 13)} ${esc(t("plan." + q.protection))}</span><span>${money(q.protection_fee)}</span></div>` : ""}
+          ${q.promo_discount ? `<div class="sum-row disc"><span>${icon("tag", 13)} ${esc(t("promo.line", { code: q.promo_code }))}</span><span>−${money(q.promo_discount)}</span></div>` : ""}
           <div class="sum-row total"><span>${esc(t("book.total"))}</span><span>${money(q.total)}</span></div>
           ${q.deposit ? `<div class="sum-row sub"><span>${esc(t("book.deposit"))}</span><span>${money(q.deposit)}</span></div>` : ""}
           <div class="sum-row sub"><span>${esc(t("book.pay_on_site"))}</span><span>${money(q.pay_on_site)}</span></div>
+          <div class="liab-note">${icon("shield", 14)} ${esc(q.liability_cap ? t("plan.cap_line", { sum: money(q.liability_cap) }) : t("plan.full_line"))}</div>
           ${q.discount ? `<div class="disc-save">${esc(t("disc.you_save", { sum: money(q.discount) }))}</div>` : nextTierHint(q.days)}`;
       } catch (err) { box.innerHTML = `<div class="notice">${esc(err.message)}</div>`; }
     }, 200);

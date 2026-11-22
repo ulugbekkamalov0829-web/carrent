@@ -3,6 +3,8 @@
 Holatlar: pending -> approved | rejected | cancelled; approved -> cancelled | completed.
 pending so'rov sanalarni 24 soat band qilib turadi; owner javob bermasa avtomatik rad etiladi.
 """
+import json
+
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.routing import Route
@@ -13,6 +15,8 @@ from ..schemas import BookingIn
 from ..security import require
 from ..utils import bps_split, car_title, complete_finished_bookings, notify, ok, parse_body, path_int, q_str, today
 
+PROMO_ERRORS = {"not_found": "Bunday promokod topilmadi", "expired": "Promokod muddati tugagan",
+                "used_up": "Promokod limiti tugagan", "used_by_you": "Siz bu promokoddan allaqachon foydalangansiz"}
 MAX_PENDING_PER_USER = 3
 PENDING_HOLD_HOURS = 24
 
@@ -38,6 +42,11 @@ BOOKING_SELECT = """
     JOIN users ru ON ru.id = b.renter_id
     JOIN users ou ON ou.id = c.owner_id
 """
+
+
+def now_sql() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def maintain(db) -> None:
@@ -86,17 +95,38 @@ def discount_pct(car: dict, days: int) -> int:
     return best
 
 
-def quote(car: dict, days: int, delivery: bool, bps: int) -> dict:
-    """Narx hisob-kitobi (frontenddagi ko'rsatkich ham shu formuladan): har bir qator alohida."""
+def quote(car: dict, days: int, delivery: bool, bps: int, *, extras: list[str] | None = None, protection: str = "none",
+          plans: dict | None = None, promo: dict | None = None) -> dict:
+    """Narx hisob-kitobi (frontenddagi ko'rsatkich ham shu formuladan): har bir qator alohida.
+    Platforma ulushi = ijara+yetkazish komissiyasi + qo'shimcha xizmatlarning 10% + kafolat rejasi to'lovi − promokod chegirmasi.
+    Owner ulushi promokod va kafolat rejasidan o'zgarmaydi."""
+    from ..market import EXTRAS_FEE_PCT, extras_lines
     full = days * car["price_per_day"]
     pct = discount_pct(car, days)
     discount = full * pct // 100
     rent = full - discount
     delivery_fee = (car["delivery_price"] or 0) if delivery else 0
-    total = rent + delivery_fee
-    commission, payout = bps_split(total, bps)
+    base_commission, _ = bps_split(rent + delivery_fee, bps)
+    lines = extras_lines(car, extras or [], days)
+    extras_total = sum(x["amount"] for x in lines)
+    extras_commission = extras_total * EXTRAS_FEE_PCT // 100
+    plan = (plans or {}).get(protection) or {"pct": 0, "cap": None}
+    if protection not in (plans or {}):
+        protection = "none"
+    protection_fee = rent * int(plan["pct"]) // 100
+    platform = base_commission + extras_commission + protection_fee
+    promo_discount = 0
+    if promo:
+        promo_discount = (rent * int(promo["pct"] or 0) // 100) + int(promo["amount"] or 0)
+        promo_discount = max(0, min(promo_discount, platform))   # platforma ulushidan oshmaydi
+    total = rent + delivery_fee + extras_total + protection_fee - promo_discount
+    commission = platform - promo_discount
+    payout = total - commission
+    cap = plan["cap"]
     return {"days": days, "price_per_day": car["price_per_day"], "rent_full": full, "discount_pct": pct, "discount": discount,
-            "rent": rent, "delivery": delivery_fee, "total": total,
+            "rent": rent, "delivery": delivery_fee, "extras": lines, "extras_total": extras_total,
+            "protection": protection, "protection_fee": protection_fee, "liability_cap": cap,
+            "promo_code": promo["code"] if promo else None, "promo_discount": promo_discount, "total": total,
             "commission_bps": bps, "commission": commission, "owner_payout": payout, "deposit": car["deposit"],
             "pay_now": 0, "pay_on_site": total + car["deposit"]}
 
@@ -174,15 +204,36 @@ async def create_booking(request: Request):
             pending = db.execute("SELECT COUNT(*) FROM bookings WHERE renter_id = ? AND status = 'pending'", (user["id"],)).fetchone()[0]
             if pending >= MAX_PENDING_PER_USER:
                 raise HTTPException(429, tr("Bir vaqtda ko'pi bilan {n} ta kutilayotgan so'rov yuborish mumkin", n=MAX_PENDING_PER_USER))
-            q = quote(car, days, data.delivery, int(get_setting(db, "commission_bps", "1000")))
+            from ..market import find_promo, plans
+            promo, perr = find_promo(db, data.promo, user["id"])
+            if perr:
+                raise HTTPException(400, tr(PROMO_ERRORS[perr]))
+            q = quote(car, days, data.delivery, int(get_setting(db, "commission_bps", "1000")), extras=data.extras,
+                      protection=data.protection, plans=plans(db), promo=promo)
+            # Darhol bron: owner yoqqan bo'lsa va ijarachining hujjatlari tasdiqlangan bo'lsa — so'rov kutilmaydi
+            from .trust import docs_state
+            instant = bool(car.get("instant_book")) and docs_state(db, user["id"])["status"] == "verified"
             cur = db.execute(
                 """INSERT INTO bookings (car_id, renter_id, start_date, end_date, days, price_per_day, delivery, total_price,
-                   commission_bps, commission, owner_payout, deposit, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   commission_bps, commission, owner_payout, deposit, note, extras, extras_total, protection, protection_fee,
+                   liability_cap, promo_code, promo_discount, instant, status, responded_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (car["id"], user["id"], start, end, days, q["price_per_day"], q["delivery"], q["total"],
-                 q["commission_bps"], q["commission"], q["owner_payout"], q["deposit"], data.note))
+                 q["commission_bps"], q["commission"], q["owner_payout"], q["deposit"], data.note,
+                 json.dumps(q["extras"]), q["extras_total"], q["protection"], q["protection_fee"], q["liability_cap"],
+                 q["promo_code"], q["promo_discount"], int(instant), "approved" if instant else "pending",
+                 now_sql() if instant else None))
             bid = cur.lastrowid
-            notify(db, car["owner_id"], "booking_new", "/dashboard.html?mode=owner#bookings", actor_id=user["id"],
-                   name=user["full_name"], car=car_title(car), start=start, end=end, days=days, total=q["total"])
+            if instant:
+                notify(db, car["owner_id"], "booking_instant", "/dashboard.html?mode=owner#bookings", actor_id=user["id"],
+                       name=user["full_name"], car=car_title(car), start=start, end=end, days=days, total=q["total"])
+                notify(db, user["id"], "booking_approved", "/dashboard.html?mode=renter#bookings",
+                       car=car_title(car), start=start, end=end)
+                from .rental import ensure_contract
+                ensure_contract(db, bid)
+            else:
+                notify(db, car["owner_id"], "booking_new", "/dashboard.html?mode=owner#bookings", actor_id=user["id"],
+                       name=user["full_name"], car=car_title(car), start=start, end=end, days=days, total=q["total"])
         booking = one(db.execute(BOOKING_SELECT + " WHERE b.id = ?", (bid,)))
     return ok(booking, 201)
 
@@ -198,8 +249,15 @@ async def quote_endpoint(request: Request):
             raise HTTPException(404, tr("E'lon topilmadi"))
         if not s or not e or e < s:
             raise HTTPException(400, tr("Tugash sanasi boshlanish sanasidan oldin bo'lmasligi kerak"))
+        from ..market import find_promo, plans
+        from ..security import current_user_or_none
+        u = current_user_or_none(request)
+        promo, perr = find_promo(db, request.query_params.get("promo"), u["id"] if u else None)
+        extras = [x for x in (request.query_params.get("extras") or "").split(",") if x]
         q = quote(car, (e - s).days + 1, request.query_params.get("delivery") == "1",
-                  int(get_setting(db, "commission_bps", "1000")))
+                  int(get_setting(db, "commission_bps", "1000")), extras=extras,
+                  protection=request.query_params.get("protection") or "none", plans=plans(db), promo=promo)
+        q["promo_error"] = tr(PROMO_ERRORS[perr]) if perr else None
         q["available"] = not _overlap(db, car_id, s.isoformat(), e.isoformat())
         q["within_limits"] = car["min_days"] <= q["days"] <= car["max_days"]
     return ok(q)
@@ -254,7 +312,7 @@ async def approve(request: Request):
                 raise HTTPException(400, tr("Boshlanish sanasi o'tib ketgan. So'rovni rad eting"))
             if _overlap(db, b["car_id"], b["start_date"], b["end_date"], exclude_id=bid, statuses=("approved",)):
                 raise HTTPException(409, tr("Bu sanalarda boshqa tasdiqlangan bron bor"))
-            db.execute("UPDATE bookings SET status='approved', updated_at=datetime('now') WHERE id = ?", (bid,))
+            db.execute("UPDATE bookings SET status='approved', responded_at=datetime('now'), updated_at=datetime('now') WHERE id = ?", (bid,))
             notify(db, b["renter_id"], "booking_approved", "/dashboard.html?mode=renter#bookings", actor_id=uid,
                    car=car_title(b), start=b["start_date"], end=b["end_date"])
             from .rental import ensure_contract
@@ -272,7 +330,7 @@ async def reject(request: Request):
                 raise HTTPException(403, tr("Bu bron sizning avtomobilingizga tegishli emas"))
             if b["status"] != "pending":
                 raise HTTPException(400, tr("Faqat kutilayotgan bronni rad etish mumkin"))
-            db.execute("UPDATE bookings SET status='rejected', updated_at=datetime('now') WHERE id = ?", (bid,))
+            db.execute("UPDATE bookings SET status='rejected', responded_at=datetime('now'), updated_at=datetime('now') WHERE id = ?", (bid,))
             notify(db, b["renter_id"], "booking_rejected", "/dashboard.html?mode=renter#bookings",
                    car=car_title(b), start=b["start_date"], end=b["end_date"])
         return ok(_load(db, bid))

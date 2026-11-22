@@ -229,6 +229,20 @@ class CarIn(Base):
     # Uzoq muddat chegirmasi: {"3": 5, "7": 10, "30": 20} — shuncha kundan boshlab kunlik narx shuncha foiz arzon
     discounts: dict[str, int] = Field(default_factory=dict, max_length=4)
     tech_passport: Optional[str] = Field(default=None, max_length=14)
+    instant_book: bool = False
+    extras: dict[str, int] = Field(default_factory=dict, max_length=10)
+
+    @field_validator("extras")
+    @classmethod
+    def _extras(cls, v: dict) -> dict:
+        from .market import EXTRAS
+        out = {}
+        for k, price in v.items():
+            if k not in EXTRAS or not isinstance(price, int) or not 0 <= price <= 5_000_000:
+                raise ValueError("Qo'shimcha xizmat narxi noto'g'ri")
+            if price:
+                out[k] = price
+        return out
 
     @field_validator("discounts")
     @classmethod
@@ -281,6 +295,9 @@ class BookingIn(Base):
     end_date: date
     delivery: bool = False
     note: Optional[str] = Field(default=None, max_length=500)
+    extras: list[str] = Field(default_factory=list, max_length=10)
+    protection: Literal["none", "standard", "premium"] = "none"
+    promo: Optional[str] = Field(default=None, max_length=30)
 
 
 class ReviewIn(Base):

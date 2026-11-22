@@ -17,7 +17,7 @@
     view.onclick = null; view.onsubmit = null;
     view.innerHTML = `<div class="skeleton" style="height:240px"></div>`;
     const arg = { users: () => new URLSearchParams(route.sub ? { kind: route.sub } : {}), bookings: () => route.sub, documents: () => route.sub || "pending", contracts: () => route.sub || "signed", cars: () => new URLSearchParams(route.sub ? { state: route.sub } : {}) }[tab]?.();
-    ({ stats, users, cars, bookings, payments, reports, reviews, finance, audit, disputes, channels, documents, contracts, analytics: () => Reports.render(view, "admin") })[tab](arg).catch((e) => (view.innerHTML = `<div class="empty card">${esc(e.message)}</div>`));
+    ({ stats, users, cars, bookings, payments, reports, reviews, finance, promos, audit, disputes, channels, documents, contracts, analytics: () => Reports.render(view, "admin") })[tab](arg).catch((e) => (view.innerHTML = `<div class="empty card">${esc(e.message)}</div>`));
   }
   window.addEventListener("hashchange", route);
   document.addEventListener("langchange", route);
@@ -570,6 +570,42 @@
       const b = e.target.closest("[data-rev]"); if (!b) return;
       if (!(await confirmBox(t("admin.delete_review_confirm"), t("common.delete"), true))) return;
       try { await api(`/api/admin/reviews/${b.dataset.rev}`, { method: "DELETE" }); toast(t("common.done"), "ok"); reviews(); } catch (err) { toast(err.message, "error"); }
+    };
+  }
+
+  async function promos() {
+    const { items } = await api("/api/admin/promos");
+    const val = (p) => [p.pct ? `${p.pct}%` : "", p.amount ? money(p.amount) : ""].filter(Boolean).join(" + ");
+    view.innerHTML = `<div class="card card-pad" style="margin-bottom:18px"><h3>${icon("tag", 18)} ${esc(t("promo.new"))}</h3>
+        <p class="small muted">${esc(t("promo.admin_sub"))}</p>
+        <form id="promoForm" class="promo-form">
+          <div class="field"><label for="pc">${esc(t("promo.code"))}</label><input class="input" id="pc" name="code" required pattern="[A-Za-z0-9_-]{3,30}" placeholder="BAHOR2027" style="text-transform:uppercase"></div>
+          <div class="field"><label for="pp">${esc(t("promo.pct"))}</label><input class="input" id="pp" name="pct" type="number" min="0" max="50" placeholder="10"></div>
+          <div class="field"><label for="pa">${esc(t("promo.amount"))}</label><input class="input" id="pa" name="amount" data-money placeholder="50 000"></div>
+          <div class="field"><label for="pm">${esc(t("promo.max_uses"))}</label><input class="input" id="pm" name="max_uses" type="number" min="1" placeholder="100"></div>
+          <div class="field"><label for="pe">${esc(t("promo.expires"))}</label><input class="input" id="pe" name="expires_on" type="date"></div>
+          <div class="field"><label for="pn">${esc(t("promo.note"))}</label><input class="input" id="pn" name="note" maxlength="120" placeholder="${esc(t("promo.note_ph"))}"></div>
+          <button class="btn">${esc(t("promo.create"))}</button></form></div>
+      <div class="card">${items.length ? `<div class="table-wrap"><table class="table responsive"><thead><tr><th>${esc(t("promo.code"))}</th><th>${esc(t("promo.value"))}</th>
+        <th>${esc(t("promo.used"))}</th><th>${esc(t("promo.given"))}</th><th>${esc(t("promo.expires"))}</th><th></th></tr></thead><tbody>
+        ${items.map((p) => `<tr class="${p.is_active ? "" : "muted"}"><td data-label="${esc(t("promo.code"))}"><b class="mono">${esc(p.code)}</b>${p.note ? `<div class="small muted">${esc(p.note)}</div>` : ""}</td>
+          <td data-label="${esc(t("promo.value"))}">${val(p)}</td><td data-label="${esc(t("promo.used"))}">${p.used}${p.max_uses ? ` / ${p.max_uses}` : ""}</td>
+          <td data-label="${esc(t("promo.given"))}">${money(p.given)}</td><td data-label="${esc(t("promo.expires"))}" class="small">${p.expires_on ? fmtDate(p.expires_on) : "—"}</td>
+          <td><button class="btn btn-sm btn-outline" data-toggle="${p.id}">${esc(t(p.is_active ? "promo.off" : "promo.on"))}</button></td></tr>`).join("")}
+        </tbody></table></div>` : `<div class="empty">${esc(t("promo.none"))}</div>`}</div>`;
+    applyMasks(view);
+    $("#promoForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      try {
+        await api("/api/admin/promos", { method: "POST", body: { code: f.code.value.trim().toUpperCase(), pct: +f.pct.value || 0, amount: moneyVal(f.amount.value) || 0,
+          max_uses: +f.max_uses.value || null, expires_on: f.expires_on.value || null, note: f.note.value.trim() || null } });
+        toast(t("common.saved"), "ok"); promos();
+      } catch (err) { toast(err.message, "error"); }
+    });
+    view.onclick = async (e) => {
+      const b = e.target.closest("[data-toggle]"); if (!b) return;
+      try { await api(`/api/admin/promos/${b.dataset.toggle}/toggle`, { method: "POST" }); promos(); } catch (err) { toast(err.message, "error"); }
     };
   }
 

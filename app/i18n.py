@@ -303,3 +303,20 @@ CATALOG.update({
     "Parol noto'g'ri": ("Неверный пароль", "Wrong password"),
     "Kodni yoki parolni kiriting": ("Введите код или пароль", "Enter the code or your password"),
 })
+# v10: promokod, jarimalar, qo'shimcha xizmatlar
+CATALOG.update({
+    "Bunday promokod topilmadi": ("Такой промокод не найден", "Promo code not found"),
+    "Promokod muddati tugagan": ("Срок действия промокода истёк", "This promo code has expired"),
+    "Promokod limiti tugagan": ("Лимит промокода исчерпан", "This promo code has been fully used"),
+    "Siz bu promokoddan allaqachon foydalangansiz": ("Вы уже использовали этот промокод", "You have already used this promo code"),
+    "Jarima faqat boshlangan yoki yakunlangan ijaraga qo'shiladi": ("Штраф можно добавить только к начатой или завершённой аренде", "Fines can only be added to an active or completed rental"),
+    "Jarima vaqti ijara davriga ({start} — {end}) to'g'ri kelmaydi": ("Время штрафа не попадает в период аренды ({start} — {end})", "The fine time is outside the rental period ({start} — {end})"),
+    "Ijara tugaganiga {n} kundan oshdi — jarimani qo'shib bo'lmaydi": ("С окончания аренды прошло более {n} дней — штраф добавить нельзя", "More than {n} days have passed since the rental ended — the fine can't be added"),
+    "Bu bayonnoma raqami bilan jarima allaqachon qo'shilgan": ("Штраф с таким номером протокола уже добавлен", "A fine with this protocol number has already been added"),
+    "Jarima topilmadi": ("Штраф не найден", "Fine not found"),
+    "Bu jarima allaqachon yopilgan": ("Этот штраф уже закрыт", "This fine is already closed"),
+    "Bu amalni bajarib bo'lmaydi": ("Это действие недоступно", "This action isn't available"),
+    "Foiz yoki summa kiriting": ("Укажите процент или сумму", "Enter a percent or an amount"),
+    "Bunday promokod allaqachon bor": ("Такой промокод уже существует", "This promo code already exists"),
+    "Qo'shimcha xizmat narxi noto'g'ri": ("Неверная цена дополнительной услуги", "Invalid extra service price"),
+})

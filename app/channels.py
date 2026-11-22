@@ -328,7 +328,7 @@ def render_notification(lang: str, type_: str, params: dict) -> tuple[str, str]:
     return fmt(f"notif.{type_}.t"), fmt(f"notif.{type_}.b")
 
 
-EXTERNAL = {"booking_new": "booking", "booking_approved": "booking", "booking_rejected": "booking", "booking_cancelled": "booking",
+EXTERNAL = {"booking_instant": "booking", "fine_new": "booking", "booking_new": "booking", "booking_approved": "booking", "booking_rejected": "booking", "booking_cancelled": "booking",
             "booking_expired": "booking", "payment_paid": "booking", "payment_refunded": "booking", "message": "messages"}
 
 

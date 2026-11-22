@@ -451,6 +451,35 @@ CREATE TABLE IF NOT EXISTS app_pins (
     created_at TEXT    NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (user_id, device_id)
 );
+
+-- v10: promokodlar (chegirma platforma ulushidan beriladi)
+CREATE TABLE IF NOT EXISTS promo_codes (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    code        TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+    pct         INTEGER NOT NULL DEFAULT 0 CHECK (pct BETWEEN 0 AND 50),
+    amount      INTEGER NOT NULL DEFAULT 0 CHECK (amount >= 0),
+    max_uses    INTEGER,
+    expires_on  TEXT,
+    note        TEXT,
+    is_active   INTEGER NOT NULL DEFAULT 1,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+-- v10: yo'l harakati jarimalari (radar/kamera): ijara vaqtida kelgan jarima ijarachiga o'tkaziladi
+CREATE TABLE IF NOT EXISTS fines (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    booking_id   INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+    owner_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    renter_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    happened_at  TEXT    NOT NULL,              -- YYYY-MM-DD HH:MM (qoidabuzarlik vaqti)
+    amount       INTEGER NOT NULL CHECK (amount > 0),
+    protocol     TEXT,                          -- bayonnoma / qaror raqami
+    description  TEXT,
+    status       TEXT    NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'paid', 'disputed', 'cancelled')),
+    paid_at      TEXT,
+    created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS ix_fines_booking ON fines(booking_id);
 """
 
 
@@ -479,7 +508,14 @@ MIGRATIONS = {
              "require_docs": "INTEGER NOT NULL DEFAULT 0", "plate": "TEXT",
              # v9: yoqilg'i sarfi (l/100 km), uzoq muddat chegirmalari {"7": 10, ...} (kun: foiz), texpasport seriya-raqami
              "fuel_per_100": "REAL", "discounts": "TEXT NOT NULL DEFAULT '{}'", "tech_passport": "TEXT",
-             "ownership_status": "TEXT NOT NULL DEFAULT 'none'"},
+             "ownership_status": "TEXT NOT NULL DEFAULT 'none'",
+             # v10: darhol bron (owner tasdig'isiz) va qo'shimcha xizmatlar narxlari {"child_seat": 30000, ...}
+             "instant_book": "INTEGER NOT NULL DEFAULT 0", "extras": "TEXT NOT NULL DEFAULT '{}'"},
+    # v10: kafolat rejasi, qo'shimcha xizmatlar, promokod, javob vaqti
+    "bookings": {"extras": "TEXT NOT NULL DEFAULT '[]'", "extras_total": "INTEGER NOT NULL DEFAULT 0",
+                 "protection": "TEXT NOT NULL DEFAULT 'none'", "protection_fee": "INTEGER NOT NULL DEFAULT 0",
+                 "liability_cap": "INTEGER", "promo_code": "TEXT", "promo_discount": "INTEGER NOT NULL DEFAULT 0",
+                 "instant": "INTEGER NOT NULL DEFAULT 0", "responded_at": "TEXT"},
     "messages": {"kind": "TEXT NOT NULL DEFAULT 'text'", "lat": "REAL", "lng": "REAL"},
     # v9: ijarachi mashina hujjatlarini (texpasport, raqam, VIN) e'lon bilan solishtirib "qabul qildim" dedi
     "handovers": {"docs_checked": "INTEGER NOT NULL DEFAULT 0"},

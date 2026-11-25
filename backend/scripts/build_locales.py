@@ -1,4 +1,4 @@
-"""Tarjima fayllarini (static/locales/uz.json, ru.json, en.json) yaratadi.
+"""Tarjima fayllarini (frontend/locales/uz.json, ru.json, en.json) yaratadi.
 
 Har bir kalit uchta tilda bir xil ma'noda yoziladi. O'zbekcha matnlarda o' / g' va tutuq belgisi
 avtomatik ravishda to'g'ri tipografik belgilarga (oʻ, gʻ, ʼ) aylantiriladi.
@@ -9,7 +9,7 @@ import re
 import sys
 from pathlib import Path
 
-OUT = Path(__file__).resolve().parent.parent / "static" / "locales"
+OUT = Path(__file__).resolve().parent.parent.parent / "frontend" / "locales"
 
 
 def uz_typo(s: str) -> str:

@@ -7,12 +7,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DATA_DIR=/data
 
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY backend/requirements.txt ./backend/requirements.txt
+RUN pip install --no-cache-dir -r backend/requirements.txt
 
-COPY app ./app
-COPY static ./static
-COPY scripts ./scripts
+# Loyiha tuzilishi: backend/ (Python server) va frontend/ (sahifalar, JS, CSS, rasmlar)
+COPY backend/app ./backend/app
+COPY backend/scripts ./backend/scripts
+COPY frontend ./frontend
+WORKDIR /app/backend
 
 # Xavfsizlik: ilova root bo'lmagan foydalanuvchi nomidan ishlaydi
 RUN useradd --create-home appuser && mkdir -p /data && chown -R appuser /data
@@ -20,5 +22,5 @@ USER appuser
 VOLUME ["/data"]
 EXPOSE 8000
 
-# Baza Supabase'dan tiklanadi (sozlangan bo'lsa); SEED_DEMO=true va baza bo'sh bo'lsa — namuna ma'lumotlar (app/main.py)
+# Baza Supabase'dan tiklanadi (sozlangan bo'lsa); SEED_DEMO=true va baza bo'sh bo'lsa — namuna ma'lumotlar (backend/app/main.py)
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]

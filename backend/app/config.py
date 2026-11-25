@@ -3,12 +3,14 @@ import os
 import secrets
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent      # backend/
+ROOT_DIR = BASE_DIR.parent                              # loyiha ildizi: backend/ + frontend/ + .env + data/
+FRONTEND_DIR = ROOT_DIR / "frontend"
 
 
 def _load_dotenv() -> None:
     """Kichik .env o'quvchi (qo'shimcha kutubxonasiz)."""
-    env_file = BASE_DIR / ".env"
+    env_file = ROOT_DIR / ".env"
     if not env_file.exists():
         return
     for line in env_file.read_text(encoding="utf-8").splitlines():
@@ -28,12 +30,12 @@ def _bool(name: str, default: bool) -> bool:
 
 class Settings:
     ENV: str = os.getenv("APP_ENV", "development")
-    DATA_DIR: Path = Path(os.getenv("DATA_DIR", BASE_DIR / "data"))
+    DATA_DIR: Path = Path(os.getenv("DATA_DIR", ROOT_DIR / "data"))
     DB_PATH: Path = Path(os.getenv("DB_PATH", DATA_DIR / "app.db"))
     UPLOAD_DIR: Path = Path(os.getenv("UPLOAD_DIR", DATA_DIR / "uploads"))
     # Hujjatlar va dalolatnoma rasmlari: ochiq /uploads emas, faqat ruxsatli foydalanuvchiga API orqali beriladi
     PRIVATE_DIR: Path = Path(os.getenv("PRIVATE_DIR", DATA_DIR / "private"))
-    STATIC_DIR: Path = BASE_DIR / "static"
+    STATIC_DIR: Path = Path(os.getenv("STATIC_DIR", FRONTEND_DIR))
 
     # JWT
     JWT_ALGORITHM: str = "HS256"

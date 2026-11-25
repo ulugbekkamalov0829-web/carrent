@@ -24,7 +24,7 @@ from email.message import EmailMessage
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-ENV = ROOT / ".env"
+ENV = ROOT.parent / ".env"          # .env loyiha ildizida (backend/ ning yonida)
 
 
 def read_env() -> dict:

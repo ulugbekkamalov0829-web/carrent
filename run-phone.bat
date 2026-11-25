@@ -8,5 +8,5 @@ for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4"') do for /f "t
 echo.
 echo Windows ruxsat so'rasa: "Private networks" ni belgilang.
 echo.
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+python -m uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8000
 pause

@@ -255,10 +255,12 @@ Python 3.10+ kerak. Papkani VS Code’da oching, **Terminal → New Terminal**:
 ```powershell
 python -m venv .venv
 .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r backend\requirements.txt
+cd backend
 python -m scripts.seed --reset
 python -m uvicorn app.main:app --reload
 ```
+Yoki loyiha ildizida `run.bat` ni ikki marta bosing.
 
 Brauzerda: **http://localhost:8000**. Yoki shunchaki `run.bat` faylini ikki marta bosing.
 
@@ -297,6 +299,8 @@ Kirish → **Parolni unutdingizmi?** → email yoki telefon → **Test pochta qu
 | Owner (interfeysi ruscha) | nodira@carrent.uz |
 | Ijarachi | aziz@carrent.uz (yoki telefon `+998903334455`), malika@carrent.uz (inglizcha), bekzod@carrent.uz |
 
+Quyidagi `python -m scripts...` buyruqlari **`backend` papkasi ichida** ishga tushiriladi (`cd backend`).
+
 Demo e’lonlar saytda **DEMO** belgisi bilan ko‘rinadi. Bazani qayta tiklash: `python -m scripts.seed --reset`.
 Haqiqiy admin: `python -m scripts.create_admin admin@carrent.uz "Ism Familiya"`.
 Tarjimalarni qayta yaratish: `python -m scripts.build_locales`.
@@ -304,6 +308,7 @@ Tarjimalarni qayta yaratish: `python -m scripts.build_locales`.
 ### Testlar
 
 ```bash
+cd backend
 pip install -r requirements-dev.txt
 pytest -q
 ```
@@ -330,21 +335,33 @@ pytest -q
 
 ```
 carrent/
-├── app/
-│   ├── main.py        # ilova, middleware (til, CSRF, CSP)
-│   ├── i18n.py        # server xabarlari: uz / ru / en
-│   ├── db.py          # sxema, tranzaksiyalar
-│   ├── security.py    # scrypt, JWT, rol va egalik, rate limit
-│   ├── schemas.py     # Pydantic validatsiya
-│   ├── channels.py    # email (SMTP), SMS (Eskiz), test qutisi
-│   └── routes/        # auth, cars, bookings, payments, social, dashboard, smart
-├── static/
-│   ├── locales/       # uz.json, ru.json, en.json
-│   ├── js/            # app.js (i18n, API, chap panel, sana maydoni), widgets.js, pages/*.js
-│   ├── sw.js, manifest.webmanifest   # PWA
-│   └── *.html         # bosh sahifa, mashinalar, avtomobil, auth, kabinet, forma, xabarlar, admin, ma’lumot, sozlamalar, to‘lov, kvitansiya
-├── scripts/           # seed, create_admin, build_locales
-└── tests/             # pytest
+├── backend/                 # SERVER QISMI (Python, Starlette)
+│   ├── app/
+│   │   ├── main.py          # ilova, middleware (til, CSRF, CSP), ishga tushish
+│   │   ├── config.py        # sozlamalar (.env loyiha ildizidan o'qiladi)
+│   │   ├── db.py            # SQLite sxema, migratsiyalar, tranzaksiyalar
+│   │   ├── security.py      # scrypt, JWT, rol va egalik, rate limit
+│   │   ├── schemas.py       # Pydantic validatsiya
+│   │   ├── market.py        # kafolat rejasi, qo'shimcha xizmatlar, promokod, owner ko'rsatkichi
+│   │   ├── persist.py       # Supabase Storage'ga zaxira nusxa
+│   │   ├── channels.py      # email (SMTP / Gmail ko'prigi), SMS (Eskiz)
+│   │   ├── i18n.py          # server xabarlari: uz / ru / en
+│   │   └── routes/          # auth, cars, bookings, payments, rental, trust, growth, passkeys, applock, admin...
+│   ├── scripts/             # seed, enrich_demo, create_admin, build_locales, setup_live, gmail_relay.gs
+│   ├── tests/               # pytest (128 ta test)
+│   ├── requirements.txt
+│   └── requirements-dev.txt
+├── frontend/                # FOYDALANUVCHI QISMI (HTML, CSS, JavaScript)
+│   ├── *.html               # bosh sahifa, mashinalar, avtomobil, auth, kabinet, admin, shartnoma, sozlamalar...
+│   ├── css/styles.css
+│   ├── js/                  # app.js (umumiy), theme.js, widgets.js, pages/*.js (har bir sahifa)
+│   ├── locales/             # uz.json, ru.json, en.json (backend/scripts/build_locales.py yaratadi)
+│   ├── img/, geo/           # rasmlar, viloyat/tumanlar
+│   └── sw.js, manifest.webmanifest   # PWA (telefonga o'rnatiladigan ilova)
+├── data/                    # mahalliy baza va yuklangan fayllar (GitHub'ga chiqmaydi)
+├── .env                     # maxfiy sozlamalar (GitHub'ga chiqmaydi)
+├── Dockerfile, render.yaml  # Render'ga joylash
+└── run.bat, run-phone.bat   # Windows'da bir bosishda ishga tushirish
 ```
 
 ## v9: doimiy saqlash (Supabase), admin, barmoq izi

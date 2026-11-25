@@ -58,7 +58,7 @@ CARS = [
     (3, "Kia", "K5", 2020, "Oq", "sedan", 5, "automatic", "petrol", 2.0, 96000, "fwd", F_BASE + ["camera", "cruise"],
      "Andijon", 480_000, 700_000, 1, 30, 300, None, "Ishonchli, tejamkor sedan. Narxi hamyonbop.", ["k5_white.jpg"]),
 ]
-PHOTO_DIR = Path(__file__).resolve().parent.parent / "static" / "img" / "demo"
+PHOTO_DIR = Path(__file__).resolve().parent.parent.parent / "frontend" / "img" / "demo"
 # Demo foydalanuvchi va e'lonlar uchun (viloyat, tuman)
 USER_PLACES = [("Toshkent shahri", "Yunusobod"), ("Toshkent shahri", "Chilonzor"), ("Samarqand", "Samarqand shahri"),
                ("Farg'ona", "Farg'ona shahri"), ("Toshkent shahri", "Mirzo Ulug'bek"), ("Toshkent shahri", "Yakkasaroy"),

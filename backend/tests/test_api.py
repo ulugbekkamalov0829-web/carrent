@@ -429,7 +429,7 @@ def test_frontend_translations_complete():
     """Frontend'da ishlatilgan har bir kalit uchala til faylida bor va bo'sh emas."""
     import json
     import re
-    static = Path(__file__).resolve().parent.parent / "static"
+    static = Path(__file__).resolve().parent.parent.parent / "frontend"
     langs = {l: json.loads((static / "locales" / f"{l}.json").read_text(encoding="utf-8")) for l in ("uz", "ru", "en")}
     assert set(langs["uz"]) == set(langs["ru"]) == set(langs["en"])
     used = set()
